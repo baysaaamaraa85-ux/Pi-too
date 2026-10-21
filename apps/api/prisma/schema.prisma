@@ -113,7 +113,7 @@ model TeacherRate {
 model Parent {
   userId         String @id @map("user_id") @db.Uuid
   fullName       String @map("full_name")
-  phone          String
+  phone          String @unique
   notifyChannels Json   @default("[]") @map("notify_channels")
 
   user           User            @relation(fields: [userId], references: [id], onDelete: Restrict)
@@ -177,6 +177,7 @@ model Student {
   user           User?           @relation(fields: [userId], references: [id], onDelete: Restrict)
   parentStudents ParentStudent[]
   contracts      Contract[]
+  assessments    Assessment[]
 
   @@map("students")
 }
@@ -226,8 +227,34 @@ model Contract {
   attendance    Attendance[]
   leaveRequests LeaveRequest[]
   teacherTasks  TeacherTask[]
+  assessments   Assessment[]
 
   @@map("contracts")
+}
+
+enum AssessmentType {
+  PLACEMENT // Түвшин тогтоох (ФШ-14)
+  QUIZ // Сорил (М6, ФШ-38)
+  BATCH_EXAM // Багцын шалгалт (М6, ФШ-38, 39)
+}
+
+// ФШ-14: түвшин тогтоох шалгалтын нийт хувь. contractId сонголттой, учир нь
+// түвшин тогтоох нь гэрээ үүсэхээс өмнө (элсэлтийн 2-р алхам) болдог.
+// total_percent-ийн 0-100 хязгаарыг CHECK-ээр хориглоно (гараар бичих migration).
+model Assessment {
+  id           String         @id @default(uuid()) @db.Uuid
+  studentId    String         @map("student_id") @db.Uuid
+  contractId   String?        @map("contract_id") @db.Uuid
+  type         AssessmentType
+  takenOn      DateTime       @map("taken_on") @db.Date
+  totalPercent Decimal        @map("total_percent") @db.Decimal(5, 2)
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  student  Student   @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  contract Contract? @relation(fields: [contractId], references: [id], onDelete: Restrict)
+
+  @@index([studentId])
+  @@map("assessments")
 }
 
 // ФШ-72...75, ADR-014: зогсолт бүрийг тусад нь бичнэ. endedOn IS NULL мөрт

@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
-import { prisma } from "../../shared/db/prisma.js";
+import { prisma, type Tx } from "../../shared/db/prisma.js";
 import { DomainError } from "../../shared/errors/domain-error.js";
 import { enqueue } from "../../shared/outbox/enqueue.js";
 import { signAccessToken } from "../../shared/rbac/jwt.js";
@@ -297,28 +297,40 @@ export interface CreateUserResult {
 }
 
 // ФШ-02, 03: админ багш/эцэг эхийн данс түр нууц үгтэй үүсгэнэ.
-export async function createUser(
+//
+// Энэ логикийг enrollment модуль (ФШ-12, 13: шинэ сурагч бүртгэхэд эцэг эхийн
+// данс зэрэгцээ үүсэх шаардлагатай) өөрийнхөө транзакц дотроос дахин
+// ашигладаг тул "tx авдаг цөм функц" + "өөрөө транзакц нээдэг гаднах wrapper"
+// хоёр хэлбэрээр хуваав (CLAUDE.md 6.2, 6.3).
+export async function createUserInTx(
+  tx: Tx,
   role: "TEACHER" | "PARENT",
   phone: string,
   fullName: string,
 ): Promise<CreateUserResult> {
-  return prisma.$transaction(async (tx) => {
-    const existing = await repo.findUserByPhone(tx, phone);
-    if (existing) {
-      throw new DomainError({
-        code: "phone-taken",
-        status: 409,
-        title: "Утасны дугаар бүртгэлтэй байна",
-        detail: "Энэ утасны дугаартай хэрэглэгч аль хэдийн бүртгэлтэй байна.",
-      });
-    }
+  const existing = await repo.findUserByPhone(tx, phone);
+  if (existing) {
+    throw new DomainError({
+      code: "phone-taken",
+      status: 409,
+      title: "Утасны дугаар бүртгэлтэй байна",
+      detail: "Энэ утасны дугаартай хэрэглэгч аль хэдийн бүртгэлтэй байна.",
+    });
+  }
 
-    const tempPassword = randomBytes(6).toString("base64url");
-    const passwordHash = await bcrypt.hash(tempPassword, BCRYPT_COST);
-    const user = await repo.createUserWithProfile(tx, { role, phone, passwordHash, fullName });
+  const tempPassword = randomBytes(6).toString("base64url");
+  const passwordHash = await bcrypt.hash(tempPassword, BCRYPT_COST);
+  const user = await repo.createUserWithProfile(tx, { role, phone, passwordHash, fullName });
 
-    return { id: user.id, role: user.role, phone: phone, tempPassword };
-  });
+  return { id: user.id, role: user.role, phone, tempPassword };
+}
+
+export function createUser(
+  role: "TEACHER" | "PARENT",
+  phone: string,
+  fullName: string,
+): Promise<CreateUserResult> {
+  return prisma.$transaction((tx) => createUserInTx(tx, role, phone, fullName));
 }
 
 // ФШ-06: данс идэвхгүй болгоход refresh token-ийг шууд хүчингүй болгоно (ADR-004).

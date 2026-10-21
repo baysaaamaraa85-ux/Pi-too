@@ -10,6 +10,17 @@ const authDefaultsSchema = z.object({
   lockoutMinutes: z.number().int().positive(),
 });
 
+const contractDefaultsSchema = z.object({
+  totalAcademicHours: z.number().int().positive(),
+  academicHoursPerVisit: z.number().int().positive(),
+  academicHourMinutes: z.number().int().positive(),
+  defaultLeaves: z.number().int().nonnegative(),
+});
+
+const classDefaultsSchema = z.object({
+  maxCapacity: z.number().int().positive(),
+});
+
 function settingNotConfigured(key: string): never {
   throw new DomainError({
     code: "settings-not-configured",
@@ -24,6 +35,36 @@ export async function getAuthDefaults(tx: Tx) {
   const row = await repo.findSetting(tx, "auth_defaults");
   if (!row) settingNotConfigured("auth_defaults");
   return authDefaultsSchema.parse(row.value);
+}
+
+// ФШ-09, 17: багцын хэмжээ (75 цаг, 1 ирэлт 3 цаг, 3 чөлөө) settings-ээс.
+export async function getContractDefaults(tx: Tx) {
+  const row = await repo.findSetting(tx, "contract_defaults");
+  if (!row) settingNotConfigured("contract_defaults");
+  return contractDefaultsSchema.parse(row.value);
+}
+
+// ФШ-20: ангийн дээд суудлын тоо (анхдагч 6) settings-ээс.
+export async function getClassDefaults(tx: Tx) {
+  const row = await repo.findSetting(tx, "class_defaults");
+  if (!row) settingNotConfigured("class_defaults");
+  return classDefaultsSchema.parse(row.value);
+}
+
+function programNotFound(): never {
+  throw new DomainError({
+    code: "program-not-found",
+    status: 404,
+    title: "Хөтөлбөр олдсонгүй",
+    detail: "Заасан хөтөлбөр бүртгэлгүй байна.",
+  });
+}
+
+// enrollment модуль гэрээ үүсгэх үедээ өөрийнхөө транзакц дотроос дуудна.
+export async function getProgramById(tx: Tx, id: string) {
+  const program = await repo.findProgramById(tx, id);
+  if (!program) programNotFound();
+  return program;
 }
 
 function alreadyExists(name: string): never {
