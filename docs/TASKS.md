@@ -24,12 +24,12 @@
 
 ## Үе шат 0. Одоогийн байдлыг шалгах
 
-- [ ] `node -v` (24.x), `npm -v`, `docker -v`, `git -v` ажиллуулж хувилбаруудыг тэмдэглэ.
-- [ ] Үндсэн `package.json`, `docker-compose.yml`, `apps/api/package.json`-ийг уншиж, доорх үе шатуудтай зөрөх зүйлийг жагсаа.
-- [ ] `apps/api/package.json`-д `"type"` түлхүүр нэг л удаа байгаа эсэхийг шалга.
-- [ ] git репо эсэхийг шалга. Үгүй бол `git init` ажиллуул.
+- [x] `node -v` 24.13.1, `npm -v` 11.12.1, `docker -v` 29.4.3, `git -v` 2.54.0.
+- [x] Үндсэн `package.json` хоосон, `docker-compose.yml`-ийн агуулга буруу (жинхэнэ compose биш) байсан тул дахин бичсэн.
+- [x] `apps/api/package.json`-д `"type"` нэг л удаа байсан.
+- [x] git репо байхгүй байсан тул `git init` (PI.too.system-ийн үндэс дээр) ажиллуулсан.
 
-**ШАЛГАХ ЦЭГ 0:** олдсон зөрүүг хэрэглэгчид тайлбарлаад, засах эсэхийг асуу.
+**ШАЛГАХ ЦЭГ 0: дууссан.** `CLAUDE.md`, `TASKS.md`, `docs/01-requirements.md`, `docs/02-system-design.md`-ийг `PI.too.system/` дотор хуулсан (зорилтот бүтцийн дагуу CLAUDE.md репогийн үндэст байх ёстой байсан).
 
 ---
 
@@ -37,90 +37,61 @@
 
 Зорилго: гурван багцыг нэг `npm install`-ээр удирдаж, хооронд нь импортлох боломжтой болгох.
 
-- [ ] Үндсэн `package.json`:
-  - `"name": "pi-too"`, `"private": true`, `"workspaces": ["apps/*", "packages/*"]`
-  - scripts: `"dev:api"`, `"dev:web"`, `"test"`, `"db:up": "docker compose up -d"`
-- [ ] `tsconfig.base.json`: `strict`, `target ES2023`, `module/moduleResolution NodeNext`, `skipLibCheck`. Багц бүрийн `tsconfig.json` үүнийг `extends` хийнэ.
-- [ ] `.gitignore`: `node_modules`, `.env`, `dist`, `**/src/generated`, `coverage`
-- [ ] `.editorconfig`, Prettier тохиргоо (`.prettierrc`: 2 зай, давхар хашилт, `printWidth` 100)
-- [ ] `packages/contracts`:
-  - `package.json` (`"name": "@pitoo/contracts"`, `"type": "module"`, `"exports"` нь `src/index.ts`)
-  - хоосон `src/index.ts`
-- [ ] **Workspace руу шилжих:**
-  1. `apps/api/node_modules` ба `apps/api/package-lock.json`-ийг устга.
-  2. Үндсэн хавтаснаас `npm install` ажиллуул. Нэг `package-lock.json` үндсэн хавтаст үүснэ.
-  3. Prisma 7.10.1 хэвээр эсэхийг `npm ls prisma @prisma/client`-ээр шалга.
-- [ ] `apps/api`-д `@pitoo/contracts`-ийг хамаарал болгон нэм (`"@pitoo/contracts": "*"`).
+- [x] Үндсэн `package.json`: `"name": "pi-too"`, `"private": true`, `"workspaces": ["apps/*", "packages/*"]`, scripts (`dev:api`, `dev:web`, `test`, `build`, `db:up/down/migrate/generate/studio/seed`).
+- [x] `tsconfig.base.json`: `strict`, `target ES2023`, `module/moduleResolution NodeNext`, `skipLibCheck`.
+- [x] `.gitignore`: `node_modules`, `.env*` (`.env.example` эс тооцвол), `dist`, `**/src/generated`, `coverage`, бас `.agents/.claude/.windsurf/skills-lock.json` (Prisma-ийн суулгасан AI-skill баримт, кодтой холбоогүй).
+- [x] `.editorconfig`, `.prettierrc` (2 зай, давхар хашилт, `printWidth` 100).
+- [x] `packages/contracts`: `package.json`, `tsconfig.json`, хоосон `src/index.ts`.
+- [x] **Workspace руу шилжих:** `apps/api/node_modules`, `package-lock.json` устгасан, root-оос `npm install` (344 багц, 0 vulnerability), Prisma 7.10.1 хэвээр (`npm ls` баталгаажсан).
+- [x] `apps/api`-д `@pitoo/contracts": "*"` нэмсэн.
 
-**Дууссаны шалгуур:** үндсэн хавтаснаас `npm install` алдаагүй дуусна. `apps/api` дотроос `import {} from "@pitoo/contracts"` TypeScript-ийн алдаа өгөхгүй.
+**Дууссаны шалгуур: биелсэн.** `npm install` 0 алдаатай. `tsc --noEmit` нь `@pitoo/contracts`-ийг алдаагүй импортлосон.
 
-**ШАЛГАХ ЦЭГ 1:** хэрэглэгч `chore: monorepo суурь` commit хийнэ.
+**ШАЛГАХ ЦЭГ 1: дууссан, commit хийгдсэн** (`chore: monorepo суурь`).
 
 ---
 
 ## Үе шат 2. Өгөгдлийн сан
 
-- [ ] `docker-compose.yml`-д `db` сервис байна:
-  - `postgres:16`, `container_name: pitoo-db`, хэрэглэгч `postgres`, нууц үг `dev`, DB `pitoo`, порт `5432`, `pgdata` volume, `restart: unless-stopped`
-- [ ] Тестийн өгөгдлийн санг нэм. Хөгжүүлэлтийн өгөгдлийг тест устгахгүй байх ёстой. Хоёр сонголтоос нэгийг хэрэглэгчтэй тохир:
-  - (а) Ижил контейнерт `pitoo_test` DB-г init script-ээр (`docker/postgres/init.sql`) үүсгэх
-  - (б) 5433 порттой тусдаа `db-test` сервис
-- [ ] `docker compose up -d` ажиллуулж, `docker ps`-д `pitoo-db` `Up` төлөвтэй эсэхийг шалга.
+- [x] `docker-compose.yml`-д `db` сервис: `postgres:16`, `container_name: pitoo-db`, `postgres`/`dev`, DB `pitoo`, `pgdata` volume, `restart: unless-stopped`, healthcheck.
+- [x] Тестийн DB: сонголт (а) — ижил контейнерт `docker/postgres/init.sql`-ээр `pitoo_test` үүсгэнэ.
+- [x] `docker compose up -d`, `pitoo-db` Up (healthy).
 
-**Дууссаны шалгуур:** `docker exec -it pitoo-db psql -U postgres -c "\l"` нь `pitoo` болон тестийн DB-г харуулна.
+**Чухал зөрүү:** Энэ компьютер дээр Docker-той хамааралгүй **native `postgres.exe`** (2026.10.15-наас хойш ажилласан, өөр зориулалттай) хост 5432 портыг аль хэдийн эзэмшиж байсан тул Docker-ын 5432→5432 холболт буруу (нэгдүгээрт эхэлсэн) серверт очиж, нэвтрэлт амжилтгүй болдог байсан. Тэр процессыг хөндөлгүй, зөвхөн **host порт 5440 болгож** (`5440:5432`) зөрчлөөс зайлсхийсэн; контейнер дотор 5432 хэвээр. `.env`, `.env.example`, `.env.test`-ийн `DATABASE_URL`/`TEST_DATABASE_URL`-г 5440 болгож шинэчилсэн.
+
+**Дууссаны шалгуур: биелсэн.** `docker exec pitoo-db psql -U postgres -c "\l"` → `pitoo`, `pitoo_test` хоёул харагдсан.
 
 ---
 
 ## Үе шат 3. API-ийн араг яс
 
-- [ ] `apps/api/tsconfig.json` нь base-ийг extends хийнэ. `rootDir: src`, `outDir: dist`, `types: ["node"]`.
-- [ ] scripts:
-  - `"dev": "tsx watch src/server.ts"`
-  - `"worker": "tsx watch src/worker.ts"`
-  - `"build": "tsc"`
-  - `"test": "vitest"`
-- [ ] `src/config/env.ts`:
-  - `NODE_ENV`, `PORT`, `DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `APP_ORIGIN` утгуудыг Zod-оор шалгана.
-  - Буруу эсвэл дутуу бол алдааг тодорхой хэвлээд `process.exit(1)`.
-- [ ] `.env.example` (нууцгүй жишээ) ба `.env` (хэрэглэгч өөрөө бөглөнө)
-- [ ] `src/shared/errors/`:
-  - `DomainError` класс (code, status, title, detail, extra)
-  - `problemDetails` middleware: RFC 9457, 404 ба 500-ийг ч хамарна
-  - Zod алдааг 422 болгох
-- [ ] `src/shared/logger.ts`: pino, хүсэлт бүрийн ID-тай JSON лог
-- [ ] `src/app.ts`:
-  - Express 5 app, `express.json()`, cookie-parser, лог middleware
-  - `/api/v1` router, алдааны middleware хамгийн сүүлд
-- [ ] `src/server.ts`: портыг сонсоно
-- [ ] `GET /health`: DB холболтыг шалгаж `{ status: "ok", db: "ok" }` буцаана. DB-гүй үед 503.
-- [ ] `vitest.config.ts` ба `/health`-ийн Supertest тест
+- [x] `apps/api/tsconfig.json` base-ийг extends, `rootDir: src`, `outDir: dist`, `types: ["node"]`.
+- [x] scripts: `dev`, `worker`, `build`, `test` (`vitest run`), `test:watch`, `db:*`.
+- [x] `src/config/env.ts`: `NODE_ENV`, `PORT`, `DATABASE_URL`, `TEST_DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `APP_ORIGIN`, `ADMIN_PHONE`, `ADMIN_TEMP_PASSWORD`-ыг Zod-оор шалгана, дутуу бол Монгол алдаа хэвлээд `process.exit(1)`.
+- [x] `.env.example`, `.env`, `.env.test` (тест DB-д зориулж).
+- [x] `src/shared/errors/domain-error.ts`, `problem-details.ts`: `DomainError`, `notFoundHandler`, `problemDetails` (DomainError→өөрийн status, ZodError→422, бусад→500, лог руу бичнэ, хэрэглэгчид нуугдана).
+- [x] `src/shared/logger.ts` (pino, нууц мэдээлэл redact), `src/shared/request-logger.ts` (pino-http, `x-request-id`).
+- [x] `src/app.ts`, `src/api-v1.router.ts` (хоосон, модуль бүрийг дараа холбоно), `src/server.ts` (`dotenv/config`-г хамгийн түрүүнд импортлосон нь чухал — эс бөгөөс env.ts dotenv-ээс өмнө ачаалагдана).
+- [x] `GET /health`: Prisma-гаар `SELECT 1`, амжилттай бол `{status:"ok",db:"ok"}`, алдаатай бол 503.
+- [x] `vitest.config.ts` (`test/setup.ts`-ээр `.env.test` ачаална), Supertest тест.
 
-**Дууссаны шалгуур:**
-- `npm run dev -w @pitoo/api` асна.
-- `curl http://localhost:3000/health` нь 200 буцаана.
-- `npm test -w @pitoo/api` ногоон.
-- `.env`-ээс `DATABASE_URL`-ийг устгахад процесс ойлгомжтой алдаатай зогсоно.
+**Дууссаны шалгуур: биелсэн.** Сервер асаж `/health` 200 `{"status":"ok","db":"ok"}` буцаасан. `vitest run` 1/1 ногоон. `tsc --noEmit` алдаагүй. `.env`-ээс `DATABASE_URL`-ийг устгавал тодорхой Монгол алдаа хэвлээд process.exit(1) (шалгасан).
 
-**ШАЛГАХ ЦЭГ 3:** хэрэглэгч commit хийнэ.
+**ШАЛГАХ ЦЭГ 3: дууссан.**
 
 ---
 
 ## Үе шат 4. Prisma 7 тохиргоо
 
-- [ ] `npm i -E @prisma/adapter-pg@7.10.1 pg -w @pitoo/api` ба `npm i -D @types/pg -w @pitoo/api`
-- [ ] `apps/api` дотор `npx prisma init --datasource-provider postgresql --output ../src/generated/prisma`
-- [ ] Үүссэн `prisma.config.ts` ба `schema.prisma`-г хэрэглэгчид үзүүлж Prisma 7-ийн бүтцийг тайлбарла:
-  - generator `prisma-client`
-  - datasource-д url байхгүй, url нь config-д
-  - seed-ийн тохиргоо config-д
-- [ ] `prisma.config.ts`-д `migrations.seed: "tsx prisma/seed.ts"` нэм.
-- [ ] `src/shared/db/prisma.ts`:
-  - `PrismaPg` adapter-аар нэг `PrismaClient` instance
-  - `Tx` төрлийг экспортлох (транзакцын клиентийн төрөл, service-үүд `tx: Tx` параметр авна)
-- [ ] `/health` энэ клиентээр `SELECT 1` хийнэ.
-- [ ] scripts: `"db:migrate": "prisma migrate dev"`, `"db:generate": "prisma generate"`, `"db:studio": "prisma studio"`, `"db:seed": "prisma db seed"`
+- [x] `@prisma/adapter-pg@7.10.1`, `pg` аль хэдийн суусан байсан (хэрэглэгч өмнө нь хийсэн).
+- [x] `npx prisma init` хэрэглэгч өмнө нь ажиллуулсан (`prisma7.config.ts` нэртэй, `schema.prisma`-д `output = "../src/generated/prisma"`). Файлын нэрийг зөв `prisma.config.ts` болгож өөрчилсөн (Prisma CLI анхдагчаар яг энэ нэрийг хайдаг).
+  - generator `prisma-client` ✓, datasource-д url байхгүй ✓, url config-д ✓
+- [x] `prisma.config.ts`-д `migrations.seed: "tsx prisma/seed.ts"` нэмсэн.
+- [x] `src/shared/db/prisma.ts`: `PrismaPg` adapter, нэг `PrismaClient`, `Tx = Prisma.TransactionClient` экспортлосон.
+- [x] `/health` энэ клиентээр `SELECT 1` хийнэ (баталгаажсан).
+- [x] scripts бүгд нэмэгдсэн.
 
-**Дууссаны шалгуур:** `npx prisma validate` амжилттай.
+**Дууссаны шалгуур: биелсэн.** `npx prisma validate` → "The schema is valid".
 
 ---
 
