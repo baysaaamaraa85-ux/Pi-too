@@ -116,10 +116,12 @@
 
 ## Үе шат 6. `packages/contracts`
 
-- [ ] Enum-ууд: `Role`, `ContractStatus`, `LessonStatus`, `AttendanceStatus`. Монгол шошготой map хамт.
-- [ ] М1-ийн схемүүд: `loginSchema` (утас эсвэл имэйл, нууц үг), `changePasswordSchema`, `createUserSchema`
-- [ ] Мөнгөний схем: `"40000.00"` хэлбэрийн тэмдэгт мөр
+- [x] Enum-ууд: `Role`, `ContractStatus`, `LessonStatus`, `AttendanceStatus`. Монгол шошготой map хамт (`enums.ts`).
+- [x] М1-ийн схемүүд: `loginSchema`, `changePasswordSchema`, `createUserSchema`, `forgotPasswordSchema`, `resetPasswordSchema`, `updateUserStatusSchema` (`auth.schemas.ts`).
+- [x] Мөнгөний схем: `moneySchema` ("40000.00" хэлбэр, `money.ts`).
 - [ ] Модуль бүрийн схемийг тухайн модулийг хийх үедээ нэмнэ.
+
+**Дууссаны шалгуур: биелсэн.** `apps/api`-аас `import { Role, loginSchema, moneySchema } from "@pitoo/contracts"` ажилласан, `tsc --noEmit` хоёр багцад алдаагүй.
 
 ---
 
