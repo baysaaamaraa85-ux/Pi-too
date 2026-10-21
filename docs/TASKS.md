@@ -99,36 +99,18 @@
 
 Эх сурвалж: design 5.3.3 (бүх хүснэгт), 5.3.5 (цөм моделийн жишээ), `CLAUDE.md` 7-р хэсэг. Бүлэг бүрийн дараа `prisma migrate dev --name <нэр>` ба `prisma generate` ажиллуул.
 
-- [ ] **А бүлэг (М1, М2), migration `auth_catalog`:**
-  - `users` (role enum: ADMIN, TEACHER, PARENT, STUDENT), `refresh_tokens`, `password_resets`
-  - `teachers`, `teacher_rates`, `parents`
-  - `branches`, `programs`, `settings`
-  - **ШАЛГАХ ЦЭГ 5А:** schema-г хэрэглэгчид үзүүлж хянуулна. Хэрэглэгч үүнийг удирдагчтайгаа (Claude chat) шалгаж магадгүй.
-- [ ] **Б бүлэг (М3), migration `enrollment`:**
-  - `students`, `parent_students`
-  - `contracts` (status enum: ACTIVE, PAUSED, COMPLETED. Design 6.4-ийн төлвийн машинтай тулга)
-  - `contract_pauses`, `plan_items`
-- [ ] **В бүлэг (М4), migration `scheduling`:**
-  - `classes`, `enrollments`
-  - `lessons` (status enum: SCHEDULED, CANCELLED, RESCHEDULED гэх мэт. Design 6.4-өөс шалга)
-- [ ] **Г бүлэг (М5 ба дэд бүтэц), migration `attendance_core`:**
-  - `attendance` (5 төлөвт enum), `leave_requests`
-  - `ledger_entries` (EARNING, PAYOUT, ADJUSTMENT)
-  - `audit_log`, `notification_outbox`, `idempotency_keys`
-  - `teacher_tasks` (ФШ-37-ийн шалгалтын ажил)
-- [ ] **Гараар бичих хязгаарлалтын migration `constraints`:** `CLAUDE.md` 7-р хэсгийн жагсаалт бүхэлдээ. Хязгаарлалт бүрийн дээр ямар шаардлагад хэрэгтэйг SQL сэтгэгдлээр бич.
-- [ ] **`prisma/seed.ts`:**
-  - Нэг админ: утас ба түр нууц үгийг `.env`-ээс авна, `must_change_password = true`
-  - 2 салбар, 2 хөтөлбөр, 2 багш, үнэлгээтэй
-  - `settings`-ийн анхдагч утгууд: багц 75 академик цаг, нэг ирэлт 3 академик цаг, 3 чөлөө, 93%, 6 суудал, 24 цаг
-- [ ] **Хязгаарлалтын тест** (интеграц, тестийн DB дээр):
-  - сөрөг `remaining_visits` бичигдэхгүй
-  - нэг багшид давхцсан хичээл бичигдэхгүй
-  - нэг хичээлд хоёр EARNING бичигдэхгүй
+- [x] **А бүлэг (М1, М2), migration `auth_catalog`:** `users`(Role: ADMIN/TEACHER/PARENT/STUDENT), `refresh_tokens`, `password_resets`, `teachers`, `teacher_rates`, `parents`, `branches`, `programs`, `settings`.
+- [x] **Б бүлэг (М3), migration `enrollment`:** `students`, `parent_students`, `contracts` (ContractStatus: ACTIVE/PAUSED/COMPLETED), `contract_pauses`, `plan_items`.
+- [x] **В бүлэг (М4), migration `scheduling`:** `classes`, `enrollments`, `lessons` (LessonStatus: SCHEDULED/CANCELLED/RESCHEDULED — "6 төлөв" диаграмын тооноос (3 гэрээ + 3 хичээл) тооцоолж гаргасан, зураг шууд харагдаагүй тул **хэрэглэгчээр баталгаажуулах**).
+- [x] **Г бүлэг (М5 ба дэд бүтэц), migration `attendance_core`:** `attendance` (AttendanceStatus 5), `leave_requests`, `ledger_entries` (LedgerType: EARNING/PAYOUT/ADJUSTMENT), `audit_log`, `notification_outbox`, `idempotency_keys`, `teacher_tasks`.
+- [x] **Гараар бичих хязгаарлалтын migration `constraints`:** CLAUDE.md 7-р хэсгийн жагсаалт бүхэлдээ: contracts-ийн 3 CHECK, lessons EXCLUDE (btree_gist), ledger_entries/contract_pauses/enrollments-ийн хэсэгчилсэн UNIQUE, **`pitoo_app` DB хэрэглэгч үүсгэж, audit_log/ledger_entries-д түүнээс UPDATE/DELETE REVOKE хийсэн** (ФБШ-24, шалгасан: UPDATE оролдвол "permission denied").
+  - Нэмэлт: аппликейшн одоо `APP_DATABASE_URL`-аар (pitoo_app) холбогддог, `DATABASE_URL` (postgres) зөвхөн Prisma CLI-д (migrate, seed). `.env`, `.env.example`, `.env.test` гурвад нэмэгдсэн, `env.ts`, `shared/db/prisma.ts` шинэчлэгдсэн.
+- [x] **`prisma/seed.ts`:** 1 админ (`.env`-ээс, must_change_password=true), 2 салбар, 2 хөтөлбөр, 2 багш (үнэлгээтэй), 5 `settings` мөр (батцын хэмжээ, 93%, 6 суудал, 24 цаг, дансны мэдээлэл). `upsert`-ээр бичигдсэн тул давтан ажиллахад давхардахгүй.
+- [x] **Хязгаарлалтын тест** (`src/shared/db/constraints.test.ts`, жинхэнэ `pitoo_test` дээр): сөрөг `remaining_visits`, `totalVisits`-ээс хэтэрсэн `remaining_visits`, багшийн давхцсан хичээл, нэг хичээлд хоёр `EARNING` — 4/4 ногоон.
 
 М6-М12-ын хүснэгтүүдийг (assessments, payments, payment_claims гэх мэт) 11.02-ны дараа нэмнэ.
 
-**ШАЛГАХ ЦЭГ 5:** `prisma studio`-оор seed өгөгдлийг хэрэглэгчтэй хамт хар. Хэрэглэгч commit хийнэ.
+**ШАЛГАХ ЦЭГ 5: дууссан, бататгах шаардлагатай зүйлтэй.** Seed өгөгдөл (админ 99001122, 2 салбар, 2 хөтөлбөр, 2 багш) `pitoo` DB-д бодитоор бичигдсэнийг psql-ээр шалгасан (Prisma Studio GUI session биш, учир нь энэ орчинд GUI нээх боломжгүй). **Хэрэглэгчээс асуух зүйл:** `LessonStatus`-ийг (SCHEDULED/CANCELLED/RESCHEDULED) Зураг 6.2-ын жинхэнэ диаграмтай тулгаж баталгаажуулаарай (Claude Docs-оор); хэрэв өөр бол шинэ migration нэмж засна.
 
 ---
 

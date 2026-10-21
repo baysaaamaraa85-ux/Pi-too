@@ -1,8 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -10,4 +8,498 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// А бүлэг: М1 Нэвтрэлт ба эрх, М2 Суурь мэдээлэл (req 4.1, 4.2; design 5.3.3)
+// ---------------------------------------------------------------------------
+
+enum Role {
+  ADMIN // Захирал
+  TEACHER // Багш
+  PARENT // Эцэг эх
+  STUDENT // Сурагч
+}
+
+// ФШ-01...06, ФБШ-18...23
+model User {
+  id                 String    @id @default(uuid()) @db.Uuid
+  role               Role
+  phone              String?   @unique
+  email              String?   @unique
+  passwordHash       String    @map("password_hash")
+  mustChangePassword Boolean   @default(false) @map("must_change_password")
+  isActive           Boolean   @default(true) @map("is_active")
+  failedLogins       Int       @default(0) @map("failed_logins")
+  lockedUntil        DateTime? @map("locked_until") @db.Timestamptz(6)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  teacher              Teacher?
+  parent               Parent?
+  student              Student?
+  refreshTokens        RefreshToken[]
+  passwordResets       PasswordReset[]
+  auditLogs            AuditLog[]           @relation("AuditActor")
+  ledgerEntriesCreated LedgerEntry[]        @relation("LedgerCreatedBy")
+  idempotencyKeys      IdempotencyKey[]
+  notifications        NotificationOutbox[]
+
+  @@map("users")
+}
+
+// Refresh token rotation: ашиглагдсан token дахин ирвэл бүх token хүчингүй (ФБШ-19, ADR-004).
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ФШ-05: 30 минутын нэг удаагийн нууц үг сэргээх token.
+model PasswordReset {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@map("password_resets")
+}
+
+// PK = FK users (design 5.3.3).
+model Teacher {
+  userId   String @id @map("user_id") @db.Uuid
+  fullName String @map("full_name")
+
+  user          User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  rates         TeacherRate[]
+  classes       Class[]
+  lessons       Lesson[]
+  ledgerEntries LedgerEntry[]
+  teacherTasks  TeacherTask[]
+  pausesPaused  ContractPause[] @relation("PausedBy")
+  pausesResumed ContractPause[] @relation("ResumedBy")
+
+  @@map("teachers")
+}
+
+// ФШ-10: хүчинтэй огноотой үнэлгээ. Хичээлийн цалинд тухайн өдрийн үнэлгээ хэрэглэгдэнэ (ADR-013).
+model TeacherRate {
+  id            String   @id @default(uuid()) @db.Uuid
+  teacherId     String   @map("teacher_id") @db.Uuid
+  hourlyRate    Decimal  @map("hourly_rate") @db.Decimal(12, 2)
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  teacher Teacher @relation(fields: [teacherId], references: [userId], onDelete: Restrict)
+
+  @@unique([teacherId, effectiveFrom])
+  @@map("teacher_rates")
+}
+
+// PK = FK users (design 5.3.3). notifyChannels: ["PUSH","EMAIL","SMS"] JSON массив.
+model Parent {
+  userId         String @id @map("user_id") @db.Uuid
+  fullName       String @map("full_name")
+  phone          String
+  notifyChannels Json   @default("[]") @map("notify_channels")
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  parentStudents ParentStudent[]
+
+  @@map("parents")
+}
+
+// ФШ-07
+model Branch {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  address   String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  classes Class[]
+
+  @@map("branches")
+}
+
+// ФШ-08: үнэ өөрчлөгдөхөд өмнөх гэрээний үнэ (contracts.price) өөрчлөгдөхгүй (ADR-013).
+model Program {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String   @unique
+  currentPrice Decimal  @map("current_price") @db.Decimal(12, 2)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  contracts Contract[]
+
+  @@map("programs")
+}
+
+// ФШ-09, ФБШ-29: журмын утгууд (75 цаг, 3 чөлөө, 93%, 6 суудал, 24 цаг, дансны мэдээлэл).
+// Кодонд шууд бичихийг хориглосон тул энэ хүснэгтээс уншина.
+model Settings {
+  key       String   @id
+  value     Json
+  updatedBy String?  @map("updated_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("settings")
+}
+
+// ---------------------------------------------------------------------------
+// Б бүлэг: М3 Элсэлт ба гэрээ (req 4.3, 4.5-ийн ФШ-72...75; design 6.5, ADR-009, 014)
+// ---------------------------------------------------------------------------
+
+// userId сонголттой: сурагч насанд хүрээгүй тул өөрийн нэвтрэх данстай байх шаардлагагүй.
+model Student {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String?   @unique @map("user_id") @db.Uuid
+  fullName  String    @map("full_name")
+  school    String?
+  grade     String?
+  consentAt DateTime? @map("consent_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user           User?           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  parentStudents ParentStudent[]
+  contracts      Contract[]
+
+  @@map("students")
+}
+
+// ФШ-04: нэг эцэг эх олон хүүхэдтэй, нэг хүүхэд хоёр эцэг эхтэй байж болно (N:M).
+model ParentStudent {
+  parentId  String @map("parent_id") @db.Uuid
+  studentId String @map("student_id") @db.Uuid
+
+  parent  Parent  @relation(fields: [parentId], references: [userId], onDelete: Restrict)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@id([parentId, studentId])
+  @@map("parent_students")
+}
+
+enum ContractStatus {
+  ACTIVE // Идэвхтэй
+  PAUSED // Түр зогсоосон
+  COMPLETED // Дууссан
+}
+
+// Гэрээ (багц). Тоолуур design 5.3.4/ADR-009: remainingVisits, leavesLeft,
+// freeReviewsLeft-ийг зөвхөн attendance service өөрчилнө, FOR UPDATE-ээр түгжинэ.
+// Сөрөг болон totalVisits-ээс хэтэрсэн утгыг CHECK-ээр хориглоно (гараар бичих
+// migration, CLAUDE.md 7-р хэсэг).
+model Contract {
+  id              String         @id @default(uuid()) @db.Uuid
+  studentId       String         @map("student_id") @db.Uuid
+  programId       String         @map("program_id") @db.Uuid
+  price           Decimal        @db.Decimal(12, 2) // гэрээ үүсэх мөчийн үнэ, хожим өөрчлөгдөхгүй (ADR-013)
+  totalVisits     Int            @map("total_visits")
+  remainingVisits Int            @map("remaining_visits")
+  leavesLeft      Int            @map("leaves_left")
+  freeReviewsLeft Int            @default(0) @map("free_reviews_left")
+  status          ContractStatus @default(ACTIVE)
+  rulesAckAt      DateTime       @map("rules_ack_at") @db.Timestamptz(6)
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  program Program @relation(fields: [programId], references: [id], onDelete: Restrict)
+
+  pauses        ContractPause[]
+  planItems     PlanItem[]
+  enrollments   Enrollment[]
+  attendance    Attendance[]
+  leaveRequests LeaveRequest[]
+  teacherTasks  TeacherTask[]
+
+  @@map("contracts")
+}
+
+// ФШ-72...75, ADR-014: зогсолт бүрийг тусад нь бичнэ. endedOn IS NULL мөрт
+// нэг идэвхтэй зогсолт байх ёстой (хэсэгчилсэн UNIQUE, гараар бичих migration).
+model ContractPause {
+  id         String    @id @default(uuid()) @db.Uuid
+  contractId String    @map("contract_id") @db.Uuid
+  startedOn  DateTime  @map("started_on") @db.Date
+  endedOn    DateTime? @map("ended_on") @db.Date
+  holdSeat   Boolean   @map("hold_seat")
+  reason     String
+  pausedBy   String    @map("paused_by") @db.Uuid
+  resumedBy  String?   @map("resumed_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  contract         Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  pausedByTeacher  Teacher  @relation("PausedBy", fields: [pausedBy], references: [userId], onDelete: Restrict)
+  resumedByTeacher Teacher? @relation("ResumedBy", fields: [resumedBy], references: [userId], onDelete: Restrict)
+
+  @@index([contractId])
+  @@map("contract_pauses")
+}
+
+// ФШ-18: сурагчийн хувийн төлөвлөгөө, сэдвийн дараалал.
+model PlanItem {
+  id         String    @id @default(uuid()) @db.Uuid
+  contractId String    @map("contract_id") @db.Uuid
+  position   Int
+  topic      String
+  doneAt     DateTime? @map("done_at") @db.Timestamptz(6)
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+
+  @@unique([contractId, position])
+  @@map("plan_items")
+}
+
+// ---------------------------------------------------------------------------
+// В бүлэг: М4 Хуваарь ба анги (req 4.4; design 5.3.3, ADR-011)
+// ---------------------------------------------------------------------------
+
+// Анги: долоо хоног бүр давтагдах дүрэм (ADR-011). weekday: 1=Даваа...7=Ням.
+model Class {
+  id          String   @id @default(uuid()) @db.Uuid
+  teacherId   String   @map("teacher_id") @db.Uuid
+  branchId    String   @map("branch_id") @db.Uuid
+  weekday     Int // CHECK(weekday 1-7) - гараар бичих migration
+  startTime   String   @map("start_time") // "HH:MM", өдөр бүрийн эхлэх цаг
+  durationMin Int      @default(120) @map("duration_min")
+  capacity    Int      @default(6)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  teacher     Teacher      @relation(fields: [teacherId], references: [userId], onDelete: Restrict)
+  branch      Branch       @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  enrollments Enrollment[]
+  lessons     Lesson[]
+
+  @@map("classes")
+}
+
+// ФШ-20, 21, 70: идэвхтэй мөрт (contract_id, class_id) давхардахгүй (хэсэгчилсэн
+// UNIQUE, гараар бичих migration). toDate NULL = одоо хэвээр идэвхтэй.
+model Enrollment {
+  id         String    @id @default(uuid()) @db.Uuid
+  contractId String    @map("contract_id") @db.Uuid
+  classId    String    @map("class_id") @db.Uuid
+  fromDate   DateTime  @map("from_date") @db.Date
+  toDate     DateTime? @map("to_date") @db.Date
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  class    Class    @relation(fields: [classId], references: [id], onDelete: Restrict)
+
+  @@index([classId])
+  @@index([contractId])
+  @@map("enrollments")
+}
+
+enum LessonStatus {
+  SCHEDULED // Товлогдсон
+  CANCELLED // Цуцлагдсан
+  RESCHEDULED // Шилжүүлсэн
+}
+
+// ФШ-19, 23-25. teacherId-г classId-аас давхар хадгалсан (хичээл үүсэх мөчийн
+// багш, түүхэнд зориулж, design 5.3.4). originalStartsAt нь worker-ийн давтан
+// ажиллуулалтыг давхардахгүй болгох түлхүүр (UNIQUE(classId, originalStartsAt)),
+// startsAt/endsAt нь шилжүүлэх (reschedule) үед өөрчлөгдөж болно. Багшийн цагийн
+// давхцлыг EXCLUDE constraint-оор хориглоно (гараар бичих migration).
+model Lesson {
+  id               String       @id @default(uuid()) @db.Uuid
+  classId          String       @map("class_id") @db.Uuid
+  teacherId        String       @map("teacher_id") @db.Uuid
+  startsAt         DateTime     @map("starts_at") @db.Timestamptz(6)
+  endsAt           DateTime     @map("ends_at") @db.Timestamptz(6)
+  status           LessonStatus @default(SCHEDULED)
+  originalStartsAt DateTime     @map("original_starts_at") @db.Timestamptz(6)
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  class   Class   @relation(fields: [classId], references: [id], onDelete: Restrict)
+  teacher Teacher @relation(fields: [teacherId], references: [userId], onDelete: Restrict)
+
+  attendance    Attendance[]
+  leaveRequests LeaveRequest[]
+  ledgerEntries LedgerEntry[]
+
+  @@unique([classId, originalStartsAt])
+  @@index([teacherId, startsAt])
+  @@map("lessons")
+}
+
+// ---------------------------------------------------------------------------
+// Г бүлэг: М5 Ирц ба дэд бүтэц (req 4.5; design 6.1, 6.2, 6.4, ADR-006, 007, 009, 010)
+// ---------------------------------------------------------------------------
+
+// ФШ-26: таван төлөв. marked = багшийн тэмдэглэсэн түүхий утга ("ирсэн эсэх"),
+// status = системийн тооцоолсон эцсийн төлөв (ADR-007). Нэг (lesson, contract)
+// хослолд нэг мөр.
+enum AttendanceStatus {
+  PRESENT // Ирсэн
+  EXCUSED // Чөлөөтэй
+  OVER_LIMIT // Чөлөө хэтэрсэн
+  MAKEUP // Нөхөлт
+  FREE_REVIEW // Үнэгүй давтлага
+}
+
+model Attendance {
+  id         String           @id @default(uuid()) @db.Uuid
+  lessonId   String           @map("lesson_id") @db.Uuid
+  contractId String           @map("contract_id") @db.Uuid
+  marked     Boolean
+  status     AttendanceStatus
+  isMakeup   Boolean          @default(false) @map("is_makeup")
+  updatedBy  String           @map("updated_by") @db.Uuid
+  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  lesson   Lesson   @relation(fields: [lessonId], references: [id], onDelete: Restrict)
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+
+  @@unique([lessonId, contractId])
+  @@index([contractId])
+  @@map("attendance")
+}
+
+// ФШ-30: эцэг эх урьдчилан чөлөө хүсэх. Ирцийн дэлгэц (GET /lessons/{id}/attendance)
+// энэ хүснэгтээс урьдчилан "ирээгүй" гэж тэмдэглэнэ.
+model LeaveRequest {
+  id          String   @id @default(uuid()) @db.Uuid
+  contractId  String   @map("contract_id") @db.Uuid
+  lessonId    String   @map("lesson_id") @db.Uuid
+  requestedBy String   @map("requested_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  lesson   Lesson   @relation(fields: [lessonId], references: [id], onDelete: Restrict)
+
+  @@unique([contractId, lessonId])
+  @@map("leave_requests")
+}
+
+enum LedgerType {
+  EARNING // Хичээлээр олсон цалин
+  PAYOUT // Багшид олгосон мөнгө
+  ADJUSTMENT // Ирц засварын зөрүү
+}
+
+// ADR-010: зөвхөн нэмэгддэг журнал, үлдэгдлийг SUM(amount)-аар тооцно. EARNING
+// төрөлд lessonId давхардахгүй (хэсэгчилсэн UNIQUE, гараар бичих migration).
+model LedgerEntry {
+  id        String     @id @default(uuid()) @db.Uuid
+  teacherId String     @map("teacher_id") @db.Uuid
+  type      LedgerType
+  amount    Decimal    @db.Decimal(12, 2) // олголт (PAYOUT) сөрөг
+  lessonId  String?    @map("lesson_id") @db.Uuid
+  rateUsed  Decimal?   @map("rate_used") @db.Decimal(12, 2)
+  note      String?
+  createdBy String     @map("created_by") @db.Uuid
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  teacher       Teacher @relation(fields: [teacherId], references: [userId], onDelete: Restrict)
+  lesson        Lesson? @relation(fields: [lessonId], references: [id], onDelete: Restrict)
+  createdByUser User    @relation("LedgerCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+
+  @@index([teacherId, createdAt])
+  @@map("ledger_entries")
+}
+
+// ФШ-35, 52, ФБШ-24: зөвхөн нэмэгддэг (app DB хэрэглэгчээс UPDATE/DELETE REVOKE,
+// гараар бичих migration). entity/entityId нь полиморф холбоос тул бодит FK биш.
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  entity    String
+  entityId  String   @map("entity_id") @db.Uuid
+  action    String
+  before    Json?
+  after     Json?
+  reason    String?
+  actorId   String   @map("actor_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  actor User @relation("AuditActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([entity, entityId])
+  @@map("audit_log")
+}
+
+enum NotificationChannel {
+  PUSH
+  EMAIL
+  SMS
+}
+
+enum NotificationStatus {
+  PENDING // Illgээгдээгүй
+  SENT // Сувгийн үйлчилгээ хүлээн авсан
+  DELIVERED // Хүлээн авагчид хүрсэн
+  FAILED // Илгээх боломжгүй
+}
+
+// ADR-006: transactional outbox. Worker FOR UPDATE SKIP LOCKED-оор уншина.
+model NotificationOutbox {
+  id            String              @id @default(uuid()) @db.Uuid
+  recipientId   String              @map("recipient_id") @db.Uuid
+  channel       NotificationChannel
+  template      String
+  payload       Json
+  status        NotificationStatus  @default(PENDING)
+  attempts      Int                 @default(0)
+  nextAttemptAt DateTime?           @map("next_attempt_at") @db.Timestamptz(6)
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  recipient User @relation(fields: [recipientId], references: [id], onDelete: Restrict)
+
+  @@index([status, nextAttemptAt])
+  @@map("notification_outbox")
+}
+
+// ФБШ-15: Idempotency-Key толгойтой хүсэлтийн хариуг хадгалж, давтан ирвэл
+// дахин боловсруулахгүйгээр шууд буцаана.
+model IdempotencyKey {
+  key       String   @id
+  userId    String   @map("user_id") @db.Uuid
+  response  Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@map("idempotency_keys")
+}
+
+enum TeacherTaskType {
+  EXAM // Багцын шалгалт (ФШ-37)
+  MEETING // Эцэг эхтэй уулзах сануулга (ФШ-43)
+}
+
+// ФШ-37: багц дуусахад шалгалтын ажил үүснэ.
+model TeacherTask {
+  id         String          @id @default(uuid()) @db.Uuid
+  teacherId  String          @map("teacher_id") @db.Uuid
+  type       TeacherTaskType
+  contractId String          @map("contract_id") @db.Uuid
+  dueOn      DateTime        @map("due_on") @db.Date
+  doneAt     DateTime?       @map("done_at") @db.Timestamptz(6)
+  createdAt  DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  teacher  Teacher  @relation(fields: [teacherId], references: [userId], onDelete: Restrict)
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+
+  @@index([teacherId, doneAt])
+  @@map("teacher_tasks")
 }

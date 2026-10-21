@@ -7,6 +7,10 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.url(),
   TEST_DATABASE_URL: z.url().optional(),
+  // ФБШ-24: аппликейшн pitoo_app хэрэглэгчээр холбогдоно (audit_log, ledger_entries
+  // хүснэгтэд UPDATE/DELETE эрхгүй). DATABASE_URL-ийг зөвхөн Prisma CLI
+  // (migrate, seed) postgres superuser-ээр ашиглана.
+  APP_DATABASE_URL: z.url(),
   JWT_ACCESS_SECRET: z.string().min(32, "JWT_ACCESS_SECRET 32 тэмдэгтээс багагүй байх ёстой"),
   JWT_REFRESH_SECRET: z.string().min(32, "JWT_REFRESH_SECRET 32 тэмдэгтээс багагүй байх ёстой"),
   APP_ORIGIN: z.url(),
