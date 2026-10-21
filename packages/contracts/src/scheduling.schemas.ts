@@ -17,3 +17,17 @@ export const enrollInClassSchema = z.object({
   fromDate: z.iso.date(),
 });
 export type EnrollInClassInput = z.infer<typeof enrollInClassSchema>;
+
+// ФШ-24, 25
+export const rescheduleLessonSchema = z.object({
+  startsAt: z.iso.datetime(),
+  endsAt: z.iso.datetime(),
+});
+export type RescheduleLessonInput = z.infer<typeof rescheduleLessonSchema>;
+
+// ФШ-23
+export const listLessonsQuerySchema = z.object({
+  from: z.iso.date(),
+  to: z.iso.date(),
+});
+export type ListLessonsQuery = z.infer<typeof listLessonsQuerySchema>;

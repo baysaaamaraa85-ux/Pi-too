@@ -1,7 +1,37 @@
 import { prisma, type Tx } from "../../shared/db/prisma.js";
+import { Prisma, Role } from "../../generated/prisma/client.js";
+import { writeAudit } from "../../shared/audit/write-audit.js";
 import { DomainError } from "../../shared/errors/domain-error.js";
+import { enqueue } from "../../shared/outbox/enqueue.js";
 import * as catalog from "../catalog/catalog.service.js";
 import * as repo from "./scheduling.repository.js";
+
+// Монгол улсын цагийн бүс (DST байхгүй, тогтмол UTC+8).
+const ULAANBAATAR_UTC_OFFSET_HOURS = 8;
+
+function toOurWeekday(date: Date): number {
+  const jsDay = date.getUTCDay();
+  return jsDay === 0 ? 7 : jsDay;
+}
+
+function addDays(date: Date, days: number): Date {
+  const result = new Date(date);
+  result.setUTCDate(result.getUTCDate() + days);
+  return result;
+}
+
+function combineDateAndLocalTime(dateOnly: Date, hhmm: string): Date {
+  const [hours, minutes] = hhmm.split(":").map(Number);
+  return new Date(
+    Date.UTC(
+      dateOnly.getUTCFullYear(),
+      dateOnly.getUTCMonth(),
+      dateOnly.getUTCDate(),
+      (hours ?? 0) - ULAANBAATAR_UTC_OFFSET_HOURS,
+      minutes ?? 0,
+    ),
+  );
+}
 
 function timeToMinutes(value: string): number {
   const [hours, minutes] = value.split(":").map(Number);
@@ -140,4 +170,195 @@ export function closeActiveEnrollmentsForContractInTx(tx: Tx, contractId: string
 // бүртгэлүүдийн ангийг (ба багшийг) харж, өөрийн эсэхийг шалгана.
 export function getActiveEnrollmentsWithClassInTx(tx: Tx, contractId: string) {
   return repo.findActiveEnrollmentsWithClass(tx, contractId);
+}
+
+// ADR-011: ангийн тогтмол дүрмээс ирэх N долоо хоногийн бодит хичээл
+// үүсгэнэ. Worker өдөр бүр дуудна, UNIQUE(classId, originalStartsAt) тул
+// давтан ажиллуулахад давхардахгүй (skipDuplicates).
+export async function generateLessons(fromDate: Date, weeks: number) {
+  return prisma.$transaction(async (tx) => {
+    const classes = await repo.listActiveClasses(tx);
+    const rows: {
+      classId: string;
+      teacherId: string;
+      startsAt: Date;
+      endsAt: Date;
+      originalStartsAt: Date;
+    }[] = [];
+
+    for (const cls of classes) {
+      let cursor = fromDate;
+      while (toOurWeekday(cursor) !== cls.weekday) {
+        cursor = addDays(cursor, 1);
+      }
+      for (let week = 0; week < weeks; week++) {
+        const occurrenceDate = addDays(cursor, week * 7);
+        const startsAt = combineDateAndLocalTime(occurrenceDate, cls.startTime);
+        const endsAt = new Date(startsAt.getTime() + cls.durationMin * 60_000);
+        rows.push({
+          classId: cls.id,
+          teacherId: cls.teacherId,
+          startsAt,
+          endsAt,
+          originalStartsAt: startsAt,
+        });
+      }
+    }
+
+    if (rows.length === 0) return { count: 0 };
+    return repo.createLessonsSkipDuplicates(tx, rows);
+  });
+}
+
+// ФШ-23: эрхээр шүүсэн календарь. Эцэг эх, сурагчийн шүүлтийн уншилт
+// (contract -> enrollment -> class) бизнесийн дүрэм агуулахгүй, зөвхөн
+// мэдээлэл цуглуулалт тул repository-д шууд бичигдсэн (дээрх тайлбар).
+export async function listLessonsForUser(user: { id: string; role: Role }, from: Date, to: Date) {
+  return prisma.$transaction(async (tx) => {
+    if (user.role === Role.ADMIN) {
+      return repo.listLessonsInRange(tx, { from, to });
+    }
+    if (user.role === Role.TEACHER) {
+      return repo.listLessonsInRange(tx, { from, to, teacherId: user.id });
+    }
+
+    const contractIds =
+      user.role === Role.PARENT
+        ? await repo.findContractIdsForParentUser(tx, user.id)
+        : await repo.findContractIdsForStudentUser(tx, user.id);
+    if (contractIds.length === 0) return [];
+
+    const classIds = await repo.findClassIdsForContracts(tx, contractIds);
+    if (classIds.length === 0) return [];
+
+    return repo.listLessonsInRange(tx, { from, to, classIds });
+  });
+}
+
+function lessonNotFound(): never {
+  throw new DomainError({
+    code: "lesson-not-found",
+    status: 404,
+    title: "Хичээл олдсонгүй",
+    detail: "Заасан хичээл бүртгэлгүй байна.",
+  });
+}
+
+function assertLessonOwnership(lesson: { teacherId: string }, user: { id: string; role: Role }) {
+  if (user.role === Role.ADMIN) return;
+  if (lesson.teacherId !== user.id) {
+    throw new DomainError({
+      code: "forbidden-lesson",
+      status: 403,
+      title: "Эрх хүрэхгүй байна",
+      detail: "Энэ хичээл танай ангийн хичээл биш байна.",
+    });
+  }
+}
+
+// ФШ-24, 60: хичээл цуцлагдахад мэдэгдэл outbox-д бичигдэнэ (ADR-006).
+export async function cancelLesson(lessonId: string, user: { id: string; role: Role }) {
+  return prisma.$transaction(async (tx) => {
+    const lesson = await repo.findLessonById(tx, lessonId);
+    if (!lesson) lessonNotFound();
+    assertLessonOwnership(lesson, user);
+
+    if (lesson.status === "CANCELLED") {
+      throw new DomainError({
+        code: "lesson-already-cancelled",
+        status: 409,
+        title: "Хичээл аль хэдийн цуцлагдсан",
+        detail: "Энэ хичээл өмнө нь цуцлагдсан байна.",
+      });
+    }
+
+    const updated = await repo.updateLessonStatus(tx, lessonId, { status: "CANCELLED" });
+
+    const recipients = await repo.findNotificationRecipientsForClass(tx, lesson.classId);
+    for (const recipientId of recipients) {
+      await enqueue(tx, {
+        recipientId,
+        channel: "PUSH",
+        template: "lesson_cancelled",
+        payload: { lessonId, startsAt: lesson.startsAt.toISOString() },
+      });
+    }
+
+    await writeAudit(tx, {
+      entity: "lesson",
+      entityId: lessonId,
+      action: "CANCEL",
+      before: { status: lesson.status },
+      after: { status: "CANCELLED" },
+      actorId: user.id,
+    });
+
+    return updated;
+  });
+}
+
+// ФШ-24, 25, 60: цаг шилжүүлнэ. EXCLUDE constraint давхцал илрүүлбэл 409.
+export async function rescheduleLesson(
+  lessonId: string,
+  user: { id: string; role: Role },
+  newStartsAt: Date,
+  newEndsAt: Date,
+) {
+  return prisma.$transaction(async (tx) => {
+    const lesson = await repo.findLessonById(tx, lessonId);
+    if (!lesson) lessonNotFound();
+    assertLessonOwnership(lesson, user);
+
+    if (lesson.status === "CANCELLED") {
+      throw new DomainError({
+        code: "lesson-cancelled",
+        status: 409,
+        title: "Цуцлагдсан хичээл",
+        detail: "Цуцлагдсан хичээлийг шилжүүлэх боломжгүй.",
+      });
+    }
+
+    let updated;
+    try {
+      updated = await repo.updateLessonStatus(tx, lessonId, {
+        status: "RESCHEDULED",
+        startsAt: newStartsAt,
+        endsAt: newEndsAt,
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.message.includes("lessons_no_teacher_overlap")
+      ) {
+        throw new DomainError({
+          code: "lesson-time-conflict",
+          status: 409,
+          title: "Багшийн цаг давхцаж байна",
+          detail: "Шилжүүлэх цагт багш өөр хичээлтэй байна.",
+        });
+      }
+      throw error;
+    }
+
+    const recipients = await repo.findNotificationRecipientsForClass(tx, lesson.classId);
+    for (const recipientId of recipients) {
+      await enqueue(tx, {
+        recipientId,
+        channel: "PUSH",
+        template: "lesson_rescheduled",
+        payload: { lessonId, startsAt: newStartsAt.toISOString() },
+      });
+    }
+
+    await writeAudit(tx, {
+      entity: "lesson",
+      entityId: lessonId,
+      action: "RESCHEDULE",
+      before: { startsAt: lesson.startsAt.toISOString() },
+      after: { startsAt: newStartsAt.toISOString() },
+      actorId: user.id,
+    });
+
+    return updated;
+  });
 }

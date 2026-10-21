@@ -253,7 +253,7 @@ export async function forgotPassword(email: string): Promise<void> {
       expiresAt: passwordResetExpiry(),
     });
 
-    enqueue(tx, {
+    await enqueue(tx, {
       recipientId: user.id,
       channel: "EMAIL",
       template: "password_reset",

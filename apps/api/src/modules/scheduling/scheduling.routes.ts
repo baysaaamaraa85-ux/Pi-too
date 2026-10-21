@@ -21,3 +21,20 @@ schedulingRouter.post(
   authorize("ADMIN", "TEACHER"),
   controller.enrollInClass,
 );
+
+// ФШ-23: бүгд өөрт хамаарахаар шүүгдсэн календарийг харна (эрхийн матриц).
+schedulingRouter.get(
+  "/lessons",
+  authorize("ADMIN", "TEACHER", "PARENT", "STUDENT"),
+  controller.listLessons,
+);
+schedulingRouter.post(
+  "/lessons/:id/cancel",
+  authorize("ADMIN", "TEACHER"),
+  controller.cancelLesson,
+);
+schedulingRouter.post(
+  "/lessons/:id/reschedule",
+  authorize("ADMIN", "TEACHER"),
+  controller.rescheduleLesson,
+);
