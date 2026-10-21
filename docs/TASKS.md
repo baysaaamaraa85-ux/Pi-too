@@ -148,11 +148,13 @@
 
 Унш: req 4.2, design 8.5, ADR-013.
 
-- [ ] `/branches`, `/programs`: админ CRUD, багш зөвхөн GET. Үнийн өөрчлөлт түүхтэй (ADR-013).
-- [ ] `GET /settings`, `PUT /settings`: аудиттай.
-- [ ] `POST /teachers/{id}/rates`: хүчинтэй огноотой үнэлгээ. Хичээлийн цалинд тухайн өдрийн үнэлгээ хэрэглэгдэнэ.
-- [ ] `shared/audit`: `writeAudit(tx, { entity, entityId, action, before, after, reason, actorId })`
-- [ ] Тест.
+- [x] `/branches`, `/programs`: админ CRUD (нэр давхардахад 409), админ+багш GET (эрхийн матриц 2.3: эцэг эх, сурагч үгүй тул 403). Үнэ өөрчлөгдөхөд өмнөх гэрээний `contracts.price` хэвээр үлдэнэ (ADR-013, шалгасан тест).
+- [x] `GET /settings`, `PUT /settings` (key+value): админ, аудиттай.
+- [x] `POST /teachers/{id}/rates`: хүчинтэй огноотой үнэлгээ.
+- [x] `shared/audit`: `writeAudit(tx, { entity, entityId, action, before, after, reason, actorId })`.
+- [x] Тест: 6 кейс (салбар үүсгэх, эрхийн 403 х2, ADR-013 үнийн түүх, settings+audit, багшийн үнэлгээ).
+
+**Олдсон, засагдсан алдаа:** `audit_log.entity_id`-г анх `@db.Uuid` гэж тодорхойлсон нь буруу байв — `settings.key` мэт string түлхүүртэй объектыг аудит хийхэд PostgreSQL "invalid input syntax for type uuid" алдаа өгсөн (`entity_id` полиморф холбоос, зөвхөн UUID байх ёсгүй). Шинэ migration (`audit_log_entity_id_text`)-оор `TEXT` болгож засав, хоёр DB-д (`pitoo`, `pitoo_test`) deploy хийв.
 
 ---
 

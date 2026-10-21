@@ -424,7 +424,7 @@ model LedgerEntry {
 model AuditLog {
   id        String   @id @default(uuid()) @db.Uuid
   entity    String
-  entityId  String   @map("entity_id") @db.Uuid
+  entityId  String   @map("entity_id") // Полиморф: UUID эсвэл settings.key мэт string байж болно, @db.Uuid биш.
   action    String
   before    Json?
   after     Json?
