@@ -117,6 +117,12 @@ async function main() {
     update: {},
     create: { key: "attendance_defaults", value: { editWindowHours: 24 } },
   });
+  // ФБШ-22: 5 удаа дараалан буруу нэвтэрвэл 15 минут түгжинэ.
+  await prisma.settings.upsert({
+    where: { key: "auth_defaults" },
+    update: {},
+    create: { key: "auth_defaults", value: { maxFailedLogins: 5, lockoutMinutes: 15 } },
+  });
   await prisma.settings.upsert({
     where: { key: "payment_account" },
     update: {},

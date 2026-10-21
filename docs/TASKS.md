@@ -129,23 +129,18 @@
 
 Эхлээд унш: req 4.1 (ФШ-01...06), req 5.5 (ФБШ-18...23), design 5.4.2-ын эхний 8 мөр, 8.1, ADR-004, 008.
 
-- [ ] `shared/rbac`:
-  - `authenticate` (access token шалгана, `req.user` = { id, role })
-  - `authorize(...roles)`
-- [ ] `POST /auth/login`: нууц үг шалгах. Буруу оролдлогоор данс түгжих (`failed_logins`, `locked_until`, ФБШ-22-ын тоог req-ээс ав). Access token + refresh cookie.
-- [ ] `POST /auth/refresh`: rotation. Ашиглагдсан token дахин ирвэл хэрэглэгчийн бүх token хүчингүй.
-- [ ] `POST /auth/logout`
-- [ ] `POST /auth/password/change`: `must_change_password`-ийг арилгана.
-- [ ] `POST /auth/password/forgot`, `POST /auth/password/reset`: 30 минутын нэг удаагийн token. Имэйлийг одоохондоо outbox-д бичээд консолд хэвлэнэ.
-- [ ] `POST /users` (админ: багш, эцэг эхийн данс, түр нууц үгтэй), `PATCH /users/{id}/status`
-- [ ] Тест:
-  - нэвтрэх амжилттай ба буруу
-  - түгжигдэх
-  - refresh rotation ба дахин ашиглалт
-  - үүрэг бүрээр 403
-  - идэвхгүй данс нэвтрэхгүй
+- [x] `shared/rbac`: `authenticate` (`jwt.ts`-ээр access token шалгаад `req.user = {id, role}`), `authorize(...roles)` (403).
+- [x] `POST /auth/login`: нууц үг bcrypt-аар шалгана. Буруу оролдлогоор `failed_logins` нэмэгдэж, `settings.auth_defaults`-аас уншсан тоонд (анхдагч 5, 15 мин) хүрвэл `locked_until` тавина (кодонд тоо хатуу бичээгүй, ФБШ-29). Access token (JSON) + refresh token (httpOnly/Strict cookie).
+- [x] `POST /auth/refresh`: rotation. Ашиглагдсан (revoked) token дахин ирвэл тухайн хэрэглэгчийн бүх token хүчингүй.
+- [x] `POST /auth/logout`
+- [x] `POST /auth/password/change`: `must_change_password`-ийг арилгана, 409 буруу одоогийн нууц үгэнд.
+- [x] `POST /auth/password/forgot`, `POST /auth/password/reset`: 30 минутын нэг удаагийн token, `notification_outbox`-д бичигдэж консолд хэвлэгдэнэ (SMTP хожим).
+- [x] `POST /users` (админ: багш/эцэг эхийн данс, түр нууц үгтэй, хариуд буцаана), `PATCH /users/{id}/status` (идэвхгүй болгоход refresh token бүгд цуцлагдана, ADR-004).
+- [x] Тест (`auth.service.test.ts`, 7 кейс): нэвтрэх амжилттай/буруу, 5 удаагийн түгжигдэх, идэвхгүй данс, refresh rotation + дахин ашиглалт илрүүлэлт, багшид админ API 403, админ шинэ багш үүсгэх.
 
-**ШАЛГАХ ЦЭГ 7.**
+**Олдсон, засагдсан алдаа (чухал сурах зүйл):** `prisma.$transaction`-ийн callback дотор `throw` хийвэл Prisma ТРАНЗАКЦЫГ БҮХЭЛД НЬ rollback хийдэг. Анх `login`/`refresh`-д "тоолуур нэмэх → алдаа шидэх"-ийг нэг транзакцад бичсэн нь тоолуур, token цуцлалтыг rollback-аар арилгадаг байв (тест эхлээд 500/200 буцааж илрүүлсэн). Засвар: транзакц дотор зөвхөн үр дүнгийн "outcome" тодорхойлж, транзакц амжилттай батлагдсаны ДАРАА нь throw хийх болгов.
+
+**ШАЛГАХ ЦЭГ 7: дууссан.** Бодит сервер дээр seed админаар (99001122) нэвтрэх, `/health`, 12/12 тест (constraints 4 + health 1 + auth 7) ногоон, `tsc build` цэвэр шалгасан.
 
 ---
 
