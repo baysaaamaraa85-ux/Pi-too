@@ -1,0 +1,21 @@
+{
+  "name": "pi-too",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev -w @pitoo/api",
+    "dev:web": "npm run dev -w @pitoo/web",
+    "test": "npm run test -w @pitoo/api",
+    "build": "npm run build -w @pitoo/api",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:migrate": "npm run db:migrate -w @pitoo/api",
+    "db:generate": "npm run db:generate -w @pitoo/api",
+    "db:studio": "npm run db:studio -w @pitoo/api",
+    "db:seed": "npm run db:seed -w @pitoo/api"
+  }
+}

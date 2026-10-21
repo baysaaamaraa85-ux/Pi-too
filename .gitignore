@@ -1,0 +1,13 @@
+node_modules
+.env
+dist
+**/src/generated
+coverage
+*.log
+.DS_Store
+
+# Prisma-ийн суулгаснаар автоматаар үүсдэг AI-агентын skill баримт, кодтой холбоогүй
+**/.agents/
+**/.claude/
+**/.windsurf/
+**/skills-lock.json
