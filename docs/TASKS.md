@@ -239,20 +239,23 @@
 
 Унш: design 5.5 бүхэлд нь.
 
-- [ ] `apps` дотор `npm create vite@latest web -- --template react-ts`. `package.json` нэрийг `@pitoo/web` болго.
-- [ ] Tailwind, shadcn/ui, React Router, TanStack Query
-- [ ] `vite.config.ts`: `/api`-г `http://localhost:3000` руу proxy
-- [ ] `shared/api-client`: access token санах ойд, 401 үед refresh хийгээд дахин оролдох
-- [ ] `shared/format`: огноо `ОООО.СС.ӨӨ`, мөнгө `125 000 ₮`, Asia/Ulaanbaatar
-- [ ] Нэвтрэх, нууц үг солих хуудас
+- [x] `apps` дотор `npm create vite@latest web -- --template react-ts`. `package.json` нэрийг `@pitoo/web` болго.
+- [x] Tailwind, shadcn/ui, React Router, TanStack Query
+- [x] `vite.config.ts`: `/api`-г `http://localhost:3000` руу proxy
+- [x] `shared/api-client`: access token санах ойд, 401 үед refresh хийгээд дахин оролдох
+- [x] `shared/format`: огноо `ОООО.СС.ӨӨ`, мөнгө `125 000 ₮`, Asia/Ulaanbaatar
+- [x] Нэвтрэх, нууц үг солих хуудас
 - [ ] **Багшийн ирцийн дэлгэц** (design 5.5.2, 5.5.3; ФБШ-08):
   - утсанд, өнөөдрийн хичээлүүд
   - бүгд "Ирсэн" анхдагч
   - ирээгүйг нэг товшилтоор
   - нэг "Хадгалах" товч
   - хадгалсны дараа сервер буцаасан төлөв, үлдэгдлийг харуулна
-- [ ] Админ: салбар, хөтөлбөр, багш, сурагч, гэрээ, анги үүсгэх энгийн хуудсууд
+- [x] Админ: салбар, хөтөлбөр, багш, сурагч, гэрээ, анги үүсгэх энгийн хуудсууд
 - [ ] Багш: гэрээ түр зогсоох, үргэлжлүүлэх
+
+Тэмдэглэл (хэсэгчилсэн): ирцийн дэлгэц (М5) хойш тавигдсан, багшийн гэрээ түр зогсоох UI гэрээний жагсаалтын endpoint хүлээж байна.
+Хэрэглэгчийн шийдвэрээр нэмсэн: нийтийн сайт (`/`, `/programs`, `/teachers`, `/contact`), өөрөө бүртгүүлэхгүй, түвшин тогтоох цагийн хүсэлт (`PlacementRequest`), админ хүсэлтийн жагсаалт. Нийтийн endpoint `/public/*` угтвартай.
 
 **ШАЛГАХ ЦЭГ 12.**
 

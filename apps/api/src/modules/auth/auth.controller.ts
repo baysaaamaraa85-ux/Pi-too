@@ -49,7 +49,7 @@ export async function refresh(req: Request, res: Response) {
   const refreshTokenValue = readRefreshCookie(req);
   const result = await service.refresh(refreshTokenValue);
   setRefreshCookie(res, result.refreshToken, result.refreshExpiresAt);
-  res.status(200).json({ accessToken: result.accessToken });
+  res.status(200).json({ accessToken: result.accessToken, user: result.user });
 }
 
 export async function logout(req: Request, res: Response) {

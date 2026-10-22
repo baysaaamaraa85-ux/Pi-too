@@ -119,6 +119,7 @@ export interface RefreshResult {
   accessToken: string;
   refreshToken: string;
   refreshExpiresAt: Date;
+  user: { id: string; role: Role; mustChangePassword: boolean };
 }
 
 type RefreshOutcome =
@@ -167,6 +168,7 @@ export async function refresh(refreshTokenValue: string): Promise<RefreshResult>
         accessToken: signAccessToken({ id: user.id, role: user.role }),
         refreshToken: newRefreshValue,
         refreshExpiresAt: newExpiresAt,
+        user: { id: user.id, role: user.role, mustChangePassword: user.mustChangePassword },
       },
     };
   });
