@@ -15,3 +15,11 @@ enrollmentRouter.post("/contracts", controller.createContract);
 enrollmentRouter.put("/contracts/:id/plan", controller.updateContractPlan);
 enrollmentRouter.post("/contracts/:id/pause", controller.pauseContract);
 enrollmentRouter.post("/contracts/:id/resume", controller.resumeContract);
+
+// Нийтийн сайтаас ирсэн түвшин тогтоох хүсэлтийг зөвхөн админ харж, төлөв шинэчилнэ.
+enrollmentRouter.get("/placement-requests", authorize("ADMIN"), controller.listPlacementRequests);
+enrollmentRouter.patch(
+  "/placement-requests/:id",
+  authorize("ADMIN"),
+  controller.updatePlacementRequest,
+);

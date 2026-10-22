@@ -172,3 +172,17 @@ export async function createTeacherRate(
     });
   });
 }
+
+// enrollment модуль (нийтийн хүсэлт) салбар байгаа эсэхийг шалгахдаа дуудна.
+export async function getBranchById(tx: Tx, id: string) {
+  const branch = await repo.findBranchById(tx, id);
+  if (!branch) {
+    throw new DomainError({
+      code: "branch-not-found",
+      status: 404,
+      title: "Салбар олдсонгүй",
+      detail: "Заасан салбар бүртгэлгүй байна.",
+    });
+  }
+  return branch;
+}

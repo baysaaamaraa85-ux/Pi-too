@@ -130,9 +130,40 @@ model Branch {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  classes Class[]
+  classes           Class[]
+  placementRequests PlacementRequest[]
 
   @@map("branches")
+}
+
+enum PlacementRequestStatus {
+  NEW // Шинэ
+  CONTACTED // Холбогдсон
+  SCHEDULED // Цаг товлосон
+  DONE // Түвшин тогтоосон
+  CANCELLED // Цуцалсан
+}
+
+// Нийтийн сайтаас ирсэн түвшин тогтоох цагийн хүсэлт (эцэг эх өөрөө
+// бүртгүүлэхгүй, салбар холбогдож цаг товлоно, дараа нь багш/админ сурагч,
+// гэрээг бүртгэнэ). Удирдлагын шийдвэр 2026.10.22.
+model PlacementRequest {
+  id              String                 @id @default(uuid()) @db.Uuid
+  studentName     String                 @map("student_name")
+  school          String?
+  grade           String?
+  phone           String
+  programInterest String?                @map("program_interest")
+  branchId        String?                @map("branch_id") @db.Uuid
+  status          PlacementRequestStatus @default(NEW)
+  note            String?
+  createdAt       DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  branch Branch? @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt])
+  @@map("placement_requests")
 }
 
 // ФШ-08: үнэ өөрчлөгдөхөд өмнөх гэрээний үнэ (contracts.price) өөрчлөгдөхгүй (ADR-013).

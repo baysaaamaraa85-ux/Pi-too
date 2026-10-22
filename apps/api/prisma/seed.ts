@@ -39,16 +39,20 @@ async function main() {
     create: { name: "Баруун 4 зам салбар", address: "Улаанбаатар, Хан-Уул дүүрэг" },
   });
 
-  // ФШ-08: 2 хөтөлбөр.
+  // ФШ-08: 2 багц (75 цаг). Үнэ: удирдлагын шийдвэр 2026.10.22.
   const program1 = await prisma.program.upsert({
-    where: { name: "Бага анги" },
-    update: {},
-    create: { name: "Бага анги", currentPrice: "600000.00" },
+    where: { name: "Монгол стандарт" },
+    update: { currentPrice: "1200000.00" },
+    create: { name: "Монгол стандарт", currentPrice: "1200000.00" },
   });
   const program2 = await prisma.program.upsert({
-    where: { name: "Дунд анги" },
-    update: {},
-    create: { name: "Дунд анги", currentPrice: "700000.00" },
+    where: { name: "Олон улсын стандарт" },
+    update: { currentPrice: "1800000.00" },
+    create: { name: "Олон улсын стандарт", currentPrice: "1800000.00" },
+  });
+  // Өмнөх туршилтын хөтөлбөрүүдийг (гэрээгүй бол) цэвэрлэнэ.
+  await prisma.program.deleteMany({
+    where: { name: { in: ["Бага анги", "Дунд анги"] }, contracts: { none: {} } },
   });
 
   // ФШ-10: 2 багш, үнэлгээтэй.

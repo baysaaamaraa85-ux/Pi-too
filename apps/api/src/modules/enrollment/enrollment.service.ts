@@ -1,9 +1,13 @@
 import { prisma, type Tx } from "../../shared/db/prisma.js";
-import { AssessmentType, ContractStatus } from "../../generated/prisma/client.js";
+import {
+  AssessmentType,
+  ContractStatus,
+  type PlacementRequestStatus,
+} from "../../generated/prisma/client.js";
 import { DomainError } from "../../shared/errors/domain-error.js";
 import { writeAudit } from "../../shared/audit/write-audit.js";
 import { createUserInTx } from "../auth/auth.service.js";
-import { getContractDefaults, getProgramById } from "../catalog/catalog.service.js";
+import { getBranchById, getContractDefaults, getProgramById } from "../catalog/catalog.service.js";
 import {
   closeActiveEnrollmentsForContractInTx,
   enrollContractInClassInTx,
@@ -283,4 +287,28 @@ export async function resumeContract(
 
     return updated;
   });
+}
+
+// Нийтийн сайтаас ирсэн түвшин тогтоох цагийн хүсэлт (нэвтрэлтгүй).
+export async function createPlacementRequest(input: {
+  studentName: string;
+  school?: string;
+  grade?: string;
+  phone: string;
+  programInterest?: string;
+  branchId?: string;
+}) {
+  return prisma.$transaction(async (tx) => {
+    if (input.branchId) await getBranchById(tx, input.branchId);
+    const created = await repo.createPlacementRequest(tx, input);
+    return { id: created.id };
+  });
+}
+
+export function listPlacementRequests(status?: PlacementRequestStatus) {
+  return repo.listPlacementRequests(prisma, status);
+}
+
+export function updatePlacementRequest(id: string, status: PlacementRequestStatus, note?: string) {
+  return repo.updatePlacementRequest(prisma, id, { status, note });
 }

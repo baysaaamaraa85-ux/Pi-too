@@ -5,3 +5,4 @@ export * from "./catalog.schemas.js";
 export * from "./scheduling.schemas.js";
 export * from "./enrollment.schemas.js";
 export * from "./attendance.schemas.js";
+export * from "./placement.schemas.js";
