@@ -81,7 +81,7 @@ export async function resetPassword(req: Request, res: Response) {
 
 export async function createUser(req: Request, res: Response) {
   const { role, phone, fullName } = createUserSchema.parse(req.body);
-  const result = await service.createUser(role, phone, fullName);
+  const result = await service.createUser(role, phone, fullName, { actorId: req.user!.id });
   res.status(201).json(result);
 }
 
@@ -90,6 +90,12 @@ const userIdParamSchema = z.object({ id: z.uuid() });
 export async function updateUserStatus(req: Request, res: Response) {
   const { id } = userIdParamSchema.parse(req.params);
   const { isActive } = updateUserStatusSchema.parse(req.body);
-  await service.updateUserStatus(id, isActive);
+  await service.updateUserStatus(id, isActive, req.user!.id);
   res.status(204).send();
+}
+
+// ФШ-03: админ хэрэглэгчид шинэ түр нууц үг үүсгэнэ.
+export async function resetUserPassword(req: Request, res: Response) {
+  const { id } = userIdParamSchema.parse(req.params);
+  res.status(200).json(await service.resetUserPassword(id, req.user!.id));
 }

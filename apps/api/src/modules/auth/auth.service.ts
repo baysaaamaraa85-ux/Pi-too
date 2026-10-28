@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
 import { prisma, type Tx } from "../../shared/db/prisma.js";
+import { writeAudit } from "../../shared/audit/write-audit.js";
 import { DomainError } from "../../shared/errors/domain-error.js";
 import { enqueue } from "../../shared/outbox/enqueue.js";
 import { signAccessToken } from "../../shared/rbac/jwt.js";
@@ -309,6 +310,7 @@ export async function createUserInTx(
   role: "TEACHER" | "PARENT" | "STUDENT",
   phone: string,
   fullName: string,
+  options: { email?: string; actorId?: string } = {},
 ): Promise<CreateUserResult> {
   const existing = await repo.findUserByPhone(tx, phone);
   if (existing) {
@@ -319,10 +321,34 @@ export async function createUserInTx(
       detail: "Энэ утасны дугаартай хэрэглэгч аль хэдийн бүртгэлтэй байна.",
     });
   }
+  if (options.email && (await repo.findUserByEmail(tx, options.email))) {
+    throw new DomainError({
+      code: "email-taken",
+      status: 409,
+      title: "Имэйл бүртгэлтэй байна",
+      detail: "Энэ имэйл хаягтай хэрэглэгч аль хэдийн бүртгэлтэй байна.",
+    });
+  }
 
   const tempPassword = randomBytes(6).toString("base64url");
   const passwordHash = await bcrypt.hash(tempPassword, BCRYPT_COST);
-  const user = await repo.createUserWithProfile(tx, { role, phone, passwordHash, fullName });
+  const user = await repo.createUserWithProfile(tx, {
+    role,
+    phone,
+    email: options.email,
+    passwordHash,
+    fullName,
+  });
+
+  if (options.actorId) {
+    await writeAudit(tx, {
+      entity: "user",
+      entityId: user.id,
+      action: "CREATE",
+      after: { role, phone },
+      actorId: options.actorId,
+    });
+  }
 
   return { id: user.id, role: user.role, phone, tempPassword };
 }
@@ -331,16 +357,72 @@ export function createUser(
   role: "TEACHER" | "PARENT",
   phone: string,
   fullName: string,
+  options: { email?: string; actorId?: string } = {},
 ): Promise<CreateUserResult> {
-  return prisma.$transaction((tx) => createUserInTx(tx, role, phone, fullName));
+  return prisma.$transaction((tx) => createUserInTx(tx, role, phone, fullName, options));
+}
+
+function userNotFound(): never {
+  throw new DomainError({
+    code: "user-not-found",
+    status: 404,
+    title: "Хэрэглэгч олдсонгүй",
+    detail: "Заасан хэрэглэгч бүртгэлгүй байна.",
+  });
 }
 
 // ФШ-06: данс идэвхгүй болгоход refresh token-ийг шууд хүчингүй болгоно (ADR-004).
-export async function updateUserStatus(userId: string, isActive: boolean): Promise<void> {
+// Админ өөрийн дансыг идэвхгүй болгож түгжигдэхээс сэргийлнэ.
+export async function updateUserStatus(
+  userId: string,
+  isActive: boolean,
+  actorId: string,
+): Promise<void> {
   await prisma.$transaction(async (tx) => {
+    const user = await repo.findUserById(tx, userId);
+    if (!user) userNotFound();
+    if (!isActive && userId === actorId) {
+      throw new DomainError({
+        code: "cannot-deactivate-self",
+        status: 409,
+        title: "Өөрийн дансыг идэвхгүй болгох боломжгүй",
+        detail: "Админ өөрийн дансыг идэвхгүй болгож болохгүй.",
+      });
+    }
     await repo.setUserActive(tx, userId, isActive);
     if (!isActive) {
       await repo.revokeAllRefreshTokensForUser(tx, userId);
     }
+    await writeAudit(tx, {
+      entity: "user",
+      entityId: userId,
+      action: isActive ? "ACTIVATE" : "DEACTIVATE",
+      before: { isActive: user.isActive },
+      after: { isActive },
+      actorId,
+    });
+  });
+}
+
+// ФШ-03: админ хэрэглэгчид шинэ түр нууц үг үүсгэнэ. Хуучин нууц үг, нэвтэрсэн
+// token бүгд хүчингүй болж, хэрэглэгч анхны нэвтрэлтээр заавал солино.
+export async function resetUserPassword(
+  userId: string,
+  actorId: string,
+): Promise<{ id: string; identifier: string; tempPassword: string }> {
+  return prisma.$transaction(async (tx) => {
+    const user = await repo.findUserById(tx, userId);
+    if (!user) userNotFound();
+    const tempPassword = randomBytes(6).toString("base64url");
+    const passwordHash = await bcrypt.hash(tempPassword, BCRYPT_COST);
+    await repo.setTemporaryPassword(tx, userId, passwordHash);
+    await repo.revokeAllRefreshTokensForUser(tx, userId);
+    await writeAudit(tx, {
+      entity: "user",
+      entityId: userId,
+      action: "RESET_PASSWORD",
+      actorId,
+    });
+    return { id: userId, identifier: user.phone ?? user.email ?? "", tempPassword };
   });
 }

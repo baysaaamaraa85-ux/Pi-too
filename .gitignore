@@ -12,3 +12,7 @@ coverage
 **/.claude/
 **/.windsurf/
 **/skills-lock.json
+
+# Playwright
+test-results
+playwright-report

@@ -34,14 +34,27 @@ export function setUserActive(tx: Tx, id: string, isActive: boolean) {
   return tx.user.update({ where: { id }, data: { isActive } });
 }
 
+export function findUserByEmail(tx: Tx, email: string) {
+  return tx.user.findUnique({ where: { email } });
+}
+
+// ФШ-03: админ шинэ түр нууц үг өгөхөд хэрэглэгч заавал солино.
+export function setTemporaryPassword(tx: Tx, id: string, passwordHash: string) {
+  return tx.user.update({
+    where: { id },
+    data: { passwordHash, mustChangePassword: true, failedLogins: 0, lockedUntil: null },
+  });
+}
+
 export function createUserWithProfile(
   tx: Tx,
-  params: { role: Role; phone: string; passwordHash: string; fullName: string },
+  params: { role: Role; phone: string; email?: string; passwordHash: string; fullName: string },
 ) {
   return tx.user.create({
     data: {
       role: params.role,
       phone: params.phone,
+      email: params.email,
       passwordHash: params.passwordHash,
       mustChangePassword: true,
       teacher:

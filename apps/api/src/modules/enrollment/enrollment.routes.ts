@@ -8,7 +8,6 @@ export const enrollmentRouter = Router();
 enrollmentRouter.use(authenticate);
 enrollmentRouter.use(authorize("ADMIN", "TEACHER"));
 
-enrollmentRouter.get("/parents", controller.searchParents);
 enrollmentRouter.post("/students", controller.createStudent);
 enrollmentRouter.post("/students/:id/assessments", controller.createAssessment);
 enrollmentRouter.post("/contracts", controller.createContract);

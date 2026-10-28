@@ -1,10 +1,6 @@
 import { z } from "zod";
 
-// Утасны дугаар: хоосон зай, зураасыг хасаад 8 орон.
-const phoneSchema = z
-  .string()
-  .transform((value) => value.replace(/[\s-]/g, ""))
-  .pipe(z.string().regex(/^\d{8}$/, "Утасны дугаар 8 оронтой байх ёстой"));
+import { phoneSchema } from "./common.schemas.js";
 
 // Нийтийн сайтаас ирэх түвшин тогтоох цагийн хүсэлт (нэвтрэлтгүй).
 export const createPlacementRequestSchema = z.object({

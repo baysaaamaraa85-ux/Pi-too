@@ -17,11 +17,6 @@ const placementStatusQuerySchema = z
   .enum(["NEW", "CONTACTED", "SCHEDULED", "DONE", "CANCELLED"])
   .optional();
 
-export async function searchParents(req: Request, res: Response) {
-  const phone = typeof req.query.phone === "string" ? req.query.phone : "";
-  res.status(200).json(await service.searchParentsByPhone(phone));
-}
-
 export async function createStudent(req: Request, res: Response) {
   const input = createStudentSchema.parse(req.body);
   res.status(201).json(await service.registerStudent(input));

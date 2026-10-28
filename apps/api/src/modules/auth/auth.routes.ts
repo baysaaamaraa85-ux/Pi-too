@@ -14,6 +14,12 @@ authRouter.post("/auth/password/forgot", controller.forgotPassword);
 authRouter.post("/auth/password/reset", controller.resetPassword);
 
 authRouter.post("/users", authenticate, authorize("ADMIN"), controller.createUser);
+authRouter.post(
+  "/users/:id/reset-password",
+  authenticate,
+  authorize("ADMIN"),
+  controller.resetUserPassword,
+);
 authRouter.patch(
   "/users/:id/status",
   authenticate,

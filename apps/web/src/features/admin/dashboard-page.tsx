@@ -66,10 +66,10 @@ export function AdminDashboardPage() {
           text="Эцэг эх, сурагч, багц, ангийг нэг дор бүртгэнэ."
         />
         <QuickLink
-          to="/admin/users"
+          to="/admin/teachers"
           icon={Users}
-          title="Хэрэглэгч үүсгэх"
-          text="Багш, эцэг эхийн нэвтрэх данс, түр нууц үг."
+          title="Багш, сурагч, эцэг эх"
+          text="Хэрэглэгчийн данс үүсгэх, түр нууц үг."
         />
         <QuickLink
           to="/admin/catalog"

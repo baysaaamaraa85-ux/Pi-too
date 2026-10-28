@@ -3,7 +3,10 @@ import { AdminCatalogPage } from "@/features/admin/catalog-page";
 import { AdminDashboardPage } from "@/features/admin/dashboard-page";
 import { AdminEnrollPage } from "@/features/admin/enroll-page";
 import { AdminRequestsPage } from "@/features/admin/requests-page";
-import { AdminUsersPage } from "@/features/admin/users-page";
+import { ComingSoonPage } from "@/features/admin/coming-soon-page";
+import { AdminParentDetailPage, AdminParentsPage } from "@/features/admin/parents-pages";
+import { AdminStudentDetailPage, AdminStudentsPage } from "@/features/admin/students-pages";
+import { AdminTeacherDetailPage, AdminTeachersPage } from "@/features/admin/teachers-pages";
 import { LoginPage } from "@/features/auth/login-page";
 import {
   ChangePasswordPage,
@@ -24,6 +27,7 @@ import {
 import { TeacherSchedulePage } from "@/features/schedule/schedule-page";
 import { TeacherClassesPage } from "@/features/teacher/classes-page";
 import { TeacherTodayPage } from "@/features/teacher/today-page";
+import { AdminShell } from "./admin-shell";
 import { AppShell } from "./app-shell";
 import { RequireAuth } from "./guards";
 
@@ -75,13 +79,46 @@ const router = createBrowserRouter([
     element: <RequireAuth roles={["ADMIN"]} />,
     children: [
       {
-        element: <AppShell />,
+        element: <AdminShell />,
         children: [
           { path: "/admin", element: <AdminDashboardPage /> },
+          { path: "/admin/teachers", element: <AdminTeachersPage /> },
+          { path: "/admin/teachers/:id", element: <AdminTeacherDetailPage /> },
+          { path: "/admin/students", element: <AdminStudentsPage /> },
+          { path: "/admin/students/:id", element: <AdminStudentDetailPage /> },
+          { path: "/admin/parents", element: <AdminParentsPage /> },
+          { path: "/admin/parents/:id", element: <AdminParentDetailPage /> },
           { path: "/admin/requests", element: <AdminRequestsPage /> },
           { path: "/admin/enroll", element: <AdminEnrollPage /> },
-          { path: "/admin/users", element: <AdminUsersPage /> },
           { path: "/admin/catalog", element: <AdminCatalogPage /> },
+          {
+            path: "/admin/classes",
+            element: <ComingSoonPage title="Анги ба хуваарь" text="Админы анги, хуваарийн хэсэг дараагийн шатанд нэмэгдэнэ." />,
+          },
+          {
+            path: "/admin/attendance",
+            element: <ComingSoonPage title="Ирц" text="Ирцийн хэсэг дараагийн шатанд нэмэгдэнэ." />,
+          },
+          {
+            path: "/admin/payroll",
+            element: <ComingSoonPage title="Цалин" text="Цалингийн хэсэг дараагийн шатанд нэмэгдэнэ." />,
+          },
+          {
+            path: "/admin/payments",
+            element: <ComingSoonPage title="Төлбөр" text="Төлбөрийн хэсэг дараагийн шатанд нэмэгдэнэ." />,
+          },
+          {
+            path: "/admin/notifications",
+            element: <ComingSoonPage title="Мэдэгдэл" text="Мэдэгдлийн хэсэг дараагийн шатанд нэмэгдэнэ." />,
+          },
+          {
+            path: "/admin/reports",
+            element: <ComingSoonPage title="Тайлан" text="Тайлангийн хэсэг дараагийн шатанд нэмэгдэнэ." />,
+          },
+          {
+            path: "/admin/audit",
+            element: <ComingSoonPage title="Аудит" text="Аудитын бүртгэл дараагийн шатанд нэмэгдэнэ." />,
+          },
         ],
       },
     ],
