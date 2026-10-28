@@ -16,6 +16,8 @@
     "db:migrate": "npm run db:migrate -w @pitoo/api",
     "db:generate": "npm run db:generate -w @pitoo/api",
     "db:studio": "npm run db:studio -w @pitoo/api",
-    "db:seed": "npm run db:seed -w @pitoo/api"
+    "db:seed": "npm run db:seed -w @pitoo/api",
+    "typecheck": "npm run typecheck -w @pitoo/api && npm run typecheck -w @pitoo/web && npm run typecheck -w @pitoo/contracts",
+    "lint": "oxlint -c apps/web/.oxlintrc.json apps packages"
   }
 }

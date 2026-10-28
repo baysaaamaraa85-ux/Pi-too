@@ -14,6 +14,7 @@ import {
   enrollContractInClassInTx,
   getActiveEnrollmentsWithClassInTx,
   getClassInTx,
+  todayInUlaanbaatar,
 } from "../scheduling/scheduling.service.js";
 import * as repo from "./enrollment.repository.js";
 
@@ -211,7 +212,16 @@ export async function pauseContract(
       });
     }
 
+    // ФШ-72: өнгөрсөн огноогоор зогсоох боломжгүй (эхлэх огноо өнөөдөр эсвэл хойно).
     const startedOnDate = new Date(startedOn);
+    if (startedOnDate.getTime() < todayInUlaanbaatar().getTime()) {
+      throw new DomainError({
+        code: "pause-start-in-past",
+        status: 409,
+        title: "Зогсоох огноо буруу байна",
+        detail: "Гэрээг өнгөрсөн огноогоор түр зогсоох боломжгүй.",
+      });
+    }
     await repo.updateContractStatus(tx, contractId, ContractStatus.PAUSED);
     const pause = await repo.createContractPause(tx, {
       contractId,

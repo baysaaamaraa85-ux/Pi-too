@@ -8,6 +8,10 @@ import { Role } from "../../generated/prisma/client.js";
 
 const app = createApp();
 
+function isoDaysFromNow(days: number): string {
+  return new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+}
+
 async function loginAsTeacher() {
   const phone = `e${randomUUID().replace(/-/g, "").slice(0, 10)}`;
   const passwordHash = await bcrypt.hash("Correct123!", 10);
@@ -93,20 +97,20 @@ describe("М3 Элсэлт ба гэрээ", () => {
       },
     });
     await prisma.enrollment.create({
-      data: { contractId: contract.id, classId, fromDate: new Date("2026-11-01") },
+      data: { contractId: contract.id, classId, fromDate: new Date(isoDaysFromNow(0)) },
     });
     void teacherId;
 
     const firstPause = await request(app)
       .post(`/api/v1/contracts/${contract.id}/pause`)
       .set("Authorization", `Bearer ${token}`)
-      .send({ startedOn: "2026-11-03", reason: "Өвчтэй", holdSeat: true });
+      .send({ startedOn: isoDaysFromNow(3), reason: "Өвчтэй", holdSeat: true });
     expect(firstPause.status).toBe(201);
 
     const secondPause = await request(app)
       .post(`/api/v1/contracts/${contract.id}/pause`)
       .set("Authorization", `Bearer ${token}`)
-      .send({ startedOn: "2026-11-04", reason: "Дахин", holdSeat: true });
+      .send({ startedOn: isoDaysFromNow(4), reason: "Дахин", holdSeat: true });
     expect(secondPause.status).toBe(409);
     expect(secondPause.body.type).toContain("contract-not-active");
   });
@@ -129,26 +133,26 @@ describe("М3 Элсэлт ба гэрээ", () => {
       },
     });
     await prisma.enrollment.create({
-      data: { contractId: contract.id, classId, fromDate: new Date("2026-11-01") },
+      data: { contractId: contract.id, classId, fromDate: new Date(isoDaysFromNow(0)) },
     });
 
     const pauseRes = await request(app)
       .post(`/api/v1/contracts/${contract.id}/pause`)
       .set("Authorization", `Bearer ${token}`)
-      .send({ startedOn: "2026-11-03", reason: "Шилжсэн", holdSeat: false });
+      .send({ startedOn: isoDaysFromNow(3), reason: "Шилжсэн", holdSeat: false });
     expect(pauseRes.status).toBe(201);
 
     const resumeWithoutClass = await request(app)
       .post(`/api/v1/contracts/${contract.id}/resume`)
       .set("Authorization", `Bearer ${token}`)
-      .send({ resumedOn: "2026-11-10" });
+      .send({ resumedOn: isoDaysFromNow(10) });
     expect(resumeWithoutClass.status).toBe(409);
     expect(resumeWithoutClass.body.type).toContain("class-required-to-resume");
 
     const resumeWithClass = await request(app)
       .post(`/api/v1/contracts/${contract.id}/resume`)
       .set("Authorization", `Bearer ${token}`)
-      .send({ resumedOn: "2026-11-10", classIds: [classId] });
+      .send({ resumedOn: isoDaysFromNow(10), classIds: [classId] });
     expect(resumeWithClass.status).toBe(200);
     expect(resumeWithClass.body.status).toBe("ACTIVE");
   });
