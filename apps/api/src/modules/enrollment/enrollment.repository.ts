@@ -15,7 +15,7 @@ export function findParentByPhone(tx: Tx, phone: string) {
 
 export function createStudent(
   tx: Tx,
-  data: { fullName: string; school?: string; grade?: string },
+  data: { fullName: string; userId?: string; school?: string; grade?: string },
 ) {
   return tx.student.create({ data });
 }
@@ -129,4 +129,58 @@ export function updatePlacementRequest(
   data: { status: PlacementRequestStatus; note?: string },
 ) {
   return tx.placementRequest.update({ where: { id }, data });
+}
+
+// Порталын харагдац: хэрэглэгчтэй холбоотой сурагчид, тэдний гэрээ, одоогийн анги.
+// PARENT бол parent_students-ээр, STUDENT бол students.user_id-аар холбогдоно.
+const studentWithContracts = {
+  contracts: {
+    orderBy: { createdAt: "desc" },
+    include: {
+      program: true,
+      enrollments: {
+        where: { toDate: null },
+        include: { class: { include: { teacher: true, branch: true } } },
+      },
+    },
+  },
+} as const;
+
+export function findStudentsForParent(tx: Tx, parentUserId: string) {
+  return tx.student.findMany({
+    where: { parentStudents: { some: { parentId: parentUserId } } },
+    include: studentWithContracts,
+    orderBy: { fullName: "asc" },
+  });
+}
+
+export function findStudentForStudentUser(tx: Tx, studentUserId: string) {
+  return tx.student.findUnique({
+    where: { userId: studentUserId },
+    include: studentWithContracts,
+  });
+}
+
+export function findParentStudentLink(tx: Tx, parentUserId: string, studentId: string) {
+  return tx.parentStudent.findUnique({
+    where: { parentId_studentId: { parentId: parentUserId, studentId } },
+  });
+}
+
+export function findContractWithStudent(tx: Tx, contractId: string) {
+  return tx.contract.findUnique({
+    where: { id: contractId },
+    include: {
+      student: true,
+      program: true,
+      enrollments: {
+        where: { toDate: null },
+        include: { class: { include: { teacher: true } } },
+      },
+    },
+  });
+}
+
+export function findActiveEnrollmentInClass(tx: Tx, contractId: string, classId: string) {
+  return tx.enrollment.findFirst({ where: { contractId, classId, toDate: null } });
 }

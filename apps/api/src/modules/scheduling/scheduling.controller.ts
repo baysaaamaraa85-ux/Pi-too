@@ -30,6 +30,12 @@ export async function createClass(req: Request, res: Response) {
   res.status(201).json(await service.createClass(resolvedTeacherId, branchId, weekday, startTime));
 }
 
+export async function deleteClass(req: Request, res: Response) {
+  const { id } = idParamSchema.parse(req.params);
+  await service.deleteClass(req.user!, id);
+  res.status(204).end();
+}
+
 export async function listClasses(req: Request, res: Response) {
   const branchId = typeof req.query.branchId === "string" ? req.query.branchId : undefined;
   const teacherId = typeof req.query.teacherId === "string" ? req.query.teacherId : undefined;

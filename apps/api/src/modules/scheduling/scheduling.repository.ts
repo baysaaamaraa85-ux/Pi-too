@@ -183,3 +183,28 @@ export async function findClassIdsForContracts(tx: Tx, contractIds: string[]) {
   });
   return [...new Set(enrollments.map((e) => e.classId))];
 }
+
+export function deactivateClass(tx: Tx, id: string) {
+  return tx.class.update({ where: { id }, data: { isActive: false } });
+}
+
+// Анги устгахад ирээдүйн хичээлүүдээс түүхгүй (ирц, чөлөөний хүсэлт, цалингийн
+// бичилтгүй) нь бүрэн устна. Түүхтэй нь цуцлагдсан төлөвт үлдэнэ.
+export function deleteFutureLessonsWithoutHistory(tx: Tx, classId: string, now: Date) {
+  return tx.lesson.deleteMany({
+    where: {
+      classId,
+      startsAt: { gt: now },
+      attendance: { none: {} },
+      leaveRequests: { none: {} },
+      ledgerEntries: { none: {} },
+    },
+  });
+}
+
+export function cancelRemainingFutureLessons(tx: Tx, classId: string, now: Date) {
+  return tx.lesson.updateMany({
+    where: { classId, startsAt: { gt: now }, status: "SCHEDULED" },
+    data: { status: "CANCELLED" },
+  });
+}

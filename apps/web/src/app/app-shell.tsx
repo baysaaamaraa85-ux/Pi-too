@@ -2,6 +2,7 @@ import type { Role } from "@pitoo/contracts";
 import { ROLE_LABELS } from "@pitoo/contracts";
 import {
   CalendarDays,
+  ClipboardCheck,
   ClipboardList,
   LayoutDashboard,
   LogOut,
@@ -9,6 +10,7 @@ import {
   Settings,
   UserPlus,
   Users,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import { NavLink, Outlet } from "react-router";
@@ -37,8 +39,17 @@ const NAV: Record<Role, NavItem[]> = {
     { to: "/admin/users", label: "Хэрэглэгч", icon: Users },
     { to: "/admin/catalog", label: "Тохиргоо", icon: Settings },
   ],
-  PARENT: [{ to: "/portal", label: "Хуваарь", icon: CalendarDays, end: true }],
-  STUDENT: [{ to: "/portal", label: "Хуваарь", icon: CalendarDays, end: true }],
+  PARENT: [
+    { to: "/portal", label: "Нүүр", icon: LayoutDashboard, end: true },
+    { to: "/portal/schedule", label: "Хуваарь", icon: CalendarDays },
+    { to: "/portal/attendance", label: "Ирц", icon: ClipboardCheck },
+    { to: "/portal/payment", label: "Төлбөр", icon: Wallet },
+  ],
+  STUDENT: [
+    { to: "/portal", label: "Нүүр", icon: LayoutDashboard, end: true },
+    { to: "/portal/schedule", label: "Хуваарь", icon: CalendarDays },
+    { to: "/portal/attendance", label: "Миний ирц", icon: ClipboardCheck },
+  ],
 };
 
 export function AppShell() {

@@ -31,6 +31,18 @@ async function createClassAs(token: string, weekday: number, startTime: string) 
   return res.body.id as string;
 }
 
+// Өнөөдрөөс N хоногийн дараах огноо (YYYY-MM-DD).
+function isoDate(daysFromNow: number): string {
+  return new Date(Date.now() + daysFromNow * 86_400_000).toISOString().slice(0, 10);
+}
+
+async function upcomingLessonOf(classId: string) {
+  return prisma.lesson.findFirstOrThrow({
+    where: { classId, startsAt: { gt: new Date() } },
+    orderBy: { startsAt: "asc" },
+  });
+}
+
 function nextMonday(from: Date): Date {
   const result = new Date(from);
   while (result.getUTCDay() !== 1) result.setUTCDate(result.getUTCDate() + 1);
@@ -58,8 +70,134 @@ describe("М4 Хуваарь: хичээл үүсгэх, цуцлах, шилж�
     expect(secondRunLessons[0]!.startsAt.getUTCHours()).toBe(1);
   });
 
+  it("ФШ-23: анги үүсгэнгүүт ирэх 4 долоо хоногийн хичээл worker-гүйгээр шууд үүснэ", async () => {
+    const { token } = await loginAsTeacher();
+    // Өнөөдрийн Улаанбаатарын гараг дээр анги үүсгэвэл өнөөдрийн хичээл ч орно.
+    const local = new Date(Date.now() + 8 * 3_600_000);
+    const weekday = local.getUTCDay() === 0 ? 7 : local.getUTCDay();
+    const classId = await createClassAs(token, weekday, "09:00");
+
+    const lessons = await prisma.lesson.findMany({
+      where: { classId },
+      orderBy: { startsAt: "asc" },
+    });
+    expect(lessons).toHaveLength(4);
+    const todayLocal = lessons[0]!.startsAt.getTime() + 8 * 3_600_000;
+    expect(new Date(todayLocal).getUTCDate()).toBe(local.getUTCDate());
+  });
+
+  it("ФШ-19: багш өөрийн ангийг устгахад анги идэвхгүй болж, ирээдүйн хичээл арилна", async () => {
+    const { token } = await loginAsTeacher();
+    const classId = await createClassAs(token, 2, "15:00");
+    expect(await prisma.lesson.count({ where: { classId } })).toBe(4);
+
+    const res = await request(app)
+      .delete(`/api/v1/classes/${classId}`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(204);
+
+    const cls = await prisma.class.findUniqueOrThrow({ where: { id: classId } });
+    expect(cls.isActive).toBe(false);
+    expect(await prisma.lesson.count({ where: { classId } })).toBe(0);
+
+    const list = await request(app).get("/api/v1/classes").set("Authorization", `Bearer ${token}`);
+    expect(list.body.find((c: { id: string }) => c.id === classId)).toBeUndefined();
+
+    const audit = await prisma.auditLog.findFirst({ where: { entity: "class", entityId: classId } });
+    expect(audit?.action).toBe("DELETE");
+  });
+
+  it("BOLA: багш өөр багшийн ангийг устгах боломжгүй (403)", async () => {
+    const { token: ownerToken } = await loginAsTeacher();
+    const { token: strangerToken } = await loginAsTeacher();
+    const classId = await createClassAs(ownerToken, 3, "15:00");
+
+    const res = await request(app)
+      .delete(`/api/v1/classes/${classId}`)
+      .set("Authorization", `Bearer ${strangerToken}`);
+    expect(res.status).toBe(403);
+    const cls = await prisma.class.findUniqueOrThrow({ where: { id: classId } });
+    expect(cls.isActive).toBe(true);
+  });
+
+  it("ФШ-19: ангид идэвхтэй сурагч байвал устгахад 409", async () => {
+    const { token } = await loginAsTeacher();
+    const classId = await createClassAs(token, 4, "15:00");
+    const program = await prisma.program.create({
+      data: { name: `П ${randomUUID().slice(0, 8)}`, currentPrice: "500000.00" },
+    });
+    const student = await prisma.student.create({ data: { fullName: "Сурагч" } });
+    const contract = await prisma.contract.create({
+      data: {
+        studentId: student.id,
+        programId: program.id,
+        price: "500000.00",
+        totalVisits: 25,
+        remainingVisits: 25,
+        leavesLeft: 3,
+        rulesAckAt: new Date(),
+      },
+    });
+    await prisma.enrollment.create({
+      data: { contractId: contract.id, classId, fromDate: new Date() },
+    });
+
+    const res = await request(app)
+      .delete(`/api/v1/classes/${classId}`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(409);
+    expect(res.body.type).toContain("class-has-students");
+    expect((await prisma.class.findUniqueOrThrow({ where: { id: classId } })).isActive).toBe(true);
+  });
+
+  it("Анги устгахад чөлөөний хүсэлттэй (түүхтэй) хичээл цуцлагдсан төлөвт үлдэнэ", async () => {
+    const { token } = await loginAsTeacher();
+    const classId = await createClassAs(token, 5, "15:00");
+    const program = await prisma.program.create({
+      data: { name: `П ${randomUUID().slice(0, 8)}`, currentPrice: "500000.00" },
+    });
+    const student = await prisma.student.create({ data: { fullName: "Сурагч" } });
+    const contract = await prisma.contract.create({
+      data: {
+        studentId: student.id,
+        programId: program.id,
+        price: "500000.00",
+        totalVisits: 25,
+        remainingVisits: 25,
+        leavesLeft: 3,
+        rulesAckAt: new Date(),
+      },
+    });
+    // Сурагч өмнө нь байсан ч бүртгэл нь хаагдсан (toDate), одоо идэвхтэй сурагчгүй.
+    await prisma.enrollment.create({
+      data: {
+        contractId: contract.id,
+        classId,
+        fromDate: new Date("2026-01-01"),
+        toDate: new Date("2026-01-31"),
+      },
+    });
+    const keptLesson = await upcomingLessonOf(classId);
+    const requester = await prisma.user.create({
+      data: { role: Role.PARENT, phone: `lr${randomUUID().replace(/-/g, "").slice(0, 9)}`, passwordHash: "x" },
+    });
+    await prisma.leaveRequest.create({
+      data: { contractId: contract.id, lessonId: keptLesson.id, requestedBy: requester.id },
+    });
+
+    const res = await request(app)
+      .delete(`/api/v1/classes/${classId}`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(204);
+
+    const remaining = await prisma.lesson.findMany({ where: { classId } });
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0]!.id).toBe(keptLesson.id);
+    expect(remaining[0]!.status).toBe("CANCELLED");
+  });
+
   it("ФШ-24, 60: хичээл цуцлахад сурагч/эцэг эхэд мэдэгдэл outbox-д бичигдэнэ", async () => {
-    const { token, teacherId } = await loginAsTeacher();
+    const { token } = await loginAsTeacher();
     const classId = await createClassAs(token, 2, "10:00");
 
     const branch = await prisma.program.create({
@@ -90,15 +228,8 @@ describe("М4 Хуваарь: хичээл үүсгэх, цуцлах, шилж�
       data: { contractId: contract.id, classId, fromDate: new Date("2026-11-01") },
     });
 
-    const lesson = await prisma.lesson.create({
-      data: {
-        classId,
-        teacherId,
-        startsAt: new Date("2026-11-03T02:00:00Z"),
-        endsAt: new Date("2026-11-03T04:00:00Z"),
-        originalStartsAt: new Date("2026-11-03T02:00:00Z"),
-      },
-    });
+    // Анги үүсэхэд хичээл автоматаар үүссэн (ФШ-23), тэр хичээлийг цуцална.
+    const lesson = await prisma.lesson.findFirstOrThrow({ where: { classId } });
 
     const res = await request(app)
       .post(`/api/v1/lessons/${lesson.id}/cancel`)
@@ -153,19 +284,9 @@ describe("М4 Хуваарь: хичээл үүсгэх, цуцлах, шилж�
   it("ФШ-23: багш зөвхөн өөрийн хичээлийг календарт харна", async () => {
     const { token: tokenA } = await loginAsTeacher();
     const classId = await createClassAs(tokenA, 6, "08:00");
-    await prisma.lesson.create({
-      data: {
-        classId,
-        teacherId: (await prisma.class.findUniqueOrThrow({ where: { id: classId } })).teacherId,
-        startsAt: new Date("2026-11-07T00:00:00Z"),
-        endsAt: new Date("2026-11-07T02:00:00Z"),
-        originalStartsAt: new Date("2026-11-07T00:00:00Z"),
-      },
-    });
-
     const { token: tokenB } = await loginAsTeacher();
     const res = await request(app)
-      .get("/api/v1/lessons?from=2026-11-01&to=2026-11-14")
+      .get(`/api/v1/lessons?from=${isoDate(0)}&to=${isoDate(35)}`)
       .set("Authorization", `Bearer ${tokenB}`);
 
     expect(res.status).toBe(200);

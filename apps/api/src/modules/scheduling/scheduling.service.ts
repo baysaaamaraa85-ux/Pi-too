@@ -9,6 +9,17 @@ import * as repo from "./scheduling.repository.js";
 // Монгол улсын цагийн бүс (DST байхгүй, тогтмол UTC+8).
 const ULAANBAATAR_UTC_OFFSET_HOURS = 8;
 
+// ФШ-23: хичээлийг хэдэн долоо хоногийн өмнөөс үүсгэх вэ (worker болон анги
+// үүсгэх үед хоёуланд нь ижил).
+export const LESSON_HORIZON_WEEKS = 4;
+
+// Улаанбаатарын өнөөдрийн огноог UTC 00:00 болгон буцаана (generateLessons-ийн
+// fromDate хэлбэр). UTC огноо 00:00-08:00 цагт өчигдөр байдаг тул тусад нь тооцно.
+export function todayInUlaanbaatar(): Date {
+  const local = new Date(Date.now() + ULAANBAATAR_UTC_OFFSET_HOURS * 3_600_000);
+  return new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()));
+}
+
 function toOurWeekday(date: Date): number {
   const jsDay = date.getUTCDay();
   return jsDay === 0 ? 7 : jsDay;
@@ -87,13 +98,74 @@ export async function createClass(
 
     await assertNoClassOverlap(tx, teacherId, weekday, startTime, durationMin);
 
-    return repo.createClass(tx, {
+    const created = await repo.createClass(tx, {
       teacherId,
       branchId,
       weekday,
       startTime,
       durationMin,
       capacity: classDefaults.maxCapacity,
+    });
+
+    // ФШ-23: анги үүссэн даруйд календарьт хичээл нь харагдана (өнөөдөр тухайн
+    // гараг бол өнөөдрийн хичээл ч орно). Worker дараа нь өдөр бүр үргэлжлүүлнэ.
+    await createLessonsForClassesInTx(tx, [created], todayInUlaanbaatar(), LESSON_HORIZON_WEEKS);
+
+    return created;
+  });
+}
+
+// Анги устгах: бодитоор устгахгүй, идэвхгүй болгоно (өнгөрсөн хичээл, ирц, цалингийн
+// түүх хадгалагдана). Ангид идэвхтэй сурагч байвал устгахгүй, эс тэгвээс сурагч
+// хуваарьгүй үлдэнэ. Ирээдүйн хичээлүүд календариас арилна.
+export async function deleteClass(user: { id: string; role: Role }, classId: string) {
+  return prisma.$transaction(async (tx) => {
+    const cls = await repo.findClassById(tx, classId);
+    if (!cls || !cls.isActive) {
+      throw new DomainError({
+        code: "class-not-found",
+        status: 404,
+        title: "Анги олдсонгүй",
+        detail: "Заасан анги бүртгэлгүй эсвэл устгагдсан байна.",
+      });
+    }
+    // Эзэмшлийн шалгалт: багш зөвхөн өөрийн ангийг устгана (BOLA).
+    if (user.role !== Role.ADMIN && cls.teacherId !== user.id) {
+      throw new DomainError({
+        code: "forbidden-class",
+        status: 403,
+        title: "Эрх хүрэхгүй байна",
+        detail: "Энэ анги танай анги биш байна.",
+      });
+    }
+
+    const activeStudents = await repo.countActiveEnrollments(tx, classId);
+    if (activeStudents > 0) {
+      throw new DomainError({
+        code: "class-has-students",
+        status: 409,
+        title: "Ангид сурагч бүртгэлтэй байна",
+        detail: `Ангид ${activeStudents} сурагч бүртгэлтэй тул устгах боломжгүй. Эхлээд сурагчдыг өөр ангид шилжүүлнэ үү.`,
+        extra: { activeStudents },
+      });
+    }
+
+    const now = new Date();
+    const removed = await repo.deleteFutureLessonsWithoutHistory(tx, classId, now);
+    const cancelled = await repo.cancelRemainingFutureLessons(tx, classId, now);
+    await repo.deactivateClass(tx, classId);
+
+    await writeAudit(tx, {
+      entity: "class",
+      entityId: classId,
+      action: "DELETE",
+      before: { isActive: true },
+      after: {
+        isActive: false,
+        removedLessons: removed.count,
+        cancelledLessons: cancelled.count,
+      },
+      actorId: user.id,
     });
   });
 }
@@ -178,36 +250,51 @@ export function getActiveEnrollmentsWithClassInTx(tx: Tx, contractId: string) {
 export async function generateLessons(fromDate: Date, weeks: number) {
   return prisma.$transaction(async (tx) => {
     const classes = await repo.listActiveClasses(tx);
-    const rows: {
-      classId: string;
-      teacherId: string;
-      startsAt: Date;
-      endsAt: Date;
-      originalStartsAt: Date;
-    }[] = [];
-
-    for (const cls of classes) {
-      let cursor = fromDate;
-      while (toOurWeekday(cursor) !== cls.weekday) {
-        cursor = addDays(cursor, 1);
-      }
-      for (let week = 0; week < weeks; week++) {
-        const occurrenceDate = addDays(cursor, week * 7);
-        const startsAt = combineDateAndLocalTime(occurrenceDate, cls.startTime);
-        const endsAt = new Date(startsAt.getTime() + cls.durationMin * 60_000);
-        rows.push({
-          classId: cls.id,
-          teacherId: cls.teacherId,
-          startsAt,
-          endsAt,
-          originalStartsAt: startsAt,
-        });
-      }
-    }
-
-    if (rows.length === 0) return { count: 0 };
-    return repo.createLessonsSkipDuplicates(tx, rows);
+    return createLessonsForClassesInTx(tx, classes, fromDate, weeks);
   });
+}
+
+async function createLessonsForClassesInTx(
+  tx: Tx,
+  classes: {
+    id: string;
+    teacherId: string;
+    weekday: number;
+    startTime: string;
+    durationMin: number;
+  }[],
+  fromDate: Date,
+  weeks: number,
+) {
+  const rows: {
+    classId: string;
+    teacherId: string;
+    startsAt: Date;
+    endsAt: Date;
+    originalStartsAt: Date;
+  }[] = [];
+
+  for (const cls of classes) {
+    let cursor = fromDate;
+    while (toOurWeekday(cursor) !== cls.weekday) {
+      cursor = addDays(cursor, 1);
+    }
+    for (let week = 0; week < weeks; week++) {
+      const occurrenceDate = addDays(cursor, week * 7);
+      const startsAt = combineDateAndLocalTime(occurrenceDate, cls.startTime);
+      const endsAt = new Date(startsAt.getTime() + cls.durationMin * 60_000);
+      rows.push({
+        classId: cls.id,
+        teacherId: cls.teacherId,
+        startsAt,
+        endsAt,
+        originalStartsAt: startsAt,
+      });
+    }
+  }
+
+  if (rows.length === 0) return { count: 0 };
+  return repo.createLessonsSkipDuplicates(tx, rows);
 }
 
 // ФШ-23: эрхээр шүүсэн календарь. Эцэг эх, сурагчийн шүүлтийн уншилт

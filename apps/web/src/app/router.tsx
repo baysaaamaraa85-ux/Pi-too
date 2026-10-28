@@ -15,7 +15,13 @@ import { HomePage } from "@/features/public/home-page";
 import { ProgramsPage } from "@/features/public/programs-page";
 import { PublicLayout } from "@/features/public/public-layout";
 import { TeachersPage } from "@/features/public/teachers-page";
-import { PortalSchedulePage, TeacherSchedulePage } from "@/features/schedule/schedule-page";
+import {
+  PortalAttendancePage,
+  PortalHomePage,
+  PortalPaymentPage,
+  PortalSchedulePage,
+} from "@/features/portal/portal-pages";
+import { TeacherSchedulePage } from "@/features/schedule/schedule-page";
 import { TeacherClassesPage } from "@/features/teacher/classes-page";
 import { TeacherTodayPage } from "@/features/teacher/today-page";
 import { AppShell } from "./app-shell";
@@ -85,7 +91,21 @@ const router = createBrowserRouter([
     children: [
       {
         element: <AppShell />,
-        children: [{ path: "/portal", element: <PortalSchedulePage /> }],
+        children: [
+          { path: "/portal", element: <PortalHomePage /> },
+          { path: "/portal/schedule", element: <PortalSchedulePage /> },
+          { path: "/portal/attendance", element: <PortalAttendancePage /> },
+        ],
+      },
+    ],
+  },
+  {
+    // ФШ-66: төлбөрийн хуудас зөвхөн эцэг эхэд, сурагчид харагдахгүй.
+    element: <RequireAuth roles={["PARENT"]} />,
+    children: [
+      {
+        element: <AppShell />,
+        children: [{ path: "/portal/payment", element: <PortalPaymentPage /> }],
       },
     ],
   },

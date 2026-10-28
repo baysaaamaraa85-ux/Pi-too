@@ -109,3 +109,21 @@ export function findAuditHistory(tx: Tx, entity: string, entityId: string) {
     orderBy: { createdAt: "desc" },
   });
 }
+
+// Порталын "Миний ирц": сурагчийн сүүлийн ирцүүд (хамгийн шинэ нь эхэнд).
+export function findAttendanceForStudent(tx: Tx, studentId: string) {
+  return tx.attendance.findMany({
+    where: { contract: { studentId } },
+    include: { lesson: true, contract: { include: { program: true } } },
+    orderBy: { lesson: { startsAt: "desc" } },
+    take: 100,
+  });
+}
+
+// Ирээдүйн хичээлд өгсөн чөлөөний хүсэлтүүд (UI "Чөлөө хүссэн" гэж тэмдэглэнэ).
+export function findUpcomingLeaveRequestsForStudent(tx: Tx, studentId: string, now: Date) {
+  return tx.leaveRequest.findMany({
+    where: { contract: { studentId }, lesson: { startsAt: { gt: now } } },
+    select: { lessonId: true, contractId: true },
+  });
+}

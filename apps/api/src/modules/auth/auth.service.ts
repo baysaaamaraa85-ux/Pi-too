@@ -306,7 +306,7 @@ export interface CreateUserResult {
 // хоёр хэлбэрээр хуваав (CLAUDE.md 6.2, 6.3).
 export async function createUserInTx(
   tx: Tx,
-  role: "TEACHER" | "PARENT",
+  role: "TEACHER" | "PARENT" | "STUDENT",
   phone: string,
   fullName: string,
 ): Promise<CreateUserResult> {

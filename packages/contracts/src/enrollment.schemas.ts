@@ -6,6 +6,8 @@ export const createStudentSchema = z.object({
   parentPhone: z.string().min(1, "Эцэг эхийн утас шаардлагатай"),
   parentFullName: z.string().min(1).optional(),
   studentFullName: z.string().min(1, "Сурагчийн нэр шаардлагатай"),
+  // Сонголттой: утас заавал биш. Өгвөл сурагч өөрөө нэвтрэх данс авна.
+  studentPhone: z.string().min(1).optional(),
   school: z.string().optional(),
   grade: z.string().optional(),
 });

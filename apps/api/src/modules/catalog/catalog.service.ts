@@ -21,6 +21,13 @@ const classDefaultsSchema = z.object({
   maxCapacity: z.number().int().positive(),
 });
 
+const paymentAccountSchema = z.object({
+  bankName: z.string(),
+  accountHolder: z.string(),
+  accountNumber: z.string(),
+  iban: z.string().optional(),
+});
+
 function settingNotConfigured(key: string): never {
   throw new DomainError({
     code: "settings-not-configured",
@@ -49,6 +56,13 @@ export async function getClassDefaults(tx: Tx) {
   const row = await repo.findSetting(tx, "class_defaults");
   if (!row) settingNotConfigured("class_defaults");
   return classDefaultsSchema.parse(row.value);
+}
+
+// ФШ-49, ADR-016: эцэг эхэд харуулах төвийн дансны мэдээлэл settings-ээс.
+export async function getPaymentAccount(tx: Tx) {
+  const row = await repo.findSetting(tx, "payment_account");
+  if (!row) settingNotConfigured("payment_account");
+  return paymentAccountSchema.parse(row.value);
 }
 
 function programNotFound(): never {

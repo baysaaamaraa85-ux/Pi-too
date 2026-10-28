@@ -41,7 +41,7 @@ export function LessonCard({
             <Clock className="size-5" />
           </span>
           <div>
-            <p className="font-display text-lg font-bold leading-tight text-foreground-strong">
+            <p className="text-lg font-bold leading-tight text-foreground-strong">
               {formatTime(lesson.startsAt)} - {formatTime(lesson.endsAt)}
             </p>
             {extra ? <p className="text-[0.82rem] text-muted">{extra}</p> : null}

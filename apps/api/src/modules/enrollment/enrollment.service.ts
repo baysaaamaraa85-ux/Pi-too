@@ -2,6 +2,7 @@ import { prisma, type Tx } from "../../shared/db/prisma.js";
 import {
   AssessmentType,
   ContractStatus,
+  Role,
   type PlacementRequestStatus,
 } from "../../generated/prisma/client.js";
 import { DomainError } from "../../shared/errors/domain-error.js";
@@ -24,6 +25,8 @@ export interface RegisterStudentResult {
   studentId: string;
   parentId: string;
   tempPassword?: string;
+  studentUserId?: string;
+  studentTempPassword?: string;
 }
 
 // ФШ-12, 13: сурагч, эцэг эх, холбоосыг нэг транзакцаар үүсгэнэ. Ижил
@@ -32,6 +35,7 @@ export async function registerStudent(input: {
   parentPhone: string;
   parentFullName?: string;
   studentFullName: string;
+  studentPhone?: string;
   school?: string;
   grade?: string;
 }): Promise<RegisterStudentResult> {
@@ -57,14 +61,29 @@ export async function registerStudent(input: {
       tempPassword = created.tempPassword;
     }
 
+    // Сурагчийн утас өгөгдвөл сурагч өөрийн нэвтрэх данстай болно (STUDENT үүрэг).
+    let studentUserId: string | undefined;
+    let studentTempPassword: string | undefined;
+    if (input.studentPhone) {
+      const studentUser = await createUserInTx(
+        tx,
+        "STUDENT",
+        input.studentPhone,
+        input.studentFullName,
+      );
+      studentUserId = studentUser.id;
+      studentTempPassword = studentUser.tempPassword;
+    }
+
     const student = await repo.createStudent(tx, {
       fullName: input.studentFullName,
+      userId: studentUserId,
       school: input.school,
       grade: input.grade,
     });
     await repo.linkParentStudent(tx, parentId, student.id);
 
-    return { studentId: student.id, parentId, tempPassword };
+    return { studentId: student.id, parentId, tempPassword, studentUserId, studentTempPassword };
   });
 }
 
@@ -311,4 +330,128 @@ export function listPlacementRequests(status?: PlacementRequestStatus) {
 
 export function updatePlacementRequest(id: string, status: PlacementRequestStatus, note?: string) {
   return repo.updatePlacementRequest(prisma, id, { status, note });
+}
+
+// ---------------------------------------------------------------------------
+// Порталын харагдац (эцэг эх, сурагч). Зөвхөн уншдаг, бизнесийн дүрэм агуулахгүй.
+// ---------------------------------------------------------------------------
+
+export interface PortalUser {
+  id: string;
+  role: Role;
+}
+
+export interface StudentOverview {
+  studentId: string;
+  fullName: string;
+  school: string | null;
+  grade: string | null;
+  contracts: {
+    id: string;
+    programName: string;
+    status: ContractStatus;
+    totalVisits: number;
+    remainingVisits: number;
+    leavesLeft: number;
+    freeReviewsLeft: number;
+    classes: {
+      id: string;
+      weekday: number;
+      startTime: string;
+      durationMin: number;
+      teacherName: string;
+      branchName: string;
+    }[];
+  }[];
+}
+
+type StudentWithContracts = NonNullable<Awaited<ReturnType<typeof repo.findStudentForStudentUser>>>;
+
+function toStudentOverview(student: StudentWithContracts): StudentOverview {
+  return {
+    studentId: student.id,
+    fullName: student.fullName,
+    school: student.school,
+    grade: student.grade,
+    contracts: student.contracts.map((contract) => ({
+      id: contract.id,
+      programName: contract.program.name,
+      status: contract.status,
+      totalVisits: contract.totalVisits,
+      remainingVisits: contract.remainingVisits,
+      leavesLeft: contract.leavesLeft,
+      freeReviewsLeft: contract.freeReviewsLeft,
+      classes: contract.enrollments.map((enrollment) => ({
+        id: enrollment.class.id,
+        weekday: enrollment.class.weekday,
+        startTime: enrollment.class.startTime,
+        durationMin: enrollment.class.durationMin,
+        teacherName: enrollment.class.teacher.fullName,
+        branchName: enrollment.class.branch.name,
+      })),
+    })),
+  };
+}
+
+// ФШ-23, ФБШ-20: эцэг эх өөрийн хүүхдүүдийг, сурагч зөвхөн өөрийгөө харна.
+export function listStudentsForUser(user: PortalUser): Promise<StudentOverview[]> {
+  return prisma.$transaction(async (tx) => {
+    if (user.role === Role.PARENT) {
+      const students = await repo.findStudentsForParent(tx, user.id);
+      return students.map(toStudentOverview);
+    }
+    if (user.role === Role.STUDENT) {
+      const student = await repo.findStudentForStudentUser(tx, user.id);
+      return student ? [toStudentOverview(student)] : [];
+    }
+    return [];
+  });
+}
+
+function forbiddenStudent(): never {
+  throw new DomainError({
+    code: "forbidden-student",
+    status: 403,
+    title: "Эрх хүрэхгүй байна",
+    detail: "Энэ сурагчийн мэдээллийг харах эрхгүй байна.",
+  });
+}
+
+// ADR-008, BOLA: эцэг эх зөвхөн parent_students-д холбогдсон хүүхдэд, сурагч
+// зөвхөн өөрт (students.user_id) хандана.
+export async function assertStudentAccessInTx(tx: Tx, user: PortalUser, studentId: string) {
+  if (user.role === Role.PARENT) {
+    const link = await repo.findParentStudentLink(tx, user.id, studentId);
+    if (!link) forbiddenStudent();
+    return;
+  }
+  if (user.role === Role.STUDENT) {
+    const student = await repo.findStudentById(tx, studentId);
+    if (!student || student.userId !== user.id) forbiddenStudent();
+    return;
+  }
+  forbiddenStudent();
+}
+
+// Гэрээг эзэмшлийн шалгалттай буцаана: байхгүй бол 404, өөр хүнийх бол 403.
+export async function getContractForUserInTx(tx: Tx, user: PortalUser, contractId: string) {
+  const contract = await repo.findContractWithStudent(tx, contractId);
+  if (!contract) {
+    throw new DomainError({
+      code: "contract-not-found",
+      status: 404,
+      title: "Гэрээ олдсонгүй",
+      detail: "Заасан гэрээ бүртгэлгүй байна.",
+    });
+  }
+  await assertStudentAccessInTx(tx, user, contract.studentId);
+  return contract;
+}
+
+export function assertStudentAccess(user: PortalUser, studentId: string) {
+  return prisma.$transaction((tx) => assertStudentAccessInTx(tx, user, studentId));
+}
+
+export function hasActiveEnrollmentInClassInTx(tx: Tx, contractId: string, classId: string) {
+  return repo.findActiveEnrollmentInClass(tx, contractId, classId);
 }

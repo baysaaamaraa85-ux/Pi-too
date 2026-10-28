@@ -51,20 +51,3 @@ export function TeacherSchedulePage() {
     </>
   );
 }
-
-// Эцэг эх, сурагч зөвхөн өөрт хамаарах хичээлийг харна (сервер шүүнэ).
-export function PortalSchedulePage() {
-  const { from, to, today } = useRange();
-  const lessons = useLessons(from, to);
-  const upcoming = (lessons.data ?? []).filter((l) => localDateKey(l.startsAt) >= today);
-
-  return (
-    <>
-      <PageHeader title="Миний хуваарь" subtitle="Дараагийн 4 долоо хоногийн хичээл" />
-      <Loading query={lessons} />
-      {lessons.data ? (
-        <DayGroups lessons={upcoming} renderLesson={(lesson) => <LessonCard lesson={lesson} />} />
-      ) : null}
-    </>
-  );
-}

@@ -103,4 +103,5 @@ export const api = {
   put: <T>(path: string, body?: unknown, idempotencyKey?: string) =>
     request<T>(path, { method: "PUT", body, idempotencyKey }),
   patch: <T>(path: string, body?: unknown) => request<T>(path, { method: "PATCH", body }),
+  delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };

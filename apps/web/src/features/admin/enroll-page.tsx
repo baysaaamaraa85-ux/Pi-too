@@ -29,7 +29,9 @@ interface Registered {
   studentId: string;
   parentId: string;
   tempPassword?: string;
+  studentTempPassword?: string;
   studentName: string;
+  studentPhone?: string;
   parentPhone: string;
 }
 
@@ -96,7 +98,14 @@ export function AdminEnrollPage() {
 function StudentStep({ onDone }: { onDone: (r: Registered) => void }) {
   const form = useForm<StudentForm>({
     resolver: zodResolver(createStudentSchema),
-    defaultValues: { parentPhone: "", parentFullName: "", studentFullName: "", school: "", grade: "" },
+    defaultValues: {
+      parentPhone: "",
+      parentFullName: "",
+      studentFullName: "",
+      studentPhone: "",
+      school: "",
+      grade: "",
+    },
   });
   const errors = form.formState.errors;
   const phone = form.watch("parentPhone").replace(/[\s-]/g, "");
@@ -111,10 +120,16 @@ function StudentStep({ onDone }: { onDone: (r: Registered) => void }) {
 
   const create = useMutation({
     mutationFn: (values: StudentForm) =>
-      api.post<{ studentId: string; parentId: string; tempPassword?: string }>("/students", {
+      api.post<{
+        studentId: string;
+        parentId: string;
+        tempPassword?: string;
+        studentTempPassword?: string;
+      }>("/students", {
         ...values,
         parentPhone: values.parentPhone.replace(/[\s-]/g, ""),
         parentFullName: values.parentFullName || undefined,
+        studentPhone: values.studentPhone?.replace(/[\s-]/g, "") || undefined,
         school: values.school || undefined,
         grade: values.grade || undefined,
       }),
@@ -122,6 +137,7 @@ function StudentStep({ onDone }: { onDone: (r: Registered) => void }) {
       onDone({
         ...result,
         studentName: values.studentFullName,
+        studentPhone: values.studentPhone?.replace(/[\s-]/g, "") || undefined,
         parentPhone: values.parentPhone.replace(/[\s-]/g, ""),
       }),
   });
@@ -153,6 +169,19 @@ function StudentStep({ onDone }: { onDone: (r: Registered) => void }) {
           )}
           <Field label="Сурагчийн нэр" htmlFor="studentFullName" error={errors.studentFullName?.message}>
             <Input id="studentFullName" {...form.register("studentFullName")} />
+          </Field>
+          <Field
+            label="Сурагчийн утас (сонголттой)"
+            htmlFor="studentPhone"
+            hint="Оруулбал сурагч өөрийн дансаар нэвтэрч хуваарь, ирцээ харна."
+          >
+            <Input
+              id="studentPhone"
+              type="tel"
+              inputMode="tel"
+              placeholder="9911 1234"
+              {...form.register("studentPhone")}
+            />
           </Field>
           <div className="grid gap-3.5 sm:grid-cols-2">
             <Field label="Сургууль" htmlFor="school">
@@ -385,6 +414,16 @@ function DoneStep({
             <dd className="font-semibold">{formatMoney(contract.price)}</dd>
           </div>
         </dl>
+        {registered.studentTempPassword ? (
+          <div className="rounded-xl bg-success-bg p-4 text-sm text-mid">
+            Сурагчийн данс үүслээ. Нэвтрэх нэр: <strong>{registered.studentPhone}</strong>, түр нууц
+            үг:{" "}
+            <code className="rounded-md bg-white px-2 py-1 font-mono font-bold text-foreground-strong">
+              {registered.studentTempPassword}
+            </code>
+            <p className="mt-2 text-xs text-muted">Энэ нууц үг дахин харагдахгүй.</p>
+          </div>
+        ) : null}
         {registered.tempPassword ? (
           <div className="rounded-xl bg-success-bg p-4 text-sm text-mid">
             Эцэг эхийн шинэ данс үүслээ. Нэвтрэх нэр: <strong>{registered.parentPhone}</strong>, түр

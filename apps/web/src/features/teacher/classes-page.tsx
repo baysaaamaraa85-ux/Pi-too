@@ -1,13 +1,16 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClassSchema } from "@pitoo/contracts";
+import * as React from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { PageHeader } from "@/app/app-shell";
 import { useAuth } from "@/features/auth/auth-context";
 import { ApiError, api } from "@/shared/api-client/client";
 import { weekdayName, WEEKDAY_NAMES } from "@/shared/format/date";
+import type { ClassDto } from "@/shared/api-client/types";
 import { Button } from "@/shared/ui/button";
+import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Field, FormError, Select } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
@@ -33,7 +36,19 @@ export function TeacherClassesPage() {
     mutationFn: (values: z.output<typeof formSchema>) => api.post("/classes", values),
     onSuccess: () => {
       form.reset({ branchId: "", weekday: 1, startTime: "10:00" });
+      // Анги үүсэхэд хичээлүүд нь шууд үүсдэг тул "Өнөөдөр", "Хуваарь" хуудас шинэчлэгдэнэ.
       void queryClient.invalidateQueries({ queryKey: ["classes"] });
+      void queryClient.invalidateQueries({ queryKey: ["lessons"] });
+    },
+  });
+
+  const [classToDelete, setClassToDelete] = React.useState<ClassDto | null>(null);
+  const remove = useMutation({
+    mutationFn: (id: string) => api.delete(`/classes/${id}`),
+    onSuccess: () => {
+      setClassToDelete(null);
+      void queryClient.invalidateQueries({ queryKey: ["classes"] });
+      void queryClient.invalidateQueries({ queryKey: ["lessons"] });
     },
   });
   const serverError =
@@ -94,16 +109,41 @@ export function TeacherClassesPage() {
         ) : null}
         {classes.data?.map((cls) => (
           <Card key={cls.id} className="p-5">
-            <p className="font-display text-lg font-bold text-foreground-strong">
+            <p className="text-lg font-bold text-foreground-strong">
               {weekdayName(cls.weekday)} · {cls.startTime}
             </p>
             <p className="mt-1 text-sm text-muted">
               {branches.data?.find((b) => b.id === cls.branchId)?.name ?? "Салбар"} ·{" "}
               {cls.durationMin} минут · {cls.capacity} суудал
             </p>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="mt-4"
+              onClick={() => {
+                remove.reset();
+                setClassToDelete(cls);
+              }}
+            >
+              Анги устгах
+            </Button>
           </Card>
         ))}
       </div>
+
+      <ConfirmDialog
+        open={classToDelete !== null}
+        title="Анги устгах уу?"
+        description={`${
+          remove.error instanceof ApiError ? remove.error.problem.detail + " " : ""
+        }${
+          classToDelete ? `${weekdayName(classToDelete.weekday)} ${classToDelete.startTime} ангийг устгавал ирэх хичээлүүд хуваариас арилна. ` : ""
+        }Өнгөрсөн хичээл, ирцийн түүх хадгалагдана.`}
+        confirmLabel="Устгах"
+        busy={remove.isPending}
+        onConfirm={() => classToDelete && remove.mutate(classToDelete.id)}
+        onClose={() => setClassToDelete(null)}
+      />
     </>
   );
 }

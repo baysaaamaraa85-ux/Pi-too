@@ -16,6 +16,7 @@ schedulingRouter.get(
 );
 schedulingRouter.get("/classes", authorize("ADMIN", "TEACHER"), controller.listClasses);
 schedulingRouter.post("/classes", authorize("ADMIN", "TEACHER"), controller.createClass);
+schedulingRouter.delete("/classes/:id", authorize("ADMIN", "TEACHER"), controller.deleteClass);
 schedulingRouter.post(
   "/classes/:id/enrollments",
   authorize("ADMIN", "TEACHER"),

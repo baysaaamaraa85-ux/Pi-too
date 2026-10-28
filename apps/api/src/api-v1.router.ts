@@ -5,6 +5,8 @@ import { catalogRouter } from "./modules/catalog/catalog.routes.js";
 import { catalogPublicRouter } from "./modules/catalog/catalog.public.routes.js";
 import { schedulingRouter } from "./modules/scheduling/scheduling.routes.js";
 import { enrollmentRouter } from "./modules/enrollment/enrollment.routes.js";
+import { attendanceRouter } from "./modules/attendance/attendance.routes.js";
+import { portalRouter } from "./modules/portal/portal.routes.js";
 
 // Модуль бүрийн route-ууд тухайн модулийг хийх үедээ энд холбогдоно.
 export const apiV1Router = Router();
@@ -15,4 +17,8 @@ apiV1Router.use(enrollmentPublicRouter);
 apiV1Router.use(catalogPublicRouter);
 apiV1Router.use(catalogRouter);
 apiV1Router.use(schedulingRouter);
+// attendance, portal нь эцэг эх, сурагчийн route тул "ADMIN, TEACHER"-ийг router
+// даяар шаарддаг enrollmentRouter-ээс ӨМНӨ холбогдоно (эс бөгөөс 403 авна).
+apiV1Router.use(attendanceRouter);
+apiV1Router.use(portalRouter);
 apiV1Router.use(enrollmentRouter);
