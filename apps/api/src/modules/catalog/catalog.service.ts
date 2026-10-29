@@ -21,6 +21,10 @@ const classDefaultsSchema = z.object({
   maxCapacity: z.number().int().positive(),
 });
 
+const attendanceDefaultsSchema = z.object({
+  editWindowHours: z.number().int().positive(),
+});
+
 const weeklyLessonsSchema = z.object({
   min: z.number().int().positive(),
   max: z.number().int().positive(),
@@ -61,6 +65,13 @@ export async function getClassDefaults(tx: Tx) {
   const row = await repo.findSetting(tx, "class_defaults");
   if (!row) settingNotConfigured("class_defaults");
   return classDefaultsSchema.parse(row.value);
+}
+
+// ФШ-33: ирц бүртгэх, засах хугацаа (24 цаг) settings-ээс.
+export async function getAttendanceDefaults(tx: Tx) {
+  const row = await repo.findSetting(tx, "attendance_defaults");
+  if (!row) settingNotConfigured("attendance_defaults");
+  return attendanceDefaultsSchema.parse(row.value);
 }
 
 // ФШ-22: сурагчийн долоо хоногийн хичээлийн зөвшөөрөгдсөн хүрээ (анхдагч 2-4) settings-ээс.

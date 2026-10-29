@@ -127,3 +127,99 @@ export function findUpcomingLeaveRequestsForStudent(tx: Tx, studentId: string, n
     select: { lessonId: true, contractId: true },
   });
 }
+
+// Ирцийн дэлгэц: хичээл, анги, салбар, багш.
+export function findLessonWithContext(tx: Tx, id: string) {
+  return tx.lesson.findUnique({
+    where: { id },
+    include: { class: { include: { branch: true } }, teacher: true },
+  });
+}
+
+export function findAttendanceByLesson(tx: Tx, lessonId: string) {
+  return tx.attendance.findMany({
+    where: { lessonId },
+    include: { contract: { include: { student: true, program: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+export function findLeaveRequestsByLesson(tx: Tx, lessonId: string) {
+  return tx.leaveRequest.findMany({ where: { lessonId }, select: { contractId: true } });
+}
+
+export function findRosterEnrollments(tx: Tx, classId: string, lessonDate: Date) {
+  return tx.enrollment.findMany({
+    where: {
+      classId,
+      fromDate: { lte: lessonDate },
+      OR: [{ toDate: null }, { toDate: { gte: lessonDate } }],
+      contract: {
+        OR: [{ status: "ACTIVE" }, { status: "COMPLETED", freeReviewsLeft: { gt: 0 } }],
+      },
+    },
+    include: { contract: { include: { student: true, program: true } } },
+  });
+}
+
+export function findContractWithStudent(tx: Tx, id: string) {
+  return tx.contract.findUnique({
+    where: { id },
+    include: { student: true, program: true },
+  });
+}
+
+// ФШ-31: нөхөгдөөгүй чөлөө = Чөлөөтэй ирцийн тоо - Нөхөлтийн тоо.
+export async function countExcusedAndMakeups(tx: Tx, contractId: string) {
+  const [excused, makeups] = await Promise.all([
+    tx.attendance.count({ where: { contractId, status: "EXCUSED" } }),
+    tx.attendance.count({ where: { contractId, isMakeup: true } }),
+  ]);
+  return { excused, makeups };
+}
+
+// ФШ-31: багшийн ӨӨР ангийн идэвхтэй гэрээнүүд (нөхөлтийн нэр дэвшигчид).
+export function findMakeupCandidateEnrollments(tx: Tx, teacherId: string, excludeClassId: string) {
+  return tx.enrollment.findMany({
+    where: {
+      toDate: null,
+      classId: { not: excludeClassId },
+      class: { teacherId, isActive: true },
+      contract: { status: "ACTIVE" },
+    },
+    include: { contract: { include: { student: true, program: true } }, class: true },
+  });
+}
+
+export function findOpenTeacherTask(tx: Tx, contractId: string, type: "EXAM" | "MEETING") {
+  return tx.teacherTask.findFirst({ where: { contractId, type, doneAt: null } });
+}
+
+export function findAuditHistoryWithActor(tx: Tx, entityId: string) {
+  return tx.auditLog.findMany({
+    where: { entity: "attendance", entityId },
+    orderBy: { createdAt: "asc" },
+    include: { actor: true },
+  });
+}
+
+// Ирцийн жагсаалт: нэг өдрийн (Улаанбаатарын) хичээлүүд, салбар, багш, ирц бүртгэгдсэн тоо.
+export function findLessonsForDay(
+  tx: Tx,
+  range: { from: Date; to: Date },
+  filters: { teacherId?: string; branchId?: string },
+) {
+  return tx.lesson.findMany({
+    where: {
+      startsAt: { gte: range.from, lt: range.to },
+      teacherId: filters.teacherId,
+      class: filters.branchId ? { branchId: filters.branchId } : undefined,
+    },
+    include: {
+      class: { include: { branch: true } },
+      teacher: true,
+      _count: { select: { attendance: true } },
+    },
+    orderBy: { startsAt: "asc" },
+  });
+}

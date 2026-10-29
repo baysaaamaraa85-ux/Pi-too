@@ -12,3 +12,47 @@ attendanceRouter.post(
   authorize("PARENT", "STUDENT"),
   controller.createLeaveRequest,
 );
+
+// Ирц (М5, Хүснэгт 3.12): багш өөрийн хичээлд, админ бүгдэд. Эзэмшлийг service шалгана.
+attendanceRouter.get(
+  "/attendance/lessons",
+  authenticate,
+  authorize("ADMIN", "TEACHER"),
+  controller.listLessonsForDay,
+);
+attendanceRouter.get(
+  "/lessons/:id/attendance",
+  authenticate,
+  authorize("ADMIN", "TEACHER"),
+  controller.getSheet,
+);
+attendanceRouter.put(
+  "/lessons/:id/attendance",
+  authenticate,
+  authorize("ADMIN", "TEACHER"),
+  controller.putAttendance,
+);
+attendanceRouter.get(
+  "/lessons/:id/makeup-candidates",
+  authenticate,
+  authorize("ADMIN", "TEACHER"),
+  controller.listMakeupCandidates,
+);
+attendanceRouter.post(
+  "/lessons/:id/makeups",
+  authenticate,
+  authorize("ADMIN", "TEACHER"),
+  controller.addMakeup,
+);
+attendanceRouter.patch(
+  "/attendance/:id",
+  authenticate,
+  authorize("ADMIN", "TEACHER"),
+  controller.patchAttendance,
+);
+attendanceRouter.get(
+  "/attendance/:id/history",
+  authenticate,
+  authorize("ADMIN"),
+  controller.getHistory,
+);

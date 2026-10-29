@@ -250,3 +250,10 @@ export function findContractWithPauses(tx: Tx, id: string) {
     include: { pauses: { where: { endedOn: null } } },
   });
 }
+
+export function findParentsOfStudent(tx: Tx, studentId: string) {
+  return tx.parentStudent.findMany({
+    where: { studentId },
+    include: { parent: true },
+  });
+}

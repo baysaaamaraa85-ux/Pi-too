@@ -1,4 +1,5 @@
 import { expect, type APIRequestContext } from "@playwright/test";
+import pg from "pg";
 import { E2E } from "./env.mjs";
 import { uniquePhone } from "./helpers";
 
@@ -105,4 +106,73 @@ export async function enrollViaApi(
     },
   });
   return res;
+}
+
+// ---- Ирцийн e2e: хичээлийг SQL-ээр шууд үүсгэнэ (цаг хугацааг удирдахын тулд) ----
+
+
+// Улаанбаатарын өнөөдрийн гараг (1=Даваа...7=Ням).
+export function todayWeekday(): number {
+  const local = new Date(Date.now() + 8 * 3_600_000);
+  const js = local.getUTCDay();
+  return js === 0 ? 7 : js;
+}
+
+// Өнөөдрөөс өөр гаруудыг сонгоно: ангийн ердийн хичээл (4 долоо хоног) туршилтын
+// хичээлтэй цагаар давхцахгүй.
+export function weekdaysExceptToday(count: number): number[] {
+  const today = todayWeekday();
+  const result: number[] = [];
+  for (let d = 1; d <= 7 && result.length < count; d++) if (d !== today) result.push(d);
+  return result;
+}
+
+// Хичээл startOffsetMin минутын өмнө эхэлж (сөрөг бол ирээдүйд) durationMin үргэлжилнэ.
+export async function insertLesson(
+  classId: string,
+  teacherId: string,
+  startOffsetMin: number,
+  durationMin = 120,
+): Promise<string> {
+  const client = new pg.Client({ connectionString: E2E.databaseUrl });
+  await client.connect();
+  try {
+    const startsAt = new Date(Date.now() - startOffsetMin * 60_000);
+    const endsAt = new Date(startsAt.getTime() + durationMin * 60_000);
+    const res = await client.query(
+      `INSERT INTO lessons (id, class_id, teacher_id, starts_at, ends_at, original_starts_at, updated_at)
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $3, now()) RETURNING id`,
+      [classId, teacherId, startsAt, endsAt],
+    );
+    return res.rows[0].id as string;
+  } finally {
+    await client.end();
+  }
+}
+
+export async function insertLeaveRequest(contractId: string, lessonId: string, userId: string) {
+  const client = new pg.Client({ connectionString: E2E.databaseUrl });
+  await client.connect();
+  try {
+    await client.query(
+      `INSERT INTO leave_requests (id, contract_id, lesson_id, requested_by)
+       VALUES (gen_random_uuid(), $1, $2, $3)`,
+      [contractId, lessonId, userId],
+    );
+  } finally {
+    await client.end();
+  }
+}
+
+// Өмнөх өдрүүдийн хичээлийн жагсаалтад орохын тулд бүртгэлийн эхлэх огноог урагшлуулна.
+export async function backdateEnrollment(contractId: string) {
+  const client = new pg.Client({ connectionString: E2E.databaseUrl });
+  await client.connect();
+  try {
+    await client.query("UPDATE enrollments SET from_date = '2026-01-01' WHERE contract_id = $1", [
+      contractId,
+    ]);
+  } finally {
+    await client.end();
+  }
 }

@@ -426,8 +426,9 @@ model Attendance {
   createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt  DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  lesson   Lesson   @relation(fields: [lessonId], references: [id], onDelete: Restrict)
-  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  lesson        Lesson        @relation(fields: [lessonId], references: [id], onDelete: Restrict)
+  contract      Contract      @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  ledgerEntries LedgerEntry[]
 
   @@unique([lessonId, contractId])
   @@index([contractId])
@@ -459,21 +460,25 @@ enum LedgerType {
 // ADR-010: зөвхөн нэмэгддэг журнал, үлдэгдлийг SUM(amount)-аар тооцно. EARNING
 // төрөлд lessonId давхардахгүй (хэсэгчилсэн UNIQUE, гараар бичих migration).
 model LedgerEntry {
-  id        String     @id @default(uuid()) @db.Uuid
-  teacherId String     @map("teacher_id") @db.Uuid
-  type      LedgerType
-  amount    Decimal    @db.Decimal(12, 2) // олголт (PAYOUT) сөрөг
-  lessonId  String?    @map("lesson_id") @db.Uuid
-  rateUsed  Decimal?   @map("rate_used") @db.Decimal(12, 2)
-  note      String?
-  createdBy String     @map("created_by") @db.Uuid
-  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  id           String     @id @default(uuid()) @db.Uuid
+  teacherId    String     @map("teacher_id") @db.Uuid
+  type         LedgerType
+  amount       Decimal    @db.Decimal(12, 2) // олголт (PAYOUT) сөрөг
+  lessonId     String?    @map("lesson_id") @db.Uuid
+  // ADR-017: EARNING мөр ирцийн мөр бүрт нэг (сурагч бүрээр). lessonId хэвээр.
+  attendanceId String?    @map("attendance_id") @db.Uuid
+  rateUsed     Decimal?   @map("rate_used") @db.Decimal(12, 2)
+  note         String?
+  createdBy    String     @map("created_by") @db.Uuid
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  teacher       Teacher @relation(fields: [teacherId], references: [userId], onDelete: Restrict)
-  lesson        Lesson? @relation(fields: [lessonId], references: [id], onDelete: Restrict)
-  createdByUser User    @relation("LedgerCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  teacher       Teacher     @relation(fields: [teacherId], references: [userId], onDelete: Restrict)
+  lesson        Lesson?     @relation(fields: [lessonId], references: [id], onDelete: Restrict)
+  attendance    Attendance? @relation(fields: [attendanceId], references: [id], onDelete: Restrict)
+  createdByUser User        @relation("LedgerCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
 
   @@index([teacherId, createdAt])
+  @@index([attendanceId])
   @@map("ledger_entries")
 }
 

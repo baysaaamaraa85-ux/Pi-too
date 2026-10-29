@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router";
 import { api } from "@/shared/api-client/client";
 import type { BranchDto, ClassDto } from "@/shared/api-client/types";
 import { addDaysToKey, formatDate, localDateKey, weekdayName } from "@/shared/format/date";
@@ -63,13 +64,11 @@ export function TeacherTodayPage() {
               )}
               actions={
                 <>
-                  <Button
-                    size="sm"
-                    disabled
-                    title="Ирцийн дэлгэц дараагийн шатанд (М5) нэмэгдэнэ"
-                  >
-                    Ирц бүртгэх
-                  </Button>
+                  {lesson.status === "SCHEDULED" ? (
+                    <Button asChild>
+                      <Link to={`/teacher/attendance/${lesson.id}`}>Ирц бүртгэх</Link>
+                    </Button>
+                  ) : null}
                   <LessonActions lesson={lesson} />
                 </>
               }

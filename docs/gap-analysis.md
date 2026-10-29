@@ -44,7 +44,7 @@
 | ФШ-17 | Хэрэгжсэн | `registerStudent`/`createContract`, settings-ээс 75/3, тест | | |
 | ФШ-18 | Хэрэгжсэн | PUT /contracts/{id}/plan (эзэмшлийн шалгалттай), `/teacher/students` Төлөвлөгөө цонх, тест | | |
 | ФШ-72 | Хэрэгжсэн | POST /contracts/{id}/pause, `/teacher/students` "Урт хугацааны чөлөө", тест, e2e | | |
-| ФШ-73 | Хэсэгчлэн | `findActiveEnrollmentsForClass` зөвхөн ACTIVE гэрээ шүүнэ | Ирцийн service ба дэлгэц байхгүй, тест | 4 |
+| ФШ-73 | Хэрэгжсэн | Түр зогсоосон гэрээ ирцийн жагсаалтад гарахгүй, PUT 409, `attendance.record.test.ts` |  |  |
 | ФШ-74 | Хэрэгжсэн | `pauseContract` (holdSeat=false бол бүртгэл хаана), `enrollment.rules.test.ts` | | |
 | ФШ-75 | Хэрэгжсэн | POST /contracts/{id}/resume, `/teacher/students` "Үргэлжлүүлэх", тест, e2e | | |
 | ФШ-78 | Хэрэгжсэн | /public/branches, `/programs`, `/teachers`, `/contact` | | |
@@ -66,18 +66,18 @@
 
 | Код | Төлөв | Хаана байгаа | Юу дутуу | Шат |
 | --- | --- | --- | --- | --- |
-| ФШ-26 | Хэсэгчлэн | `AttendanceStatus` enum, `attendance.schemas.ts` | Төлвийн дүрэм (service) | 4 |
-| ФШ-27 | Хийгдээгүй | repository-д `findActiveEnrollmentsForClass` | GET /lessons/{id}/attendance, ирцийн дэлгэц | 4 |
-| ФШ-28 | Хийгдээгүй | | Чөлөөтэй төлөв, эрх хасах | 4 |
-| ФШ-29 | Хийгдээгүй | | Чөлөө хэтэрсэн төлөв | 4 |
-| ФШ-30 | Хэсэгчлэн | POST /leave-requests, outbox мэдэгдэл | Ирцийн дэлгэцэд урьдчилан "ирээгүй" тэмдэглэх | 4 |
-| ФШ-31 | Хийгдээгүй | | POST /lessons/{id}/makeups, хязгаар | 4 |
-| ФШ-32 | Хийгдээгүй | `runIdempotent`, `lockContractsForUpdate` бэлэн | PUT /lessons/{id}/attendance нэг транзакц | 4 |
-| ФШ-33 | Хийгдээгүй | settings `editWindowHours` | 24 цагийн дүрэм, админы шалтгаан | 4 |
-| ФШ-34 | Хийгдээгүй | `recordAdjustmentInTx` | PATCH /attendance/{id}, Хүснэгт 3.15 | 4, 5 |
-| ФШ-35 | Хийгдээгүй | `audit_log`, `writeAudit` | GET /attendance/{id}/history | 4 |
-| ФШ-36 | Хийгдээгүй | | 4-өөс 3 болох мэдэгдэл | 4 |
-| ФШ-37 | Хийгдээгүй | `teacher_tasks` хүснэгт | Гэрээ "Дууссан", шалгалтын ажил | 4 |
+| ФШ-26 | Хэрэгжсэн | `AttendanceStatus` enum, `attendance.rules.ts`, `attendance.rules.test.ts` |  |  |
+| ФШ-27 | Хэрэгжсэн | GET /lessons/{id}/attendance, `/teacher/attendance/:id`, `/admin/attendance/:id`, `e2e/05-attendance.spec.ts` |  |  |
+| ФШ-28 | Хэрэгжсэн | `decideStatus`, PUT /lessons/{id}/attendance, `attendance.record.test.ts` (эрх 1 ба 0) |  |  |
+| ФШ-29 | Хэрэгжсэн | `decideStatus`, клиентийн төлвийг үл хүлээнэ, `attendance.record.test.ts` |  |  |
+| ФШ-30 | Хэрэгжсэн | POST /leave-requests, ирцийн дэлгэц урьдчилан "Ирээгүй" + "Чөлөө хүссэн" шошго, e2e |  |  |
+| ФШ-31 | Хэрэгжсэн | POST /lessons/{id}/makeups, GET makeup-candidates, `attendance.record.test.ts` (2 чөлөөнд 3 дахь нөхөлт 409, 6 суудал) |  |  |
+| ФШ-32 | Хэрэгжсэн | `saveAttendance` нэг транзакц + `runIdempotent`, ЧХ-2 тест (`attendance.record.test.ts`) |  |  |
+| ФШ-33 | Хэрэгжсэн | `loadLessonForWrite`, settings `editWindowHours`, `attendance.record.test.ts` (23 ба 25 цаг), e2e |  |  |
+| ФШ-34 | Хэрэгжсэн | PATCH /attendance/{id}, `settleAttendanceEarningInTx` (ADJUSTMENT), `attendance.record.test.ts` Хүснэгт 3.15-ын 4 мөр |  |  |
+| ФШ-35 | Хэрэгжсэн | audit_log, GET /attendance/{id}/history (админ), `attendance.record.test.ts` | Түүхийг UI-д харуулах (шат 10) | 10 |
+| ФШ-36 | Хэрэгжсэн | `crossedToThree` (4-өөс 3), outbox `package_ending`, `attendance.record.test.ts` | Илгээх суваг (шат 8) | 8 |
+| ФШ-37 | Хэрэгжсэн | Гэрээ Дууссан, `teacher_tasks` EXAM, засварт Идэвхтэй руу буцна, `attendance.record.test.ts` |  |  |
 
 ### М6. Сургалтын явц
 
@@ -88,7 +88,7 @@
 | ФШ-40 | Хийгдээгүй | Давтлагын хориг (4 дэх) | 6 |
 | ФШ-41 | Хийгдээгүй | Дүнгийн түүх хүснэгт, шугаман график | 6 |
 | ФШ-42 | Хийгдээгүй | Сул сэдэв (босго settings-ээс) | 6 |
-| ФШ-43 | Хийгдээгүй | 13 ба 25 дахь ирэлтийн уулзалтын сануулга | 4, 6 |
+| ФШ-43 | Хэсэгчлэн | `meetingVisitReached` (13, 25), `teacher_tasks` MEETING, `attendance.record.test.ts` | Багшийн самбарт харуулах (шат 10), уулзалт бүртгэх (шат 6) | 6, 10 |
 | ФШ-44 | Хийгдээгүй | `lesson_notes`, дотоод ба хуваалцсан | 6 |
 | ФШ-45 | Хийгдээгүй | `parent_meetings` | 6 |
 
@@ -110,8 +110,8 @@
 
 | Код | Төлөв | Хаана байгаа | Юу дутуу | Шат |
 | --- | --- | --- | --- | --- |
-| ФШ-53 | Хэсэгчлэн | `recordEarningInTx` (хичээл бүрт нэг мөр) | Ирцийн мөр бүрт нэг мөр (шинэ шаардлага 1.6, ADR-017), тест | 5 |
-| ФШ-54 | Хийгдээгүй | | Тооцогдох сурагч төлвөөр, төлбөрөөс хамааралгүй | 4, 5 |
+| ФШ-53 | Хэрэгжсэн | `recordAttendanceEarningInTx` (ирцийн мөр бүрт нэг EARNING, ADR-017), `attendance.record.test.ts` (5 000 x 4 x 2 = 40 000) | Админы цалингийн хуудас (шат 5) | 5 |
+| ФШ-54 | Хэсэгчлэн | Цалинд тооцох нь ирцийн төлвөөр (`effectsOf`), төлбөрөөс хамааралгүй | Цалингийн хуудас (шат 5) | 5 |
 | ФШ-55 | Хийгдээгүй | | POST /payouts (advisory lock) | 5 |
 | ФШ-56 | Хийгдээгүй | `getTeacherBalance` | GET /teachers/{id}/ledger, карт, хугацаа | 5 |
 | ФШ-57 | Хийгдээгүй | `getTeacherBalance` | Тасралтгүй үлдэгдлийн тест (-50 000 + 80 000) | 5 |
@@ -123,7 +123,7 @@
 | Код | Төлөв | Хаана байгаа | Юу дутуу | Шат |
 | --- | --- | --- | --- | --- |
 | ФШ-60 | Хэсэгчлэн | `enqueue()`, цуцлахад outbox мөр | Илгээх процесс байхгүй | 8 |
-| ФШ-61 | Хийгдээгүй | | Ирцийн мэдэгдэл | 4, 8 |
+| ФШ-61 | Хэсэгчлэн | outbox `attendance_recorded`, `attendance_updated` (эцэг эхийн сувгаар) | Илгээх процесс (шат 8) | 8 |
 | ФШ-62 | Хийгдээгүй | `parents.notify_channels` | Web Push, SMTP, эцэг эх сувгаа сонгох | 8 |
 | ФШ-63 | Хийгдээгүй | `notification_outbox.status` | Хүргэлтийн төлөв, админы жагсаалт | 8 |
 | ФШ-64 | Хийгдээгүй | | SMS адаптерын интерфейс (C, ТӨ-01) | 8 |
@@ -151,16 +151,16 @@
 | ФБШ-05 | Хийгдээгүй | Цалингийн SUM, GROUP BY, 10 с хэмжилт | 5 |
 | ФБШ-06 | Хийгдээгүй | Outbox илгээгч worker | 8 |
 | ФБШ-07 | Хийгдээгүй | 1 000 сурагчийн ачааллын seed | 12 |
-| ФБШ-08 | Хийгдээгүй | Ирцийн дэлгэц, 3 товшилт | 4 |
+| ФБШ-08 | Хэсэгчлэн | Ирцийн дэлгэц, 2 товшилт, e2e-д 30 секундээс бага (автомат). Багш нартай UAT-ийг би хийхгүй |  |  |
 | ФБШ-09 | Хийгдээгүй | UAT, миний хамрах хүрээнээс гадуур | |
 | ФБШ-10 | Хэсэгчлэн | `e2e/02-mobile-admin.spec.ts`: админы 6 хуудас 360 px-д хэвтээ гүйлгэлтгүй; бусад хуудсыг шат бүрт нэмнэ | 4, 9, 11 |
 | ФБШ-11 | Хэсэгчлэн | `format/date.ts`, `money.ts`; бүх дэлгэцийн хяналт | 2-10 |
 | ФБШ-12 | Хэсэгчлэн | `ConfirmDialog` байгаа; ирц засах, төлбөр цуцлах, олголтод хэрэгжүүлэх | 4, 5, 7 |
 | ФБШ-13 | Хийгдээгүй | Өнгөний ялгарал 4.5:1 шалгаагүй (C) | 11 |
 | ФБШ-14 | Хийгдээгүй | GET /health (db), outbox насны шалгалт дутуу | 12 |
-| ФБШ-15 | Хийгдээгүй | `idempotency_keys` бэлэн; service worker, IndexedDB дараалал | 11 |
+| ФБШ-15 | Хэсэгчлэн | Idempotency-Key заавал (PUT ирц, POST нөхөлт), давтан илгээлт тест | Офлайн дараалал (шат 11) | 11 |
 | ФБШ-16 | Хийгдээгүй | backup контейнер | 12 |
-| ФБШ-17 | Хэсэгчлэн | Одоогийн үйлдлүүд нэг транзакц; ЧХ-2 алдаа тарьсан тест | 4 |
+| ФБШ-17 | Хэсэгчлэн | Ирц, багц, чөлөө, цалин, мэдэгдэл нэг транзакц, ЧХ-2 тест (`attendance.record.test.ts`) | Төлбөр, олголтод (шат 5, 7) | 5, 7 |
 | ФБШ-18 | Хэрэгжсэн | bcrypt, 8+ тэмдэгт | |
 | ФБШ-19 | Хэрэгжсэн | 15 минут, 7 хоног, httpOnly cookie, rotation | |
 | ФБШ-20 | Хэсэгчлэн | BOLA тест portal, scheduling; ирц, цалин, төлбөрт дутуу | 4, 5, 7 |

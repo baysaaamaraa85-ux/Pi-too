@@ -16,6 +16,7 @@ export function createLedgerEntry(
     type: LedgerType;
     amount: string;
     lessonId?: string;
+    attendanceId?: string;
     rateUsed?: string;
     note?: string;
     createdBy: string;
@@ -24,8 +25,18 @@ export function createLedgerEntry(
   return tx.ledgerEntry.create({ data });
 }
 
-export function findEarningByLesson(tx: Tx, lessonId: string) {
-  return tx.ledgerEntry.findFirst({ where: { lessonId, type: "EARNING" } });
+// ADR-017: ирцийн мөр бүрт нэг EARNING.
+export function findEarningByAttendance(tx: Tx, attendanceId: string) {
+  return tx.ledgerEntry.findFirst({ where: { attendanceId, type: "EARNING" } });
+}
+
+// Ирцийн мөрийн одоогийн цалин = EARNING + бүх ADJUSTMENT-ийн нийлбэр.
+export async function sumByAttendance(tx: Tx, attendanceId: string) {
+  const result = await tx.ledgerEntry.aggregate({
+    where: { attendanceId },
+    _sum: { amount: true },
+  });
+  return result._sum.amount;
 }
 
 export async function getTeacherBalance(tx: Tx, teacherId: string): Promise<string> {

@@ -113,27 +113,46 @@ describe("Өгөгдлийн сангийн гараар бичсэн хязга
     ).rejects.toThrow();
   });
 
-  it("нэг хичээлд хоёр EARNING бичигдэхгүй (ADR-010)", async () => {
-    await prisma.ledgerEntry.create({
-      data: {
-        teacherId: teacherUserId,
-        type: LedgerType.EARNING,
-        amount: "40000.00",
-        lessonId,
-        createdBy: adminUserId,
-      },
+  it("ADR-017: нэг ирцийн мөрт хоёр EARNING бичигдэхгүй, харин нэг хичээлд олон сурагчийн EARNING бичигдэнэ", async () => {
+    const attendance = await prisma.attendance.create({
+      data: { lessonId, contractId, marked: true, status: "PRESENT", updatedBy: adminUserId },
     });
+    const data = {
+      teacherId: teacherUserId,
+      type: LedgerType.EARNING,
+      amount: "10000.00",
+      lessonId,
+      createdBy: adminUserId,
+    };
+    await prisma.ledgerEntry.create({ data: { ...data, attendanceId: attendance.id } });
 
     await expect(
-      prisma.ledgerEntry.create({
-        data: {
-          teacherId: teacherUserId,
-          type: LedgerType.EARNING,
-          amount: "40000.00",
-          lessonId,
-          createdBy: adminUserId,
-        },
-      }),
+      prisma.ledgerEntry.create({ data: { ...data, attendanceId: attendance.id } }),
     ).rejects.toThrow();
+
+    // ADJUSTMENT нь ижил ирцийн мөрт олон байж болно (ADR-010).
+    await prisma.ledgerEntry.create({
+      data: { ...data, type: LedgerType.ADJUSTMENT, amount: "-10000.00", attendanceId: attendance.id },
+    });
+
+    // Нэг хичээлийн өөр сурагчийн ирцийн мөр өөр EARNING авна.
+    const otherStudent = await prisma.student.create({ data: { fullName: "Бусад сурагч" } });
+    const otherContract = await prisma.contract.create({
+      data: {
+        studentId: otherStudent.id,
+        programId: (await prisma.contract.findUniqueOrThrow({ where: { id: contractId } })).programId,
+        price: "500000.00",
+        totalVisits: 25,
+        remainingVisits: 25,
+        leavesLeft: 3,
+        rulesAckAt: new Date(),
+      },
+    });
+    const other = await prisma.attendance.create({
+      data: { lessonId, contractId: otherContract.id, marked: true, status: "PRESENT", updatedBy: adminUserId },
+    });
+    await expect(
+      prisma.ledgerEntry.create({ data: { ...data, attendanceId: other.id } }),
+    ).resolves.toBeDefined();
   });
 });
