@@ -105,3 +105,29 @@ export const api = {
   patch: <T>(path: string, body?: unknown) => request<T>(path, { method: "PATCH", body }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };
+
+// Файл (Excel, PDF) татах: Authorization толгойтой хүсэлт илгээж, браузерт хадгалуулна.
+export async function downloadFile(path: string, filename: string): Promise<void> {
+  const token = getAccessToken();
+  const res = await fetch(`/api/v1${path}`, {
+    credentials: "include",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    const problem = (await res.json().catch(() => null)) as ProblemDetails | null;
+    throw new ApiError(
+      problem ?? {
+        type: "https://pi-too.mn/errors/unknown",
+        title: "Алдаа гарлаа",
+        status: res.status,
+        detail: "Файлыг татаж чадсангүй.",
+      },
+    );
+  }
+  const url = URL.createObjectURL(await res.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}

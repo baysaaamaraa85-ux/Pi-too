@@ -5,3 +5,17 @@ export function formatMoney(value: string): string {
   const grouped = (whole ?? "0").replace(/\B(?=(\d{3})+(?!\d))/g, " ");
   return `${grouped} ₮`;
 }
+
+// Мөнгөн тэмдэгт мөрүүдийг (жишээ нь "-10000.50") BigInt-ээр цент болгож нэмнэ:
+// хөвөгч таслалтай number ашиглахгүй (ФБШ-02). Зөвхөн харуулах нийлбэрт.
+export function sumMoney(values: string[]): string {
+  const cents = values.reduce((acc, v) => {
+    const negative = v.startsWith("-");
+    const [whole = "0", frac = ""] = v.replace("-", "").split(".");
+    const c = BigInt(whole) * 100n + BigInt((frac + "00").slice(0, 2));
+    return acc + (negative ? -c : c);
+  }, 0n);
+  const negative = cents < 0n;
+  const abs = negative ? -cents : cents;
+  return `${negative ? "-" : ""}${abs / 100n}.${String(abs % 100n).padStart(2, "0")}`;
+}

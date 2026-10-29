@@ -40,7 +40,8 @@ test("багш сурагч бүртгэхэд админы жагсаалтад
 
   await login(page, teacher.phone, teacher.password);
   await expect(page).toHaveURL(/\/teacher$/);
-  await page.getByRole("link", { name: "Бүртгэл" }).first().click();
+  await page.getByRole("link", { name: "Сурагчид" }).first().click();
+  await page.getByRole("link", { name: "Сурагч бүртгэх" }).click();
 
   await fillWizardToConfirm(page, { parentPhone, studentName, classCount: 2 });
   await expect(page.getByTestId("class-options")).toHaveCount(0);

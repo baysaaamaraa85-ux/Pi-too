@@ -1,0 +1,141 @@
+import { randomUUID } from "node:crypto";
+import { expect, test, type APIRequestContext } from "@playwright/test";
+import {
+  bearer,
+  createTeacherWithClasses,
+  enrollViaApi,
+  insertLesson,
+  weekdaysExceptToday,
+} from "./api-helpers";
+import { login, loginAsAdmin, logout, uniquePhone } from "./helpers";
+
+async function setup(request: APIRequestContext, students: number) {
+  const teacher = await createTeacherWithClasses(request, weekdaysExceptToday(2));
+  const lessonId = await insertLesson(teacher.classIds[0]!, teacher.teacherId, 10);
+  const enrolled = [];
+  for (let i = 0; i < students; i++) {
+    const name = `Цалингийн сурагч ${uniquePhone()}`;
+    const res = await enrollViaApi(request, teacher.token, teacher.classIds, { studentName: name });
+    expect(res.status()).toBe(201);
+    enrolled.push({ name, contractId: ((await res.json()) as { contractId: string }).contractId });
+  }
+  return { teacher, lessonId, enrolled };
+}
+
+async function saveViaApi(
+  request: APIRequestContext,
+  token: string,
+  lessonId: string,
+  entries: { contractId: string; present: boolean }[],
+) {
+  const res = await request.put(`/api/v1/lessons/${lessonId}/attendance`, {
+    headers: { ...bearer(token), "Idempotency-Key": randomUUID() },
+    data: { entries },
+  });
+  expect(res.status()).toBe(200);
+  return (await res.json()) as { entries: { attendanceId: string }[] };
+}
+
+async function selectTeacher(page: import("@playwright/test").Page, phone: string) {
+  await page.getByLabel("Багш", { exact: true }).selectOption({ label: `Багш ${phone}` });
+}
+
+test("багш ирц хадгалахад админы Цалин хуудсанд сурагч бүрийн нэртэй мөр зөв дүнтэй гарна", async ({
+  page,
+  request,
+}) => {
+  const { teacher, lessonId, enrolled } = await setup(request, 2);
+  await saveViaApi(request, teacher.token, lessonId, enrolled.map((e) => ({ contractId: e.contractId, present: true })));
+
+  await loginAsAdmin(page);
+  await page.getByRole("link", { name: "Цалин" }).first().click();
+  await selectTeacher(page, teacher.phone);
+
+  // 5 000 x 2 цаг = 10 000 ₮, сурагч бүрт нэг мөр.
+  for (const s of enrolled) {
+    const row = page.getByRole("row").filter({ hasText: s.name });
+    await expect(row).toBeVisible();
+    await expect(row.getByTestId("ledger-amount")).toHaveText("10 000 ₮");
+    await expect(row).toContainText("Цалин");
+    await expect(row).toContainText("Ирсэн");
+  }
+  await expect(page.getByTestId("card-earned")).toContainText("20 000 ₮");
+  await expect(page.getByTestId("card-balance")).toContainText("20 000 ₮");
+});
+
+test("ирцийг Ирээгүй болгож засахад админы Цалин хуудсанд сөрөг залруулга гарна (хуудас дахин ачаалахгүйгээр)", async ({
+  page,
+  request,
+}) => {
+  const { teacher, lessonId, enrolled } = await setup(request, 1);
+  const saved = await saveViaApi(request, teacher.token, lessonId, [
+    { contractId: enrolled[0]!.contractId, present: true },
+  ]);
+
+  await loginAsAdmin(page);
+  await page.getByRole("link", { name: "Цалин" }).first().click();
+  await selectTeacher(page, teacher.phone);
+  await expect(page.getByTestId("card-balance")).toContainText("10 000 ₮");
+
+  const patch = await request.patch(`/api/v1/attendance/${saved.entries[0]!.attendanceId}`, {
+    headers: bearer(teacher.token),
+    data: { present: false },
+  });
+  expect(patch.status()).toBe(200);
+
+  // 30 секунд тутмын автомат шинэчлэлт (ФШ-56): reload хийхгүй.
+  const row = page.getByRole("row").filter({ hasText: "Залруулга" });
+  await expect(row).toBeVisible({ timeout: 45_000 });
+  await expect(row.getByTestId("ledger-amount")).toHaveText("-10 000 ₮");
+  await expect(page.getByTestId("card-balance")).toContainText("0 ₮");
+});
+
+test("ФБШ-31: үлдэгдлээс их олголтод баталгаажуулах цонх гарч, баталгаажуулбал сөрөг үлдэгдэл улаанаар бичвэртэй", async ({
+  page,
+  request,
+}) => {
+  const { teacher, lessonId, enrolled } = await setup(request, 1);
+  await saveViaApi(request, teacher.token, lessonId, [{ contractId: enrolled[0]!.contractId, present: true }]);
+
+  await loginAsAdmin(page);
+  await page.goto("/admin/payroll");
+  await selectTeacher(page, teacher.phone);
+  await page.getByRole("button", { name: "Мөнгө олгох" }).first().click();
+  await page.getByLabel("Дүн (₮)").fill("50000");
+  await page.getByRole("button", { name: "Олгох", exact: true }).click();
+
+  await expect(page.getByRole("dialog").filter({ hasText: "баталгаажуулах" })).toContainText("үлдэгдлээс");
+  await page.getByRole("button", { name: "Тийм, олгоно" }).click();
+
+  await expect(page.getByTestId("card-balance")).toContainText("-40 000 ₮");
+  await expect(page.getByTestId("card-balance")).toContainText("Сөрөг үлдэгдэл");
+  await expect(page.getByRole("row").filter({ hasText: "Олголт" })).toBeVisible();
+});
+
+test("ФШ-58: багш өөрийн цалинг хичээлээр, сурагчийн нэр, дүнтэй харна", async ({ page, request }) => {
+  const { teacher, lessonId, enrolled } = await setup(request, 2);
+  await saveViaApi(request, teacher.token, lessonId, enrolled.map((e) => ({ contractId: e.contractId, present: true })));
+
+  await login(page, teacher.phone, teacher.password);
+  await expect(page).toHaveURL(/\/teacher$/);
+  await page.getByRole("navigation", { name: "Үндсэн цэс" }).first().getByRole("link", { name: "Цалин" }).click();
+
+  await expect(page.getByTestId("card-earned")).toContainText("20 000 ₮");
+  await expect(page.getByTestId("group-total")).toHaveText("20 000 ₮");
+  for (const s of enrolled) await expect(page.getByText(s.name)).toBeVisible();
+  await logout(page);
+});
+
+test.describe("ФБШ-10: утасны дэлгэц", () => {
+  test.use({ viewport: { width: 360, height: 740 } });
+
+  test("Цалингийн хуудас 360 px-д хэвтээ гүйлгэлтгүй", async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto("/admin/payroll");
+    await page.waitForLoadState("networkidle");
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+});

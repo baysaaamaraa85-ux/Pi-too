@@ -8,3 +8,4 @@ export * from "./attendance.schemas.js";
 export * from "./placement.schemas.js";
 export * from "./common.schemas.js";
 export * from "./directory.schemas.js";
+export * from "./payroll.schemas.js";

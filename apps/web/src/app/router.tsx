@@ -5,6 +5,8 @@ import { EnrollWizardPage } from "@/features/enroll/enroll-wizard";
 import { AdminRequestsPage } from "@/features/admin/requests-page";
 import { AdminAttendancePage } from "@/features/attendance/admin-attendance-page";
 import { AttendancePage } from "@/features/attendance/attendance-page";
+import { AdminPayrollPage } from "@/features/payroll/admin-payroll-page";
+import { TeacherSalaryPage } from "@/features/payroll/teacher-salary-page";
 import { AdminSetupPage } from "@/features/admin/setup-page";
 import { ComingSoonPage } from "@/features/admin/coming-soon-page";
 import { AdminParentDetailPage, AdminParentsPage } from "@/features/admin/parents-pages";
@@ -77,6 +79,7 @@ const router = createBrowserRouter([
           { path: "/teacher/classes", element: <TeacherClassesPage /> },
           { path: "/teacher/students", element: <TeacherStudentsPage /> },
           { path: "/teacher/attendance/:lessonId", element: <AttendancePage /> },
+          { path: "/teacher/salary", element: <TeacherSalaryPage /> },
           { path: "/teacher/enroll", element: <EnrollWizardPage mode="teacher" /> },
         ],
       },
@@ -105,10 +108,7 @@ const router = createBrowserRouter([
           },
           { path: "/admin/attendance", element: <AdminAttendancePage /> },
           { path: "/admin/attendance/:lessonId", element: <AttendancePage /> },
-          {
-            path: "/admin/payroll",
-            element: <ComingSoonPage title="Цалин" text="Цалингийн хэсэг дараагийн шатанд нэмэгдэнэ." />,
-          },
+          { path: "/admin/payroll", element: <AdminPayrollPage /> },
           {
             path: "/admin/payments",
             element: <ComingSoonPage title="Төлбөр" text="Төлбөрийн хэсэг дараагийн шатанд нэмэгдэнэ." />,
