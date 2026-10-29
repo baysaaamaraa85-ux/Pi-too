@@ -30,23 +30,23 @@
 | ФШ-08 | Хэрэгжсэн | /programs, ADR-013 тест | | |
 | ФШ-09 | Хэрэгжсэн | /settings (аудиттай), `settings` хүснэгт | Админы Тохиргооны хуудсанд шинэ түлхүүрүүдийн засвар (давтлагын босго, 60% сул сэдэв) | 6 |
 | ФШ-10 | Хэсэгчлэн | POST /teachers/{id}/rates, багшийн дэлгэрэнгүйд үнэлгээ нэмэх маягт | Үнэлгээ сарын 15-нд өөрчлөгдөх хил утгын тест (цалингийн шатанд) | 5 |
-| ФШ-11 | Хийгдээгүй | | Тохиргооны шидтэн (C) | 3 |
+| ФШ-11 | Хэрэгжсэн | GET /setup/status (дараалал, түгжээг сервер тооцно), `/admin/setup`, `directory.service.test.ts` | | |
 
 ### М3. Элсэлт, гэрээ, түр зогсолт
 
 | Код | Төлөв | Хаана байгаа | Юу дутуу | Шат |
 | --- | --- | --- | --- | --- |
-| ФШ-12 | Хэсэгчлэн | POST /students, `/admin/enroll` | Багшийн хэсэгт элсэлтийн маягт (Хүснэгт 4.6) | 3 |
+| ФШ-12 | Хэрэгжсэн | POST /enrollments (нэг транзакц), `/admin/enroll`, `/teacher/enroll`, `enrollment.atomic.test.ts`, `e2e/03-enroll.spec.ts` | | |
 | ФШ-13 | Хэрэгжсэн | GET /parents?phone=, `registerStudent` нэг транзакц, тест | | |
 | ФШ-14 | Хэрэгжсэн | POST /students/{id}/assessments, сурагчийн дэлгэрэнгүйд дүнгийн жагсаалт | График (шат 6) | 6 |
-| ФШ-15 | Хэсэгчлэн | GET /classes/available (салбараар шүүнэ), сул суудлын тест | Хөтөлбөр, гараг, цагаар шүүлт, UI-д бүх салбар | 3 |
+| ФШ-15 | Хэрэгжсэн | GET /classes/available (салбар, гараг, багшаар шүүнэ; багшийн нэр, суудал), элсэлтийн 3-р алхам, үргэлжлүүлэх цонх, тест | Хөтөлбөрөөр шүүхгүй (D-14) | |
 | ФШ-16 | Хэрэгжсэн | POST /contracts, `rules_ack_at` NOT NULL | | |
 | ФШ-17 | Хэрэгжсэн | `registerStudent`/`createContract`, settings-ээс 75/3, тест | | |
-| ФШ-18 | Хэсэгчлэн | PUT /contracts/{id}/plan, `enrollment.rules.test.ts` | UI (гэрээний дэлгэрэнгүй) | 3 |
-| ФШ-72 | Хэсэгчлэн | POST /contracts/{id}/pause, тест (давхар зогсолт 409, өнгөрсөн огноо 409) | "Урт хугацааны чөлөө" товч (UI) | 3 |
+| ФШ-18 | Хэрэгжсэн | PUT /contracts/{id}/plan (эзэмшлийн шалгалттай), `/teacher/students` Төлөвлөгөө цонх, тест | | |
+| ФШ-72 | Хэрэгжсэн | POST /contracts/{id}/pause, `/teacher/students` "Урт хугацааны чөлөө", тест, e2e | | |
 | ФШ-73 | Хэсэгчлэн | `findActiveEnrollmentsForClass` зөвхөн ACTIVE гэрээ шүүнэ | Ирцийн service ба дэлгэц байхгүй, тест | 4 |
 | ФШ-74 | Хэрэгжсэн | `pauseContract` (holdSeat=false бол бүртгэл хаана), `enrollment.rules.test.ts` | | |
-| ФШ-75 | Хэсэгчлэн | POST /contracts/{id}/resume, тест | "Үргэлжлүүлэх" товч (UI) | 3 |
+| ФШ-75 | Хэрэгжсэн | POST /contracts/{id}/resume, `/teacher/students` "Үргэлжлүүлэх", тест, e2e | | |
 | ФШ-78 | Хэрэгжсэн | /public/branches, `/programs`, `/teachers`, `/contact` | | |
 | ФШ-79 | Хэрэгжсэн | POST /placement-requests (rate-limit), `/admin/requests`, тест | | |
 
@@ -57,7 +57,7 @@
 | ФШ-19 | Хэрэгжсэн | POST /classes, `classes-page`, DELETE /classes/{id} | | |
 | ФШ-20 | Хэрэгжсэн | `enrollContractInClassInTx` (6 ба 7 дахь сурагч тест) | | |
 | ФШ-21 | Хэрэгжсэн | Нэг ангид өөр хөтөлбөрийн гэрээ, `enrollment.rules.test.ts` | | |
-| ФШ-22 | Хийгдээгүй | | Долоо хоногийн хичээл 2-оос цөөн, 4-өөс олон бол анхааруулга (C) | 3 |
+| ФШ-22 | Хэрэгжсэн | `weekly_lessons` тохиргоо, POST /enrollments 409 `weekly-lessons-out-of-range` + баталгаажуулалт, тест, e2e | | |
 | ФШ-23 | Хэрэгжсэн | GET /lessons, worker, `generateLessons`, анги үүсэхэд шууд | | |
 | ФШ-24 | Хэрэгжсэн | POST /lessons/{id}/cancel, reschedule, тест | | |
 | ФШ-25 | Хэрэгжсэн | EXCLUDE constraint, 409 | | |
@@ -166,7 +166,7 @@
 | ФБШ-20 | Хэсэгчлэн | BOLA тест portal, scheduling; ирц, цалин, төлбөрт дутуу | 4, 5, 7 |
 | ФБШ-21 | Хийгдээгүй | Caddy TLS | 12 |
 | ФБШ-22 | Хэрэгжсэн | 5 буруу оролдлого, 15 минут түгжих | |
-| ФБШ-23 | Хэсэгчлэн | `students.consent_at`, `rules_ack_at`; элсэлтийн баталгаажуулалтын алхамд бүртгэх | 3 |
+| ФБШ-23 | Хэрэгжсэн | Элсэлтийн 4-р алхам: журмын огноо, зөвшөөрөл заавал (`consent_at`, `rules_ack_at`), 422 тест | |
 | ФБШ-24 | Хэрэгжсэн | REVOKE migration, апп `pitoo_app`, `constraints.test.ts` | |
 | ФБШ-25 | Хийгдээгүй | Хөтчийн шалгалт | 11 |
 | ФБШ-26 | Хийгдээгүй | Coverage тайлан тохируулаагүй | 12 |
@@ -184,7 +184,7 @@
 | UI сан ба фонт | Хэрэгжсэн | Өөрийн shared/ui; гарчгийн фонтыг Ө, Ү үсгээр харуулж шалгах (шат 11) |
 | Хүснэгтийн тоо | Хэсэгчлэн | 26 хүснэгт; `assessment_topics, lesson_notes, parent_meetings, payments, payment_claims, push_subscriptions` М6-М9-тэй хамт |
 | Аудитын эрх | Хэрэгжсэн | REVOKE migration, апп `pitoo_app` |
-| Элсэлтийн эрх | Хийгдээгүй | Багшийн элсэлтийн дэлгэц, шат 3 |
+| Элсэлтийн эрх | Хэрэгжсэн | `/teacher/enroll`, `/admin/enroll` нэг endpoint; зөвхөн өөрийн ангид (403) |
 | Мэдэгдэл илгээх | Хийгдээгүй | Шат 8 |
 | Эцэг эхийн портал | Хэсэгчлэн | Шат 9 |
 | Тестийн тоо | Хэсэгчлэн | Шат 4, 5, 12 |

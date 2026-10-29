@@ -36,6 +36,8 @@ export interface ClassDto {
 
 export interface AvailableClassDto extends ClassDto {
   availableSeats: number;
+  branchName: string;
+  teacherName: string;
 }
 
 export interface SettingDto {

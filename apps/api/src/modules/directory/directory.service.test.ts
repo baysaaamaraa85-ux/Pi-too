@@ -201,4 +201,24 @@ describe("Админы хэрэглэгчийн удирдлага (шинэ ш�
       .set("Authorization", `Bearer ${teacher.token}`);
     expect(search.status).toBe(200);
   });
+
+  it("ФШ-11: тохиргооны шидтэний алхам дараалалтай, өмнөх алхам дуусаагүй бол түгжигдэнэ", async () => {
+    const admin = await loginAs(Role.ADMIN);
+    const res = await request(app)
+      .get("/api/v1/setup/status")
+      .set("Authorization", `Bearer ${admin.token}`);
+    expect(res.status).toBe(200);
+    const steps = res.body as { key: string; done: boolean; unlocked: boolean }[];
+    expect(steps.map((s) => s.key)).toEqual(["branches", "programs", "teachers", "classes", "students"]);
+    expect(steps[0]?.unlocked).toBe(true);
+    for (let i = 1; i < steps.length; i++) {
+      expect(steps[i]?.unlocked).toBe(steps[i - 1]?.done);
+    }
+
+    const teacher = await loginAs(Role.TEACHER);
+    const denied = await request(app)
+      .get("/api/v1/setup/status")
+      .set("Authorization", `Bearer ${teacher.token}`);
+    expect(denied.status).toBe(403);
+  });
 });

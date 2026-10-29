@@ -8,7 +8,12 @@ import {
 import { DomainError } from "../../shared/errors/domain-error.js";
 import { writeAudit } from "../../shared/audit/write-audit.js";
 import { createUserInTx } from "../auth/auth.service.js";
-import { getBranchById, getContractDefaults, getProgramById } from "../catalog/catalog.service.js";
+import {
+  getBranchById,
+  getContractDefaults,
+  getProgramById,
+  getWeeklyLessons,
+} from "../catalog/catalog.service.js";
 import {
   closeActiveEnrollmentsForContractInTx,
   enrollContractInClassInTx,
@@ -16,6 +21,7 @@ import {
   getClassInTx,
   todayInUlaanbaatar,
 } from "../scheduling/scheduling.service.js";
+import type { EnrollStudentInput } from "@pitoo/contracts";
 import * as repo from "./enrollment.repository.js";
 
 export function searchParentsByPhone(phone: string) {
@@ -32,15 +38,25 @@ export interface RegisterStudentResult {
 
 // ФШ-12, 13: сурагч, эцэг эх, холбоосыг нэг транзакцаар үүсгэнэ. Ижил
 // утастай эцэг эх байвал дахин ашиглана (шинэ User+Parent үүсгэхгүй).
-export async function registerStudent(input: {
+export interface RegisterStudentInput {
   parentPhone: string;
   parentFullName?: string;
   studentFullName: string;
   studentPhone?: string;
   school?: string;
   grade?: string;
-}): Promise<RegisterStudentResult> {
-  return prisma.$transaction(async (tx) => {
+  consentAt?: Date;
+}
+
+export function registerStudent(input: RegisterStudentInput): Promise<RegisterStudentResult> {
+  return prisma.$transaction((tx) => registerStudentInTx(tx, input));
+}
+
+export async function registerStudentInTx(
+  tx: Tx,
+  input: RegisterStudentInput,
+): Promise<RegisterStudentResult> {
+  {
     const existingParent = await repo.findParentByPhone(tx, input.parentPhone);
 
     let parentId: string;
@@ -81,11 +97,12 @@ export async function registerStudent(input: {
       userId: studentUserId,
       school: input.school,
       grade: input.grade,
+      consentAt: input.consentAt,
     });
     await repo.linkParentStudent(tx, parentId, student.id);
 
     return { studentId: student.id, parentId, tempPassword, studentUserId, studentTempPassword };
-  });
+  }
 }
 
 // ФШ-14: түвшин тогтоох шалгалт.
@@ -122,40 +139,197 @@ function contractNotFound(): never {
 
 // ФШ-16, 17: гэрээ үүсгэх үед тухайн үеийн үнийг хуулж, тоолуурыг
 // settings-ээс тооцно (75 цаг / 3 цаг = 25 ирэлт, 3 чөлөө) (ADR-009, 013).
-export async function createContract(
+export function createContract(studentId: string, programId: string, rulesAckAt: string) {
+  return prisma.$transaction((tx) => createContractInTx(tx, studentId, programId, rulesAckAt));
+}
+
+async function createContractInTx(
+  tx: Tx,
   studentId: string,
   programId: string,
   rulesAckAt: string,
 ) {
-  return prisma.$transaction(async (tx) => {
-    const student = await repo.findStudentById(tx, studentId);
-    if (!student) studentNotFound();
+  const student = await repo.findStudentById(tx, studentId);
+  if (!student) studentNotFound();
 
-    const program = await getProgramById(tx, programId);
-    const { totalAcademicHours, academicHoursPerVisit, defaultLeaves } =
-      await getContractDefaults(tx);
-    const totalVisits = Math.floor(totalAcademicHours / academicHoursPerVisit);
+  const program = await getProgramById(tx, programId);
+  const { totalAcademicHours, academicHoursPerVisit, defaultLeaves } =
+    await getContractDefaults(tx);
+  const totalVisits = Math.floor(totalAcademicHours / academicHoursPerVisit);
 
-    return repo.createContract(tx, {
-      studentId,
-      programId,
-      price: program.currentPrice.toString(),
-      totalVisits,
-      remainingVisits: totalVisits,
-      leavesLeft: defaultLeaves,
-      rulesAckAt: new Date(rulesAckAt),
-    });
+  return repo.createContract(tx, {
+    studentId,
+    programId,
+    price: program.currentPrice.toString(),
+    totalVisits,
+    remainingVisits: totalVisits,
+    leavesLeft: defaultLeaves,
+    rulesAckAt: new Date(rulesAckAt),
   });
+}
+
+function forbiddenClass(): never {
+  throw new DomainError({
+    code: "forbidden-class",
+    status: 403,
+    title: "Эрх хүрэхгүй байна",
+    detail: "Энэ анги танай анги биш тул сурагч бүртгэх боломжгүй.",
+  });
+}
+
+export interface EnrollStudentResult extends RegisterStudentResult {
+  contractId: string;
+  remainingVisits: number;
+  leavesLeft: number;
+}
+
+// Шинэ шаардлага 1.4, ФШ-12...17, 20, 22, ФБШ-23: сурагч, эцэг эх (шинэ бол), гэрээ,
+// ангийн бүртгэл НЭГ транзакцаар. Аль нэг нь амжилтгүй бол (жишээ нь анги дүүрсэн)
+// бүгд буцна. Багш зөвхөн өөрийн ангид бүртгэнэ (ADR-008).
+export async function enrollNewStudent(
+  user: { id: string; role: Role },
+  input: EnrollStudentInput,
+): Promise<EnrollStudentResult> {
+  const classIds = [...new Set(input.classIds)];
+  return prisma.$transaction(async (tx) => {
+    // 1. Эзэмшлийн шалгалт: ямар нэг бичилтээс өмнө.
+    for (const classId of classIds) {
+      const cls = await getClassInTx(tx, classId);
+      if (user.role !== Role.ADMIN && cls.teacherId !== user.id) forbiddenClass();
+    }
+
+    // 2. ФШ-22: долоо хоногийн хичээлийн тоо хүрээнээс гарвал анхааруулна, баталвал хадгална.
+    const weekly = await getWeeklyLessons(tx);
+    if (
+      !input.weeklyWarningAcknowledged &&
+      (classIds.length < weekly.min || classIds.length > weekly.max)
+    ) {
+      throw new DomainError({
+        code: "weekly-lessons-out-of-range",
+        status: 409,
+        title: "Долоо хоногийн хичээлийн тоо хэвийн хүрээнээс гарсан",
+        detail: `Сурагч долоо хоногт ${weekly.min}-${weekly.max} удаа хичээллэх ёстой, та ${classIds.length} анги сонгосон байна. Онцгой тохиолдол бол баталгаажуулж хадгална уу.`,
+        extra: { selected: classIds.length, min: weekly.min, max: weekly.max },
+      });
+    }
+
+    const registered = await registerStudentInTx(tx, {
+      parentPhone: input.parentPhone,
+      parentFullName: input.parentFullName,
+      studentFullName: input.studentFullName,
+      studentPhone: input.studentPhone,
+      school: input.school,
+      grade: input.grade,
+      consentAt: new Date(input.consentAt),
+    });
+
+    if (input.placementPercent !== undefined) {
+      await repo.createAssessment(tx, {
+        studentId: registered.studentId,
+        type: AssessmentType.PLACEMENT,
+        takenOn: new Date(input.fromDate),
+        totalPercent: input.placementPercent.toFixed(2),
+      });
+    }
+
+    const contract = await createContractInTx(
+      tx,
+      registered.studentId,
+      input.programId,
+      input.rulesAckAt,
+    );
+
+    const fromDate = new Date(input.fromDate);
+    for (const classId of classIds) {
+      await enrollContractInClassInTx(tx, contract.id, classId, fromDate);
+    }
+
+    await writeAudit(tx, {
+      entity: "contract",
+      entityId: contract.id,
+      action: "ENROLL",
+      after: { studentId: registered.studentId, programId: input.programId, classIds },
+      actorId: user.id,
+    });
+
+    return {
+      ...registered,
+      contractId: contract.id,
+      remainingVisits: contract.remainingVisits,
+      leavesLeft: contract.leavesLeft,
+    };
+  });
+}
+
+// Багш гэрээний эзэмшлийг шалгана: өөрийн ангид идэвхтэй бүртгэлтэй эсвэл өөрийн
+// зогсоосон гэрээ (суудал хаагдсан ч үргэлжлүүлэх эрхтэй). Админ хязгааргүй.
+export async function assertContractAccessInTx(
+  tx: Tx,
+  user: { id: string; role: Role },
+  contractId: string,
+) {
+  const contract = await repo.findContractWithPauses(tx, contractId);
+  if (!contract) contractNotFound();
+  if (user.role === Role.ADMIN) return contract;
+  const owned = await findTeacherOwnedEnrollment(tx, contractId, user.id);
+  const pausedByMe = contract.pauses.some((p) => p.pausedBy === user.id);
+  if (!owned && !pausedByMe) notOwner();
+  return contract;
+}
+
+function mapContractRow(row: Awaited<ReturnType<typeof repo.listContracts>>["items"][number]) {
+  return {
+    id: row.id,
+    studentId: row.studentId,
+    studentName: row.student.fullName,
+    programName: row.program.name,
+    status: row.status,
+    totalVisits: row.totalVisits,
+    remainingVisits: row.remainingVisits,
+    leavesLeft: row.leavesLeft,
+    freeReviewsLeft: row.freeReviewsLeft,
+    planItems: row.planItems.map((p) => ({
+      position: p.position,
+      topic: p.topic,
+      doneAt: p.doneAt?.toISOString() ?? null,
+    })),
+    activePause: row.pauses[0]
+      ? {
+          startedOn: row.pauses[0].startedOn.toISOString().slice(0, 10),
+          holdSeat: row.pauses[0].holdSeat,
+          reason: row.pauses[0].reason,
+        }
+      : null,
+    classes: row.enrollments.map((e) => ({
+      id: e.class.id,
+      branchName: e.class.branch.name,
+      weekday: e.class.weekday,
+      startTime: e.class.startTime,
+      teacherName: e.class.teacher.fullName,
+    })),
+  };
+}
+
+// Багш өөрийн сурагчдын гэрээг (зогссон ч) харна, админ бүгдийг.
+export async function listContracts(
+  user: { id: string; role: Role },
+  q: { status?: ContractStatus; search?: string; page: number; limit: number },
+) {
+  const { items, total } = await repo.listContracts(prisma, {
+    ...q,
+    teacherId: user.role === Role.TEACHER ? user.id : undefined,
+  });
+  return { items: items.map(mapContractRow), page: q.page, limit: q.limit, total };
 }
 
 // ФШ-18
 export async function updateContractPlan(
+  user: { id: string; role: Role },
   contractId: string,
   items: { position: number; topic: string }[],
 ) {
   return prisma.$transaction(async (tx) => {
-    const contract = await repo.findContractById(tx, contractId);
-    if (!contract) contractNotFound();
+    await assertContractAccessInTx(tx, user, contractId);
     await repo.replacePlanItems(tx, contractId, items);
     return repo.findContractById(tx, contractId);
   });

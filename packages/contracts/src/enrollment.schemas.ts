@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { pageQuerySchema, phoneSchema } from "./common.schemas.js";
 
 // ФШ-12, 13: шинэ сурагчийн анкет. parentFullName зөвхөн шинэ эцэг эх
 // бүртгэх үед шаардлагатай (ижил утастай эцэг эх байвал дахин ашиглана).
@@ -51,3 +52,29 @@ export const resumeContractSchema = z.object({
   classIds: z.array(z.uuid()).optional(),
 });
 export type ResumeContractInput = z.infer<typeof resumeContractSchema>;
+
+// Шинэ шаардлага 1.4: сурагч, эцэг эх, гэрээ, ангийн бүртгэлийг НЭГ транзакцаар.
+// ФШ-12, 13, 16, 17, 20, ФБШ-23 (зөвшөөрлийн огноо). weeklyWarningAcknowledged:
+// ФШ-22 анхааруулгыг хэрэглэгч харж, онцгой тохиолдлоор хадгалахыг баталсан.
+export const enrollStudentSchema = z.object({
+  parentPhone: phoneSchema,
+  parentFullName: z.string().trim().min(1).optional(),
+  studentFullName: z.string().trim().min(1, "Сурагчийн нэр шаардлагатай"),
+  studentPhone: phoneSchema.optional(),
+  school: z.string().trim().optional(),
+  grade: z.string().trim().optional(),
+  placementPercent: z.number().min(0).max(100).optional(),
+  programId: z.uuid(),
+  classIds: z.array(z.uuid()).min(1, "Дор хаяж нэг анги сонгоно").max(7),
+  fromDate: z.iso.date(),
+  rulesAckAt: z.iso.datetime(),
+  consentAt: z.iso.datetime(),
+  weeklyWarningAcknowledged: z.boolean().optional(),
+});
+export type EnrollStudentInput = z.infer<typeof enrollStudentSchema>;
+
+export const listContractsQuerySchema = pageQuerySchema.extend({
+  status: z.enum(["ACTIVE", "PAUSED", "COMPLETED"]).optional(),
+  search: z.string().trim().max(120).optional(),
+});
+export type ListContractsQuery = z.infer<typeof listContractsQuerySchema>;

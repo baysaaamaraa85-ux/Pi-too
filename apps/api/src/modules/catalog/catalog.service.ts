@@ -21,6 +21,11 @@ const classDefaultsSchema = z.object({
   maxCapacity: z.number().int().positive(),
 });
 
+const weeklyLessonsSchema = z.object({
+  min: z.number().int().positive(),
+  max: z.number().int().positive(),
+});
+
 const paymentAccountSchema = z.object({
   bankName: z.string(),
   accountHolder: z.string(),
@@ -56,6 +61,13 @@ export async function getClassDefaults(tx: Tx) {
   const row = await repo.findSetting(tx, "class_defaults");
   if (!row) settingNotConfigured("class_defaults");
   return classDefaultsSchema.parse(row.value);
+}
+
+// ФШ-22: сурагчийн долоо хоногийн хичээлийн зөвшөөрөгдсөн хүрээ (анхдагч 2-4) settings-ээс.
+export async function getWeeklyLessons(tx: Tx) {
+  const row = await repo.findSetting(tx, "weekly_lessons");
+  if (!row) settingNotConfigured("weekly_lessons");
+  return weeklyLessonsSchema.parse(row.value);
 }
 
 // ФШ-49, ADR-016: эцэг эхэд харуулах төвийн дансны мэдээлэл settings-ээс.

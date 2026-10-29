@@ -127,6 +127,12 @@ async function main() {
     update: {},
     create: { key: "auth_defaults", value: { maxFailedLogins: 5, lockoutMinutes: 15 } },
   });
+  // ФШ-22: сурагчийн долоо хоногийн хичээлийн хүрээ (БД-11).
+  await prisma.settings.upsert({
+    where: { key: "weekly_lessons" },
+    update: {},
+    create: { key: "weekly_lessons", value: { min: 2, max: 4 } },
+  });
   await prisma.settings.upsert({
     where: { key: "payment_account" },
     update: {},

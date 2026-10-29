@@ -174,13 +174,30 @@ export function listClasses(filters: { branchId?: string; teacherId?: string }) 
   return repo.listClasses(prisma, { ...filters, isActive: true });
 }
 
-// ФШ-15: сул суудалтай анги хайлт.
-export async function listAvailableClasses(filters: { branchId?: string }) {
+// ФШ-15: бүх салбарын сул суудалтай анги хайлт (салбар, гараг, багшаар шүүнэ).
+// Анги нь хөтөлбөртэй холбогдоогүй (ФШ-21), тиймээс хөтөлбөрөөр шүүхгүй.
+export async function listAvailableClasses(filters: {
+  branchId?: string;
+  weekday?: number;
+  teacherId?: string;
+}) {
   const classes = await repo.listClasses(prisma, { ...filters, isActive: true });
   const withAvailability = await Promise.all(
     classes.map(async (cls) => {
       const activeCount = await repo.countActiveEnrollments(prisma, cls.id);
-      return { ...cls, availableSeats: cls.capacity - activeCount };
+      return {
+        id: cls.id,
+        teacherId: cls.teacherId,
+        branchId: cls.branchId,
+        weekday: cls.weekday,
+        startTime: cls.startTime,
+        durationMin: cls.durationMin,
+        capacity: cls.capacity,
+        isActive: cls.isActive,
+        branchName: cls.branch.name,
+        teacherName: cls.teacher.fullName,
+        availableSeats: cls.capacity - activeCount,
+      };
     }),
   );
   return withAvailability.filter((cls) => cls.availableSeats > 0);

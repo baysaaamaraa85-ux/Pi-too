@@ -9,6 +9,7 @@ directoryRouter.use(authenticate);
 
 // Админы хэрэглэгчийн удирдлага (шинэ шаардлага 1.2). Жагсаалт, дэлгэрэнгүй, засвар
 // зөвхөн админ. GET /parents нь ?phone= үед багшид ч нээлттэй (ФШ-13).
+directoryRouter.get("/setup/status", authorize("ADMIN"), controller.getSetupStatus);
 directoryRouter.get("/teachers", authorize("ADMIN"), controller.listTeachers);
 directoryRouter.post("/teachers", authorize("ADMIN"), controller.createTeacher);
 directoryRouter.get("/teachers/:id", authorize("ADMIN"), controller.getTeacher);

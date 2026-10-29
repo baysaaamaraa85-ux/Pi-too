@@ -313,3 +313,22 @@ export async function updateStudent(
   });
   return getStudent(id);
 }
+
+// ФШ-11: салбар, хөтөлбөр, багш, анги, сурагч гэсэн дараалал. Өмнөх алхмын өгөгдөл
+// оруулагдаагүй бол дараагийн алхам идэвхжихгүй (unlocked = false). Дүрмийг энд тооцно,
+// frontend зөвхөн харуулна.
+export async function getSetupStatus() {
+  const counts = await repo.countSetupEntities(prisma);
+  const steps = [
+    { key: "branches", count: counts.branches },
+    { key: "programs", count: counts.programs },
+    { key: "teachers", count: counts.teachers },
+    { key: "classes", count: counts.classes },
+    { key: "students", count: counts.students },
+  ];
+  return steps.map((step, index) => ({
+    ...step,
+    done: step.count > 0,
+    unlocked: index === 0 || (steps[index - 1]?.count ?? 0) > 0,
+  }));
+}

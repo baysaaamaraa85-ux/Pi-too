@@ -9,6 +9,8 @@ enrollmentRouter.use(authenticate);
 enrollmentRouter.use(authorize("ADMIN", "TEACHER"));
 
 enrollmentRouter.post("/students", controller.createStudent);
+enrollmentRouter.post("/enrollments", controller.enrollStudent);
+enrollmentRouter.get("/contracts", controller.listContracts);
 enrollmentRouter.post("/students/:id/assessments", controller.createAssessment);
 enrollmentRouter.post("/contracts", controller.createContract);
 enrollmentRouter.put("/contracts/:id/plan", controller.updateContractPlan);

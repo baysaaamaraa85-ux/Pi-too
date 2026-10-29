@@ -43,6 +43,10 @@ export function AdminDashboardPage() {
     <>
       <PageHeader title="Админы самбар" subtitle="Өнөөдрийн хийх ажлууд" />
 
+      <Link to="/admin/setup" className="mb-4 block text-sm font-semibold text-primary hover:underline">
+        Анхны тохиргооны алхмууд
+      </Link>
+
       <Link to="/admin/requests" className="mb-6 block">
         <Card className="flex items-center justify-between gap-4 p-5 transition hover:border-primary/25 sm:p-6">
           <div>

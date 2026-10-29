@@ -235,3 +235,15 @@ export function updateStudentProfile(
 ) {
   return tx.student.update({ where: { id }, data });
 }
+
+// ФШ-11: тохиргооны шидтэний алхам бүрийн өгөгдлийн тоо.
+export async function countSetupEntities(tx: Tx) {
+  const [branches, programs, teachers, classes, students] = await Promise.all([
+    tx.branch.count(),
+    tx.program.count(),
+    tx.teacher.count(),
+    tx.class.count({ where: { isActive: true } }),
+    tx.student.count(),
+  ]);
+  return { branches, programs, teachers, classes, students };
+}

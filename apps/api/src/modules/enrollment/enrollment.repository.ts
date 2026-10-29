@@ -1,5 +1,6 @@
 import type { Tx } from "../../shared/db/prisma.js";
 import type {
+  Prisma,
   AssessmentType,
   ContractStatus,
   PlacementRequestStatus,
@@ -15,7 +16,13 @@ export function findParentByPhone(tx: Tx, phone: string) {
 
 export function createStudent(
   tx: Tx,
-  data: { fullName: string; userId?: string; school?: string; grade?: string },
+  data: {
+    fullName: string;
+    userId?: string;
+    school?: string;
+    grade?: string;
+    consentAt?: Date;
+  },
 ) {
   return tx.student.create({ data });
 }
@@ -183,4 +190,63 @@ export function findContractWithStudent(tx: Tx, contractId: string) {
 
 export function findActiveEnrollmentInClass(tx: Tx, contractId: string, classId: string) {
   return tx.enrollment.findFirst({ where: { contractId, classId, toDate: null } });
+}
+
+const contractListInclude = {
+  student: true,
+  program: true,
+  planItems: { orderBy: { position: "asc" } },
+  pauses: { where: { endedOn: null } },
+  enrollments: {
+    where: { toDate: null },
+    include: { class: { include: { branch: true, teacher: true } } },
+  },
+} satisfies Prisma.ContractInclude;
+
+// Багшид: өөрийн ангид идэвхтэй бүртгэлтэй, эсвэл өөрийн зогсоосон гэрээнүүд.
+// Админд: бүх гэрээ.
+function contractListWhere(f: {
+  teacherId?: string;
+  status?: ContractStatus;
+  search?: string;
+}): Prisma.ContractWhereInput {
+  return {
+    ...(f.status ? { status: f.status } : {}),
+    ...(f.search
+      ? { student: { fullName: { contains: f.search, mode: "insensitive" } } }
+      : {}),
+    ...(f.teacherId
+      ? {
+          OR: [
+            { enrollments: { some: { toDate: null, class: { teacherId: f.teacherId } } } },
+            { pauses: { some: { endedOn: null, pausedBy: f.teacherId } } },
+          ],
+        }
+      : {}),
+  };
+}
+
+export async function listContracts(
+  tx: Tx,
+  f: { teacherId?: string; status?: ContractStatus; search?: string; page: number; limit: number },
+) {
+  const where = contractListWhere(f);
+  const [items, total] = await Promise.all([
+    tx.contract.findMany({
+      where,
+      include: contractListInclude,
+      orderBy: [{ createdAt: "desc" }],
+      skip: (f.page - 1) * f.limit,
+      take: f.limit,
+    }),
+    tx.contract.count({ where }),
+  ]);
+  return { items, total };
+}
+
+export function findContractWithPauses(tx: Tx, id: string) {
+  return tx.contract.findUnique({
+    where: { id },
+    include: { pauses: { where: { endedOn: null } } },
+  });
 }

@@ -6,6 +6,8 @@ import {
   updatePlacementRequestSchema,
   createContractSchema,
   createStudentSchema,
+  enrollStudentSchema,
+  listContractsQuerySchema,
   pauseContractSchema,
   resumeContractSchema,
   updateContractPlanSchema,
@@ -22,6 +24,17 @@ export async function createStudent(req: Request, res: Response) {
   res.status(201).json(await service.registerStudent(input));
 }
 
+// Шинэ шаардлага 1.4: сурагч, эцэг эх, гэрээ, ангийн бүртгэл нэг транзакцаар.
+export async function enrollStudent(req: Request, res: Response) {
+  const input = enrollStudentSchema.parse(req.body);
+  res.status(201).json(await service.enrollNewStudent(req.user!, input));
+}
+
+export async function listContracts(req: Request, res: Response) {
+  const query = listContractsQuerySchema.parse(req.query);
+  res.status(200).json(await service.listContracts(req.user!, query));
+}
+
 export async function createAssessment(req: Request, res: Response) {
   const { id } = idParamSchema.parse(req.params);
   const { takenOn, totalPercent } = createAssessmentSchema.parse(req.body);
@@ -36,7 +49,7 @@ export async function createContract(req: Request, res: Response) {
 export async function updateContractPlan(req: Request, res: Response) {
   const { id } = idParamSchema.parse(req.params);
   const { items } = updateContractPlanSchema.parse(req.body);
-  res.status(200).json(await service.updateContractPlan(id, items));
+  res.status(200).json(await service.updateContractPlan(req.user!, id, items));
 }
 
 export async function pauseContract(req: Request, res: Response) {

@@ -15,6 +15,10 @@ import * as service from "./directory.service.js";
 
 const idParamSchema = z.object({ id: z.uuid() });
 
+export async function getSetupStatus(_req: Request, res: Response) {
+  res.status(200).json(await service.getSetupStatus());
+}
+
 export async function listTeachers(req: Request, res: Response) {
   res.status(200).json(await service.listTeachers(listTeachersQuerySchema.parse(req.query)));
 }

@@ -1,0 +1,108 @@
+import { expect, type APIRequestContext } from "@playwright/test";
+import { E2E } from "./env.mjs";
+import { uniquePhone } from "./helpers";
+
+// API-аар тест бэлтгэх туслахууд (UI-аар давтахгүй).
+
+export async function apiLogin(request: APIRequestContext, identifier: string, password: string) {
+  const res = await request.post("/api/v1/auth/login", { data: { identifier, password } });
+  expect(res.ok()).toBeTruthy();
+  const body = (await res.json()) as { accessToken: string; user: { id: string } };
+  return { token: body.accessToken, userId: body.user.id };
+}
+
+export async function apiAsAdmin(request: APIRequestContext) {
+  return apiLogin(request, E2E.adminPhone, E2E.adminPassword);
+}
+
+export function bearer(token: string) {
+  return { Authorization: `Bearer ${token}` };
+}
+
+export interface TeacherFixture {
+  phone: string;
+  password: string;
+  token: string;
+  teacherId: string;
+  classIds: string[];
+  branchId: string;
+}
+
+// Админ багш үүсгэнэ, багш түр нууц үгээ API-аар солино, цагийн үнэлгээ тогтооно,
+// өгөгдсөн гаруудад (10:00) анги үүсгэнэ.
+export async function createTeacherWithClasses(
+  request: APIRequestContext,
+  weekdays: number[],
+): Promise<TeacherFixture> {
+  const admin = await apiAsAdmin(request);
+  const phone = uniquePhone();
+  const created = await request.post("/api/v1/teachers", {
+    headers: bearer(admin.token),
+    data: { fullName: `Багш ${phone}`, phone },
+  });
+  expect(created.status()).toBe(201);
+  const temp = (await created.json()) as { id: string; tempPassword: string };
+
+  const first = await apiLogin(request, phone, temp.tempPassword);
+  const password = "BagshE2e123!";
+  const change = await request.post("/api/v1/auth/password/change", {
+    headers: bearer(first.token),
+    data: { currentPassword: temp.tempPassword, newPassword: password },
+  });
+  expect(change.status()).toBe(204);
+
+  const branches = (await (
+    await request.get("/api/v1/branches", { headers: bearer(admin.token) })
+  ).json()) as { id: string }[];
+  const branchId = branches[0]!.id;
+
+  const rate = await request.post(`/api/v1/teachers/${temp.id}/rates`, {
+    headers: bearer(admin.token),
+    data: { hourlyRate: "5000.00", effectiveFrom: "2026-01-01" },
+  });
+  expect(rate.status()).toBe(201);
+
+  const teacher = await apiLogin(request, phone, password);
+  const classIds: string[] = [];
+  for (const weekday of weekdays) {
+    const res = await request.post("/api/v1/classes", {
+      headers: bearer(teacher.token),
+      data: { branchId, weekday, startTime: "10:00" },
+    });
+    expect(res.status()).toBe(201);
+    classIds.push(((await res.json()) as { id: string }).id);
+  }
+  return { phone, password, token: teacher.token, teacherId: temp.id, classIds, branchId };
+}
+
+export async function firstProgramId(request: APIRequestContext): Promise<string> {
+  const admin = await apiAsAdmin(request);
+  const programs = (await (
+    await request.get("/api/v1/programs", { headers: bearer(admin.token) })
+  ).json()) as { id: string }[];
+  return programs[0]!.id;
+}
+
+// Багшийн нэрийн өмнөөс сурагч бүртгэнэ (API).
+export async function enrollViaApi(
+  request: APIRequestContext,
+  token: string,
+  classIds: string[],
+  extra: { studentName?: string; parentPhone?: string } = {},
+) {
+  const now = new Date().toISOString();
+  const res = await request.post("/api/v1/enrollments", {
+    headers: bearer(token),
+    data: {
+      parentPhone: extra.parentPhone ?? uniquePhone(),
+      parentFullName: "Эцэг",
+      studentFullName: extra.studentName ?? `Сурагч ${uniquePhone()}`,
+      programId: await firstProgramId(request),
+      classIds,
+      fromDate: now.slice(0, 10),
+      rulesAckAt: now,
+      consentAt: now,
+    },
+  });
+  return res;
+}

@@ -31,6 +31,8 @@ const NAV: Record<Role, NavItem[]> = {
     { to: "/teacher", label: "Өнөөдөр", icon: LayoutDashboard, end: true },
     { to: "/teacher/calendar", label: "Хуваарь", icon: CalendarDays },
     { to: "/teacher/classes", label: "Анги", icon: School },
+    { to: "/teacher/students", label: "Сурагчид", icon: Users },
+    { to: "/teacher/enroll", label: "Бүртгэл", icon: UserPlus },
   ],
   ADMIN: [
     { to: "/admin", label: "Самбар", icon: LayoutDashboard, end: true },

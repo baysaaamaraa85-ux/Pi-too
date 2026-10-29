@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 import {
+  availableClassesQuerySchema,
   createClassSchema,
   enrollInClassSchema,
   listLessonsQuerySchema,
@@ -43,8 +44,8 @@ export async function listClasses(req: Request, res: Response) {
 }
 
 export async function listAvailableClasses(req: Request, res: Response) {
-  const branchId = typeof req.query.branchId === "string" ? req.query.branchId : undefined;
-  res.status(200).json(await service.listAvailableClasses({ branchId }));
+  const { branchId, weekday, teacherId } = availableClassesQuerySchema.parse(req.query);
+  res.status(200).json(await service.listAvailableClasses({ branchId, weekday, teacherId }));
 }
 
 export async function enrollInClass(req: Request, res: Response) {

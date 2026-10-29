@@ -1,8 +1,9 @@
 import { Link, createBrowserRouter, Navigate, RouterProvider } from "react-router";
 import { AdminCatalogPage } from "@/features/admin/catalog-page";
 import { AdminDashboardPage } from "@/features/admin/dashboard-page";
-import { AdminEnrollPage } from "@/features/admin/enroll-page";
+import { EnrollWizardPage } from "@/features/enroll/enroll-wizard";
 import { AdminRequestsPage } from "@/features/admin/requests-page";
+import { AdminSetupPage } from "@/features/admin/setup-page";
 import { ComingSoonPage } from "@/features/admin/coming-soon-page";
 import { AdminParentDetailPage, AdminParentsPage } from "@/features/admin/parents-pages";
 import { AdminStudentDetailPage, AdminStudentsPage } from "@/features/admin/students-pages";
@@ -26,6 +27,7 @@ import {
 } from "@/features/portal/portal-pages";
 import { TeacherSchedulePage } from "@/features/schedule/schedule-page";
 import { TeacherClassesPage } from "@/features/teacher/classes-page";
+import { TeacherStudentsPage } from "@/features/teacher/students-page";
 import { TeacherTodayPage } from "@/features/teacher/today-page";
 import { AdminShell } from "./admin-shell";
 import { AppShell } from "./app-shell";
@@ -71,6 +73,8 @@ const router = createBrowserRouter([
           { path: "/teacher", element: <TeacherTodayPage /> },
           { path: "/teacher/calendar", element: <TeacherSchedulePage /> },
           { path: "/teacher/classes", element: <TeacherClassesPage /> },
+          { path: "/teacher/students", element: <TeacherStudentsPage /> },
+          { path: "/teacher/enroll", element: <EnrollWizardPage mode="teacher" /> },
         ],
       },
     ],
@@ -89,7 +93,8 @@ const router = createBrowserRouter([
           { path: "/admin/parents", element: <AdminParentsPage /> },
           { path: "/admin/parents/:id", element: <AdminParentDetailPage /> },
           { path: "/admin/requests", element: <AdminRequestsPage /> },
-          { path: "/admin/enroll", element: <AdminEnrollPage /> },
+          { path: "/admin/setup", element: <AdminSetupPage /> },
+          { path: "/admin/enroll", element: <EnrollWizardPage mode="admin" /> },
           { path: "/admin/catalog", element: <AdminCatalogPage /> },
           {
             path: "/admin/classes",

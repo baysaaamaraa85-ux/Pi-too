@@ -20,14 +20,16 @@ export function findClassById(tx: Tx, id: string) {
 
 export function listClasses(
   tx: Tx,
-  filters: { branchId?: string; teacherId?: string; isActive?: boolean },
+  filters: { branchId?: string; teacherId?: string; isActive?: boolean; weekday?: number },
 ) {
   return tx.class.findMany({
     where: {
       branchId: filters.branchId,
       teacherId: filters.teacherId,
       isActive: filters.isActive,
+      weekday: filters.weekday,
     },
+    include: { branch: true, teacher: true },
     orderBy: [{ weekday: "asc" }, { startTime: "asc" }],
   });
 }

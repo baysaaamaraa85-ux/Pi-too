@@ -31,3 +31,10 @@ export const listLessonsQuerySchema = z.object({
   to: z.iso.date(),
 });
 export type ListLessonsQuery = z.infer<typeof listLessonsQuerySchema>;
+
+// ФШ-15: сул суудалтай ангийн хайлтын шүүлтүүр.
+export const availableClassesQuerySchema = z.object({
+  branchId: z.uuid().optional(),
+  weekday: z.coerce.number().int().min(1).max(7).optional(),
+  teacherId: z.uuid().optional(),
+});

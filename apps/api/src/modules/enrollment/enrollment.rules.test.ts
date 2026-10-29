@@ -98,7 +98,9 @@ describe("М3 ба М4 нэмэлт дүрмүүд", () => {
 
   it("ФШ-18: хувийн төлөвлөгөө сэдвийн дарааллаар хадгалагдаж, дахин илгээхэд солигдоно", async () => {
     const { token } = await loginAsTeacher();
+    const classId = await createClassAs(token, await createBranch(), 6, "09:00");
     const contract = await createContractFor(await createProgram());
+    await enroll(token, classId, contract.id);
 
     const first = await request(app)
       .put(`/api/v1/contracts/${contract.id}/plan`)
