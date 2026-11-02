@@ -1,6 +1,7 @@
 import type { Role } from "@pitoo/contracts";
 import { ROLE_LABELS } from "@pitoo/contracts";
 import {
+  Bell,
   CalendarDays,
   ClipboardCheck,
   ClipboardList,
@@ -46,6 +47,7 @@ const NAV: Record<Role, NavItem[]> = {
     { to: "/portal/schedule", label: "Хуваарь", icon: CalendarDays },
     { to: "/portal/attendance", label: "Ирц", icon: ClipboardCheck },
     { to: "/portal/payment", label: "Төлбөр", icon: Wallet },
+    { to: "/portal/settings", label: "Мэдэгдэл", icon: Bell },
   ],
   STUDENT: [
     { to: "/portal", label: "Нүүр", icon: LayoutDashboard, end: true },

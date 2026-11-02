@@ -9,6 +9,7 @@ import { attendanceRouter } from "./modules/attendance/attendance.routes.js";
 import { directoryRouter } from "./modules/directory/directory.routes.js";
 import { payrollRouter } from "./modules/payroll/payroll.routes.js";
 import { progressRouter } from "./modules/progress/progress.routes.js";
+import { notificationsRouter } from "./modules/notifications/notifications.routes.js";
 import { paymentsRouter } from "./modules/payments/payments.routes.js";
 import { portalRouter } from "./modules/portal/portal.routes.js";
 
@@ -30,4 +31,5 @@ apiV1Router.use(directoryRouter);
 apiV1Router.use(payrollRouter);
 apiV1Router.use(progressRouter);
 apiV1Router.use(paymentsRouter);
+apiV1Router.use(notificationsRouter);
 apiV1Router.use(enrollmentRouter);

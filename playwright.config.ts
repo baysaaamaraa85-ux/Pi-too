@@ -25,6 +25,7 @@ export default defineConfig({
       url: `http://localhost:${E2E.apiPort}/health`,
       reuseExistingServer: false,
       timeout: 180_000,
+      stdout: "pipe",
     },
     {
       command: `npx vite --port ${E2E.webPort} --strictPort`,

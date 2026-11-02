@@ -263,7 +263,6 @@ export async function forgotPassword(email: string): Promise<void> {
       payload: { token: resetValue },
     });
 
-    console.log(`[DEV] Нууц үг сэргээх token (${user.email}): ${resetValue}`);
   });
 }
 

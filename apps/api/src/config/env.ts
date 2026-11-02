@@ -14,6 +14,19 @@ const envSchema = z.object({
   JWT_ACCESS_SECRET: z.string().min(32, "JWT_ACCESS_SECRET 32 тэмдэгтээс багагүй байх ёстой"),
   JWT_REFRESH_SECRET: z.string().min(32, "JWT_REFRESH_SECRET 32 тэмдэгтээс багагүй байх ёстой"),
   APP_ORIGIN: z.url(),
+  // М9 Мэдэгдэл (ФШ-05, 62): суваг тохируулаагүй бол тухайн суваг FAILED болно.
+  VAPID_PUBLIC_KEY: z.string().min(1).optional(),
+  VAPID_PRIVATE_KEY: z.string().min(1).optional(),
+  VAPID_SUBJECT: z.string().min(1).default("mailto:admin@pi-too.mn"),
+  SMTP_HOST: z.string().min(1).optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_SECURE: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+  SMTP_USER: z.string().min(1).optional(),
+  SMTP_PASS: z.string().min(1).optional(),
+  SMTP_FROM: z.string().min(1).default("Пи тоо <no-reply@pi-too.mn>"),
   ADMIN_PHONE: z.string().min(1).optional(),
   ADMIN_TEMP_PASSWORD: z.string().min(8).optional(),
 });

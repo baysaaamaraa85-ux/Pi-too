@@ -7,7 +7,7 @@ import {
   type PlacementRequestStatus,
 } from "../../generated/prisma/client.js";
 import { DomainError } from "../../shared/errors/domain-error.js";
-import { enqueue } from "../../shared/outbox/enqueue.js";
+import { notifyUser } from "../../shared/outbox/notify-user.js";
 import { balancesFor, teacherFlag } from "../../shared/payments/payment-status.js";
 import { writeAudit } from "../../shared/audit/write-audit.js";
 import { createUserInTx } from "../auth/auth.service.js";
@@ -659,7 +659,7 @@ export function hasActiveEnrollmentInClassInTx(tx: Tx, contractId: string, class
 }
 
 // ФШ-36, 60, 61: эцэг эх бүрт outbox-д мэдэгдэл бичнэ (эцэг эхийн сонгосон сувгаар,
-// сонголтгүй бол PUSH). Үндсэн өөрчлөлттэй нэг транзакцад дуудна (ADR-006).
+// сонголтгүй бол push). Үндсэн өөрчлөлттэй нэг транзакцад дуудна (ADR-006).
 export async function notifyParentsInTx(
   tx: Tx,
   studentId: string,
@@ -668,12 +668,6 @@ export async function notifyParentsInTx(
 ) {
   const links = await repo.findParentsOfStudent(tx, studentId);
   for (const link of links) {
-    const stored = link.parent.notifyChannels;
-    const channels = (Array.isArray(stored) ? stored : []).filter(
-      (c): c is "PUSH" | "EMAIL" | "SMS" => c === "PUSH" || c === "EMAIL" || c === "SMS",
-    );
-    for (const channel of channels.length > 0 ? channels : (["PUSH"] as const)) {
-      await enqueue(tx, { recipientId: link.parentId, channel, template, payload });
-    }
+    await notifyUser(tx, link.parentId, template, payload);
   }
 }

@@ -44,6 +44,7 @@ model User {
   ledgerEntriesCreated LedgerEntry[]        @relation("LedgerCreatedBy")
   idempotencyKeys      IdempotencyKey[]
   notifications        NotificationOutbox[]
+  pushSubscriptions    PushSubscription[]
   paymentsCreated      Payment[]            @relation("PaymentCreatedBy")
   claimsResolved       PaymentClaim[]       @relation("ClaimResolvedBy")
 
@@ -590,6 +591,9 @@ model NotificationOutbox {
   status        NotificationStatus  @default(PENDING)
   attempts      Int                 @default(0)
   nextAttemptAt DateTime?           @map("next_attempt_at") @db.Timestamptz(6)
+  lastError     String?             @map("last_error")
+  sentAt        DateTime?           @map("sent_at") @db.Timestamptz(6)
+  deliveredAt   DateTime?           @map("delivered_at") @db.Timestamptz(6)
   createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
 
   recipient User @relation(fields: [recipientId], references: [id], onDelete: Restrict)
@@ -697,4 +701,19 @@ model PaymentClaim {
 
   @@index([status, claimedAt])
   @@map("payment_claims")
+}
+
+// ФШ-62, ADR-005: Web Push бүртгэл. Нэг хэрэглэгч олон төхөөрөмжтэй байж болно.
+model PushSubscription {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }

@@ -19,7 +19,7 @@
 | ФШ-02 | Хэрэгжсэн | `authorize()` middleware, `users.role`, BOLA тестүүд (portal, scheduling) | Үүрэг бүрээр эрхгүй endpoint-ын бүрэн автомат тест | 4, 12 |
 | ФШ-03 | Хэрэгжсэн | POST /teachers, /parents, /students, POST /users/{id}/reset-password, `/admin/teachers`, `/admin/parents`, `/admin/students`, `directory.service.test.ts`, `e2e/01-users.spec.ts` | | |
 | ФШ-04 | Хэрэгжсэн | `parent_students`, GET /portal/summary, `ChildPicker` | | |
-| ФШ-05 | Хэсэгчлэн | POST /auth/password/forgot, reset; `password_resets` | Имэйл илгээх суваг байхгүй (outbox илгээгч, SMTP) | 8 |
+| ФШ-05 | Хэрэгжсэн | POST /auth/password/forgot, reset; имэйл outbox-оор SMTP-ээр холбоостой очно, token-ыг логт бичихгүй, `apps/api/src/modules/notifications/notifications.worker.test.ts` | |  |
 | ФШ-06 | Хэрэгжсэн | PATCH /users/{id}/status (refresh token хүчингүй, аудит), дэлгэрэнгүй хуудасны товч | | |
 
 ### М2. Суурь мэдээлэл
@@ -76,7 +76,7 @@
 | ФШ-33 | Хэрэгжсэн | `loadLessonForWrite`, settings `editWindowHours`, `attendance.record.test.ts` (23 ба 25 цаг), e2e |  |  |
 | ФШ-34 | Хэрэгжсэн | PATCH /attendance/{id}, `settleAttendanceEarningInTx` (ADJUSTMENT), `attendance.record.test.ts` Хүснэгт 3.15-ын 4 мөр |  |  |
 | ФШ-35 | Хэрэгжсэн | audit_log, GET /attendance/{id}/history (админ), `attendance.record.test.ts` | Түүхийг UI-д харуулах (шат 10) | 10 |
-| ФШ-36 | Хэрэгжсэн | `crossedToThree` (4-өөс 3), outbox `package_ending`, `attendance.record.test.ts` | Илгээх суваг (шат 8) | 8 |
+| ФШ-36 | Хэрэгжсэн | `crossedToThree` (4-өөс 3), outbox `package_ending`, `attendance.record.test.ts`, worker илгээнэ | |  |
 | ФШ-37 | Хэрэгжсэн | Гэрээ Дууссан, `teacher_tasks` EXAM, засварт Идэвхтэй руу буцна, `attendance.record.test.ts` |  |  |
 
 ### М6. Сургалтын явц
@@ -103,7 +103,7 @@
 | ФШ-50 | Хасагдсан (W) | | Шаардлагаас хасагдсан | |
 | ФШ-51 | Хэрэгжсэн | Багшид зөвхөн Бүрэн/Үлдэгдэлтэй (ирцийн дэлгэц, GET /contracts), дүн байхгүй, `payments.service.test.ts` |  |  |
 | ФШ-52 | Хэрэгжсэн | POST /payments/{id}/cancel (шалтгаан заавал, CHECK), PATCH /payments/{id} (шалтгаан, аудит before/after), `payments.service.test.ts` |  |  |
-| ФШ-76 | Хэрэгжсэн | POST /payment-claims (нэг PENDING, DB partial UNIQUE), батлах/татгалзах, мэдэгдэл outbox-д, `payments.service.test.ts`, e2e | Илгээх суваг (шат 8) | 8 |
+| ФШ-76 | Хэрэгжсэн | POST /payment-claims (нэг PENDING, DB partial UNIQUE), батлах/татгалзах, мэдэгдэл outbox-д, `payments.service.test.ts`, e2e | |  |
 | ФШ-77 | Хэрэгжсэн | Карт дээр Хүлээгдэж байна / Төлөгдсөн / Дутуу төлөгдсөн / Төлөгдөөгүй (тооцоолсон), `payments.service.test.ts`, e2e |  |  |
 
 ### М8. Цалин ба олголт
@@ -122,11 +122,11 @@
 
 | Код | Төлөв | Хаана байгаа | Юу дутуу | Шат |
 | --- | --- | --- | --- | --- |
-| ФШ-60 | Хэсэгчлэн | `enqueue()`, цуцлахад outbox мөр | Илгээх процесс байхгүй | 8 |
-| ФШ-61 | Хэсэгчлэн | outbox `attendance_recorded`, `attendance_updated` (эцэг эхийн сувгаар) | Илгээх процесс (шат 8) | 8 |
-| ФШ-62 | Хийгдээгүй | `parents.notify_channels` | Web Push, SMTP, эцэг эх сувгаа сонгох | 8 |
-| ФШ-63 | Хийгдээгүй | `notification_outbox.status` | Хүргэлтийн төлөв, админы жагсаалт | 8 |
-| ФШ-64 | Хийгдээгүй | | SMS адаптерын интерфейс (C, ТӨ-01) | 8 |
+| ФШ-60 | Хэрэгжсэн | `processOutbox` (FOR UPDATE SKIP LOCKED), хичээл цуцлах, шилжүүлэх мэдэгдэл, `apps/api/src/modules/notifications/notifications.worker.test.ts` | |  |
+| ФШ-61 | Хэрэгжсэн | Ирц бүртгэх, засах мэдэгдэл эцэг эхийн сувгаар, монгол загвар, `apps/api/src/modules/notifications/notifications.worker.test.ts` | |  |
+| ФШ-62 | Хэрэгжсэн | Web Push (VAPID), SMTP адаптер, `PUT /me/notification-settings`, `/portal/settings`, `apps/api/src/modules/notifications/notifications.worker.test.ts` | |  |
+| ФШ-63 | Хэрэгжсэн | SENT, DELIVERED (push баталгаажуулалт), FAILED, админы `/admin/notifications` жагсаалт, дахин илгээх, `apps/api/src/modules/notifications/notifications.worker.test.ts` | |  |
+| ФШ-64 | Хэсэгчлэн | `sms.adapter.ts` интерфейс ба суваг нэмэх бүртгэл (C, ТӨ-01: жинхэнэ SMS үйлчилгээ сонгоогүй) | Жинхэнэ SMS үйлчилгээний хэрэгжилт | |
 
 ### М10-М12
 
@@ -149,7 +149,7 @@
 | ФБШ-03 | Хийгдээгүй | Ачааллын тест (k6) | 12 |
 | ФБШ-04 | Хийгдээгүй | Route бүрийн code splitting (bundle 600 kB-аас том), Lighthouse | 11 |
 | ФБШ-05 | Хэрэгжсэн | GET /payroll/summary нэг GROUP BY, 30 багш x 200 мөр < 10 с (`payroll.ledger.test.ts`) |  |  |
-| ФБШ-06 | Хийгдээгүй | Outbox илгээгч worker | 8 |
+| ФБШ-06 | Хэрэгжсэн | Worker 10 секунд тутам, 20 мэдэгдэл нэг циклд, 5 минутаас бага (автомат), `apps/api/src/modules/notifications/notifications.worker.test.ts` |  |
 | ФБШ-07 | Хийгдээгүй | 1 000 сурагчийн ачааллын seed | 12 |
 | ФБШ-08 | Хэсэгчлэн | Ирцийн дэлгэц, 2 товшилт, e2e-д 30 секундээс бага (автомат). Багш нартай UAT-ийг би хийхгүй |  |  |
 | ФБШ-09 | Хийгдээгүй | UAT, миний хамрах хүрээнээс гадуур | |
@@ -185,7 +185,7 @@
 | Хүснэгтийн тоо | Хэсэгчлэн | 26 хүснэгт; `assessment_topics, lesson_notes, parent_meetings, payments, payment_claims, push_subscriptions` М6-М9-тэй хамт |
 | Аудитын эрх | Хэрэгжсэн | REVOKE migration, апп `pitoo_app` |
 | Элсэлтийн эрх | Хэрэгжсэн | `/teacher/enroll`, `/admin/enroll` нэг endpoint; зөвхөн өөрийн ангид (403) |
-| Мэдэгдэл илгээх | Хийгдээгүй | Шат 8 |
+| Мэдэгдэл илгээх | Хэрэгжсэн | Шат 8 |
 | Эцэг эхийн портал | Хэсэгчлэн | Шат 9 |
 | Тестийн тоо | Хэсэгчлэн | Шат 4, 5, 12 |
 | ФШ-15, 18, 74, 21 тусгай тест | Хэрэгжсэн (шат 1) | `enrollment.rules.test.ts`; ФШ-72-ын "өнгөрсөн огноо" нөхцөл кодонд байгаагүй тул нэмсэн |

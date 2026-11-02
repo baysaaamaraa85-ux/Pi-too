@@ -2,7 +2,7 @@ import { prisma, type Tx } from "../../shared/db/prisma.js";
 import { Prisma, Role } from "../../generated/prisma/client.js";
 import { writeAudit } from "../../shared/audit/write-audit.js";
 import { DomainError } from "../../shared/errors/domain-error.js";
-import { enqueue } from "../../shared/outbox/enqueue.js";
+import { notifyUser } from "../../shared/outbox/notify-user.js";
 import * as catalog from "../catalog/catalog.service.js";
 import * as repo from "./scheduling.repository.js";
 
@@ -380,11 +380,9 @@ export async function cancelLesson(lessonId: string, user: { id: string; role: R
 
     const recipients = await repo.findNotificationRecipientsForClass(tx, lesson.classId);
     for (const recipientId of recipients) {
-      await enqueue(tx, {
-        recipientId,
-        channel: "PUSH",
-        template: "lesson_cancelled",
-        payload: { lessonId, startsAt: lesson.startsAt.toISOString() },
+      await notifyUser(tx, recipientId, "lesson_cancelled", {
+        lessonId,
+        startsAt: lesson.startsAt.toISOString(),
       });
     }
 
@@ -446,11 +444,9 @@ export async function rescheduleLesson(
 
     const recipients = await repo.findNotificationRecipientsForClass(tx, lesson.classId);
     for (const recipientId of recipients) {
-      await enqueue(tx, {
-        recipientId,
-        channel: "PUSH",
-        template: "lesson_rescheduled",
-        payload: { lessonId, startsAt: newStartsAt.toISOString() },
+      await notifyUser(tx, recipientId, "lesson_rescheduled", {
+        lessonId,
+        startsAt: newStartsAt.toISOString(),
       });
     }
 
