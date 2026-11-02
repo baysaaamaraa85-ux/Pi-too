@@ -95,6 +95,7 @@ test("ФШ-48, 52: өртэй гэрээнээс төлбөр бүртгэж, ц
   await expect(page.getByRole("row").filter({ hasText: f.studentName })).toContainText("Цуцалсан: Буруу гэрээ");
 
   await page.getByRole("tab", { name: "Өртэй гэрээ" }).click();
+  await page.getByLabel("Сурагч, эцэг эхийн нэр, утасаар хайх").fill(f.studentName);
   await expect(page.getByRole("row").filter({ hasText: f.studentName }).getByTestId("debt-balance")).toHaveText(
     "1 200 000 ₮",
   );

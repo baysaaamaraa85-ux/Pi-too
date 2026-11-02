@@ -88,7 +88,7 @@
 | ФШ-40 | Хэрэгжсэн | 3 давтлага бүртгэгдэж 4 дэх нь 409, багц ба цалинд нөлөөлөхгүй, `progress.service.test.ts` |  |
 | ФШ-41 | Хэрэгжсэн | GET /students/{id}/progress, шугаман график + хүснэгт (`ProgressChart`), `progress.service.test.ts` | 9 |
 | ФШ-42 | Хэрэгжсэн | Сүүлийн 3 сорилын сул сэдэв (60% босго settings), 55% тодорч 65% тодрохгүй, `progress.service.test.ts` |  |
-| ФШ-43 | Хэрэгжсэн | 13 ба 25 дахь ирэлтэд `teacher_tasks` MEETING, уулзалт бүртгэхэд биелнэ, `progress.service.test.ts` | 10 |
+| ФШ-43 | Хэрэгжсэн | 13 ба 25 дахь ирэлтэд `teacher_tasks` MEETING, уулзалт бүртгэхэд биелнэ, багшийн самбарт харагдана, `progress.service.test.ts`, `reports.service.test.ts` | |
 | ФШ-44 | Хэрэгжсэн | POST /lessons/{id}/notes, GET /contracts/{id}/notes (дотоод/хуваалцсан), UI, `progress.service.test.ts` | 9 |
 | ФШ-45 | Хэрэгжсэн | POST /contracts/{id}/meetings, гэрээний `meetingsCount` (админ ба багш), UI, `progress.service.test.ts` |  |
 
@@ -98,7 +98,7 @@
 | --- | --- | --- | --- | --- |
 | ФШ-46 | Хэрэгжсэн | POST /contracts/{id}/payments (Idempotency-Key, аудит), `/admin/payments`, сурагчийн дэлгэрэнгүй, `payments.service.test.ts` |  |  |
 | ФШ-47 | Хэрэгжсэн | Төлөв хадгалагдахгүй, SUM-аас (`shared/payments/payment-status.ts`): 600 000 / 400 000 = 200 000 Дутуу, `payments.service.test.ts` |  |  |
-| ФШ-48 | Хэрэгжсэн | GET /debts (салбар, багш, хоног), нийт өр, `/admin/payments` Өртэй гэрээ, `payments.service.test.ts` | Нийт өр ФШ-69 тайлантай (шат 10) | 10 |
+| ФШ-48 | Хэрэгжсэн | GET /debts (салбар, багш, хоног, хайлт), нийт өр, `/admin/payments` Өртэй гэрээ, `payments.service.test.ts`, нийт өр ФШ-69 тайлантай тэнцүү (`reports.service.test.ts`) | | |
 | ФШ-49 | Хэрэгжсэн | Эцэг эхийн карт: үлдэгдэл, төлөв, дансны мэдээлэл (settings), гүйлгээний утга + хуулах товч, `portal.service.test.ts` |  |  |
 | ФШ-50 | Хасагдсан (W) | | Шаардлагаас хасагдсан | |
 | ФШ-51 | Хэрэгжсэн | Багшид зөвхөн Бүрэн/Үлдэгдэлтэй (ирцийн дэлгэц, GET /contracts), дүн байхгүй, `payments.service.test.ts` |  |  |
@@ -135,10 +135,10 @@
 | ФШ-65 | Хэрэгжсэн | `/portal` дөрвөн карт (багцын үлдэгдэл, чөлөө, дараагийн хичээл, сүүлийн сорил), хүүхэд сонгогч, `e2e/09-portal.spec.ts`: 360x640-д бүгд дэлгэц дотор | | |
 | ФШ-66 | Хэрэгжсэн | Төлбөрийн route PARENT/ADMIN, сурагчид 403, бусдын гэрээнд 403 (`payments.service.test.ts`, `portal.service.test.ts`), "Гэрээ, төлбөр" зөвхөн эцэг эхэд, `e2e/09-portal.spec.ts` | | |
 | ФШ-67 | Хэрэгжсэн | GET /portal/students/{id}/attendance (багц бүрийн `contractId`, 1000 мөр хүртэл), багцын шалгалтын дүн, дүнгийн график, `portal.service.test.ts` (2 дууссан багц, 50 ирэлт), `e2e/09-portal.spec.ts` | | |
-| ФШ-68 | Хэсэгчлэн | `/admin` (хүсэлтийн тоо) | Үлдэгдэлтэй гэрээ, сөрөг үлдэгдэлтэй багш картууд, шүүлттэй жагсаалт | 10 |
-| ФШ-69 | Хийгдээгүй | | Сарын тайлан | 10 |
-| ФШ-70 | Хийгдээгүй | `/teacher` (өнөөдрийн хичээл) | Ирц бөглөөгүй хичээл, уулзалтын сануулга | 10 |
-| ФШ-71 | Хийгдээгүй | | Салбар, багш шилжилт (C) | 10 |
+| ФШ-68 | Хэрэгжсэн | GET /dashboard (ADMIN): өртэй гэрээ, сөрөг үлдэгдэлтэй багш; карт нь `/admin/payments?tab=debts`, `/admin/payroll?negative=1` руу; тоо `/debts`, `/payroll/summary`-тай таарна, `apps/api/src/modules/reports/reports.service.test.ts`, `e2e/10-dashboard.spec.ts` | | |
+| ФШ-69 | Хэрэгжсэн | GET /reports/monthly, `/admin/reports`: салбар бүр ба байгууллага, нийт өр `/debts`-тэй тэнцүү, салбаруудын нийлбэр = байгууллага, `apps/api/src/modules/reports/reports.service.test.ts`, `e2e/10-dashboard.spec.ts` | | |
+| ФШ-70 | Хэрэгжсэн | GET /dashboard (TEACHER): өнөөдрийн хичээл, ирц бөглөөгүй хичээл, уулзалтын сануулга; ирц хадгалмагц жагсаалтаас хасагдана, `apps/api/src/modules/reports/reports.service.test.ts`, `e2e/10-dashboard.spec.ts` | | |
+| ФШ-71 | Хэрэгжсэн | POST /contracts/{id}/transfer, админы сурагчийн дэлгэрэнгүйд "Шилжүүлэх", үлдэгдэл, чөлөө, дүн, өмнөх цалин хэвээр, аудит, `apps/api/src/modules/transfer/transfer.service.test.ts`, `e2e/10-dashboard.spec.ts` | | |
 
 ## 2. Функционал бус шаардлага
 

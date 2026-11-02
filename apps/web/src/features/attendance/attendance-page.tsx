@@ -275,6 +275,7 @@ export function AttendancePage() {
       setMarks({});
       await queryClient.invalidateQueries({ queryKey: [SHEET_KEY] });
       await queryClient.invalidateQueries({ queryKey: ["attendance-day"] });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 

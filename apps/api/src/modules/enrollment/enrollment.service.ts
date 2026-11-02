@@ -671,3 +671,11 @@ export async function notifyParentsInTx(
     await notifyUser(tx, link.parentId, template, payload);
   }
 }
+
+// ФШ-71: transfer модуль гэрээний тоолуурыг өөрчлөхгүйгээр уншихаасаа өмнө түгжинэ (ADR-009).
+export async function lockContractInTx(tx: Tx, contractId: string) {
+  await repo.lockContractForUpdate(tx, contractId);
+  const contract = await repo.findContractById(tx, contractId);
+  if (!contract) contractNotFound();
+  return contract;
+}

@@ -255,3 +255,11 @@ export async function exportReport(
     total: data.summary.total,
   };
 }
+
+// ФШ-68: админы самбарт сөрөг үлдэгдэлтэй (багшаас авах) багш нарын тоо, нийлбэр.
+export async function negativeBalanceTeachers() {
+  const rows = await payrollSummary({});
+  const negative = rows.filter((r) => new Prisma.Decimal(r.balance).lt(0));
+  const total = negative.reduce((acc, r) => acc.plus(r.balance), new Prisma.Decimal(0));
+  return { count: negative.length, totalNegative: total.toFixed(2) };
+}

@@ -335,3 +335,16 @@ export function rejectClaim(actor: Actor, claimId: string, reason: string) {
     return { claimId, status: "REJECTED" as const };
   });
 }
+
+// ФШ-68: админы самбарт өртэй гэрээний тоо, нийт өр.
+export async function getDebtSummary() {
+  const all = await debtRows({});
+  const total = all.reduce((acc, r) => acc.plus(r.balance), new Prisma.Decimal(0));
+  return { count: all.length, totalDebt: total.toFixed(2) };
+}
+
+// ФШ-69: сарын тайлан гэрээ бүрийн өрийг салбарт хуваарилахад ашиглана (`/debts`-тэй ижил эх үүсвэр).
+export async function listDebtBalances(): Promise<{ contractId: string; balance: string }[]> {
+  const all = await debtRows({});
+  return all.map((r) => ({ contractId: r.contractId, balance: r.balance }));
+}

@@ -9,6 +9,7 @@ import {
 } from "@pitoo/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
+import { useSearchParams } from "react-router";
 import { PageHeader } from "@/app/app-shell";
 import { errorMessage, useBranches } from "@/features/admin/list-kit";
 import { api } from "@/shared/api-client/client";
@@ -372,7 +373,12 @@ function PaymentsTab() {
 
 // Шинэ шаардлага 1.1: админы "Төлбөр" хуудас. ФШ-46...48, 52, 76.
 export function AdminPaymentsPage() {
-  const [tab, setTab] = React.useState<Tab>("claims");
+  // Самбарын картаас ?tab=debts гэж ирнэ (ФШ-68).
+  const [params] = useSearchParams();
+  const initial = params.get("tab");
+  const [tab, setTab] = React.useState<Tab>(
+    initial === "debts" || initial === "payments" ? initial : "claims",
+  );
   const tabs: { key: Tab; label: string }[] = [
     { key: "claims", label: "Хүлээгдэж буй төлбөр" },
     { key: "debts", label: "Өртэй гэрээ" },

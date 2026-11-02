@@ -462,3 +462,8 @@ export async function rescheduleLesson(
     return updated;
   });
 }
+
+// ФШ-71: transfer модуль гэрээний нэг бүртгэлийг хаахдаа өөрийн транзакц дотроос дуудна.
+export function closeEnrollmentInTx(tx: Tx, enrollmentId: string, toDate: Date) {
+  return repo.closeEnrollment(tx, enrollmentId, toDate);
+}

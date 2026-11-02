@@ -23,6 +23,7 @@ import { Field, FormError } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { Modal } from "@/shared/ui/modal";
 import { RecordPaymentModal } from "@/features/payments/admin-payments-page";
+import { TransferModal } from "./transfer-modal";
 import { NotesPanel, ProgressSection } from "@/features/progress/progress-parts";
 import { AttendanceStatusChip, StatusChip } from "@/shared/ui/status-chip";
 import {
@@ -353,6 +354,10 @@ export function AdminStudentDetailPage() {
   const student = useStudent(id);
   const invalidate = useInvalidateDirectory();
   const [payingContract, setPayingContract] = React.useState<ContractSummary | null>(null);
+  const [transferring, setTransferring] = React.useState<{
+    contractId: string;
+    from: ContractSummary["classes"][number];
+  } | null>(null);
   const form = useForm<EditValues>({ resolver: zodResolver(updateStudentSchema) });
   const [saved, setSaved] = React.useState(false);
 
@@ -488,9 +493,17 @@ export function AdminStudentDetailPage() {
                         {formatMoney(c.price)} · Уулзалт {c.meetingsCount}
                       </p>
                       {c.classes.map((cls) => (
-                        <p key={cls.id} className="text-muted">
-                          {classText(cls)}
-                        </p>
+                        <div key={cls.id} className="flex flex-wrap items-center justify-between gap-2 text-muted">
+                          <p>{classText(cls)}</p>
+                          {c.status === "ACTIVE" ? (
+                            <Button
+                              variant="secondary"
+                              onClick={() => setTransferring({ contractId: c.id, from: cls })}
+                            >
+                              Шилжүүлэх
+                            </Button>
+                          ) : null}
+                        </div>
                       ))}
                       {c.paymentStatus ? (
                         <div className="mt-2 flex flex-wrap items-center gap-2" data-testid="contract-payment">
@@ -543,6 +556,14 @@ export function AdminStudentDetailPage() {
           </Card>
         </div>
       </div>
+      {transferring ? (
+        <TransferModal
+          contractId={transferring.contractId}
+          from={transferring.from}
+          studentName={s.fullName}
+          onClose={() => setTransferring(null)}
+        />
+      ) : null}
       {payingContract ? (
         <RecordPaymentModal
           contractId={payingContract.id}

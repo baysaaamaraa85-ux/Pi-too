@@ -210,3 +210,8 @@ export function cancelRemainingFutureLessons(tx: Tx, classId: string, now: Date)
     data: { status: "CANCELLED" },
   });
 }
+
+// ФШ-71: нэг бүртгэлийг (сурагч, анги) хаана.
+export function closeEnrollment(tx: Tx, enrollmentId: string, toDate: Date) {
+  return tx.enrollment.update({ where: { id: enrollmentId }, data: { toDate } });
+}

@@ -224,3 +224,26 @@ export function findLessonsForDay(
     orderBy: { startsAt: "asc" },
   });
 }
+
+// ФШ-70: дууссан боловч ирц нэг ч бүртгэгдээгүй хичээлүүд (сүүлийн өдрүүдэд).
+export function findEndedLessonsWithoutAttendance(
+  tx: Tx,
+  teacherId: string,
+  range: { from: Date; now: Date },
+) {
+  return tx.lesson.findMany({
+    where: {
+      teacherId,
+      status: "SCHEDULED",
+      startsAt: { gte: range.from },
+      endsAt: { lt: range.now },
+      attendance: { none: {} },
+    },
+    include: {
+      class: { include: { branch: true } },
+      teacher: true,
+      _count: { select: { attendance: true } },
+    },
+    orderBy: { startsAt: "asc" },
+  });
+}

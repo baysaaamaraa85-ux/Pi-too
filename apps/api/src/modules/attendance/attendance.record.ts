@@ -612,3 +612,29 @@ export async function listLessonsForDay(
     return items;
   });
 }
+
+// ФШ-70: багшийн ирц бөглөөгүй хичээлүүд. Дууссан, ирц нэг ч бүртгэгдээгүй, бүртгэлтэй
+// сурагчтай хичээл. Ирц хадгалмагц тэр дороо жагсаалтаас гарна (өгөгдлөөс шууд тооцно).
+export async function listUnfilledLessons(actor: Actor, days = 30) {
+  const now = new Date();
+  const from = new Date(now.getTime() - days * 24 * HOUR_MS);
+  return prisma.$transaction(async (tx) => {
+    const lessons = await repo.findEndedLessonsWithoutAttendance(tx, actor.id, { from, now });
+    const items = [];
+    for (const lesson of lessons) {
+      const roster = await repo.findRosterEnrollments(tx, lesson.classId, lessonDay(lesson.startsAt));
+      if (roster.length === 0) continue; // сурагчгүй хичээлд бөглөх зүйл алга
+      items.push({
+        id: lesson.id,
+        startsAt: lesson.startsAt.toISOString(),
+        endsAt: lesson.endsAt.toISOString(),
+        status: lesson.status,
+        branchName: lesson.class.branch.name,
+        teacherName: lesson.teacher.fullName,
+        expected: roster.length,
+        recorded: 0,
+      });
+    }
+    return items;
+  });
+}

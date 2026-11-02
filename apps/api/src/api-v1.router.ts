@@ -12,6 +12,8 @@ import { progressRouter } from "./modules/progress/progress.routes.js";
 import { notificationsRouter } from "./modules/notifications/notifications.routes.js";
 import { paymentsRouter } from "./modules/payments/payments.routes.js";
 import { portalRouter } from "./modules/portal/portal.routes.js";
+import { reportsRouter } from "./modules/reports/reports.routes.js";
+import { transferRouter } from "./modules/transfer/transfer.routes.js";
 
 // Модуль бүрийн route-ууд тухайн модулийг хийх үедээ энд холбогдоно.
 export const apiV1Router = Router();
@@ -32,4 +34,6 @@ apiV1Router.use(payrollRouter);
 apiV1Router.use(progressRouter);
 apiV1Router.use(paymentsRouter);
 apiV1Router.use(notificationsRouter);
+apiV1Router.use(reportsRouter);
+apiV1Router.use(transferRouter);
 apiV1Router.use(enrollmentRouter);

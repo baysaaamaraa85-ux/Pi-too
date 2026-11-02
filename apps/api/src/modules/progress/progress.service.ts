@@ -5,6 +5,7 @@ import type {
   NoteDto,
   ProgressDto,
   RecordAssessmentInput,
+  TeacherTaskDto,
   UpdateNoteInput,
 } from "@pitoo/contracts";
 import { AssessmentType, NoteVisibility, Prisma, Role } from "../../generated/prisma/client.js";
@@ -254,4 +255,19 @@ export function listMeetings(actor: Actor, contractId: string) {
       teacherName: m.teacher.fullName,
     }));
   });
+}
+
+// ФШ-70: багшийн самбарт уулзалтын сануулга, багцын шалгалтын даалгаврыг харуулна. Зөвхөн
+// өөрийн даалгавар (teacherId = actor.id).
+export async function listOpenTasks(actor: Actor): Promise<TeacherTaskDto[]> {
+  const rows = await repo.findOpenTasksForTeacher(prisma, actor.id);
+  return rows.map((t) => ({
+    id: t.id,
+    type: t.type,
+    dueOn: t.dueOn.toISOString().slice(0, 10),
+    contractId: t.contractId,
+    studentId: t.contract.studentId,
+    studentName: t.contract.student.fullName,
+    programName: t.contract.program.name,
+  }));
 }

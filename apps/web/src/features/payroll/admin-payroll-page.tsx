@@ -1,6 +1,7 @@
 import { LEDGER_TYPE_LABELS, type LedgerType } from "@pitoo/contracts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
+import { useSearchParams } from "react-router";
 import { PageHeader } from "@/app/app-shell";
 import { errorMessage, useBranches } from "@/features/admin/list-kit";
 import { ApiError, api, downloadFile } from "@/shared/api-client/client";
@@ -110,6 +111,9 @@ function PayoutModal({
 // Шинэ шаардлага 1.6: админы "Цалин" хуудас.
 export function AdminPayrollPage() {
   const branches = useBranches();
+  // Самбарын картаас ?negative=1 гэж ирнэ: зөвхөн сөрөг үлдэгдэлтэй багш нар (ФШ-68).
+  const [searchParams] = useSearchParams();
+  const onlyNegative = searchParams.get("negative") === "1";
   const [filters, setFilters] = React.useState<LedgerFilters>({ page: 1 });
   const [paying, setPaying] = React.useState(false);
   const [exportError, setExportError] = React.useState<string | null>(null);
@@ -161,8 +165,8 @@ export function AdminPayrollPage() {
             value={filters.teacherId ?? ""}
             onChange={(e) => update({ teacherId: e.target.value || undefined })}
           >
-            <option value="">Бүх багш</option>
-            {summary.data?.map((t) => (
+            <option value="">{onlyNegative ? "Сөрөг үлдэгдэлтэй бүх багш" : "Бүх багш"}</option>
+            {summary.data?.filter((t) => !onlyNegative || Number(t.balance) < 0).map((t) => (
               <option key={t.teacherId} value={t.teacherId}>
                 {t.fullName}
                 {Number(t.balance) < 0 ? " (сөрөг үлдэгдэл)" : ""}

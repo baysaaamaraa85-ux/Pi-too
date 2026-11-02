@@ -103,3 +103,12 @@ export function listMeetings(tx: Tx, contractId: string) {
     orderBy: { metOn: "desc" },
   });
 }
+
+// ФШ-43, 70: багшийн биелээгүй даалгавар (уулзалтын сануулга, багцын шалгалт).
+export function findOpenTasksForTeacher(tx: Tx, teacherId: string) {
+  return tx.teacherTask.findMany({
+    where: { teacherId, doneAt: null },
+    include: { contract: { include: { student: true, program: true } } },
+    orderBy: { dueOn: "asc" },
+  });
+}

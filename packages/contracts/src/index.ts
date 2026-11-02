@@ -12,3 +12,4 @@ export * from "./payroll.schemas.js";
 export * from "./progress.schemas.js";
 export * from "./payments.schemas.js";
 export * from "./notifications.schemas.js";
+export * from "./reports.schemas.js";

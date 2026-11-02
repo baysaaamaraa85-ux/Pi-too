@@ -8,6 +8,8 @@ import { AttendancePage } from "@/features/attendance/attendance-page";
 import { AdminPayrollPage } from "@/features/payroll/admin-payroll-page";
 import { TeacherSalaryPage } from "@/features/payroll/teacher-salary-page";
 import { AdminPaymentsPage } from "@/features/payments/admin-payments-page";
+import { AdminAuditPage } from "@/features/audit/audit-page";
+import { AdminReportsPage } from "@/features/reports/reports-page";
 import { AdminNotificationsPage } from "@/features/notifications/admin-notifications-page";
 import { PortalNotificationSettingsPage } from "@/features/notifications/portal-settings-page";
 import { AdminSetupPage } from "@/features/admin/setup-page";
@@ -116,14 +118,8 @@ const router = createBrowserRouter([
           { path: "/admin/payroll", element: <AdminPayrollPage /> },
           { path: "/admin/payments", element: <AdminPaymentsPage /> },
           { path: "/admin/notifications", element: <AdminNotificationsPage /> },
-          {
-            path: "/admin/reports",
-            element: <ComingSoonPage title="Тайлан" text="Тайлангийн хэсэг дараагийн шатанд нэмэгдэнэ." />,
-          },
-          {
-            path: "/admin/audit",
-            element: <ComingSoonPage title="Аудит" text="Аудитын бүртгэл дараагийн шатанд нэмэгдэнэ." />,
-          },
+          { path: "/admin/reports", element: <AdminReportsPage /> },
+          { path: "/admin/audit", element: <AdminAuditPage /> },
         ],
       },
     ],
