@@ -1,7 +1,6 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 import {
-  createAssessmentSchema,
   createPlacementRequestSchema,
   updatePlacementRequestSchema,
   createContractSchema,
@@ -33,12 +32,6 @@ export async function enrollStudent(req: Request, res: Response) {
 export async function listContracts(req: Request, res: Response) {
   const query = listContractsQuerySchema.parse(req.query);
   res.status(200).json(await service.listContracts(req.user!, query));
-}
-
-export async function createAssessment(req: Request, res: Response) {
-  const { id } = idParamSchema.parse(req.params);
-  const { takenOn, totalPercent } = createAssessmentSchema.parse(req.body);
-  res.status(201).json(await service.recordPlacementAssessment(id, takenOn, totalPercent));
 }
 
 export async function createContract(req: Request, res: Response) {

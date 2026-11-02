@@ -24,7 +24,7 @@ export default defineConfig({
       env: apiEnv(),
       url: `http://localhost:${E2E.apiPort}/health`,
       reuseExistingServer: false,
-      timeout: 60_000,
+      timeout: 180_000,
     },
     {
       command: `npx vite --port ${E2E.webPort} --strictPort`,
@@ -32,7 +32,7 @@ export default defineConfig({
       env: { VITE_API_TARGET: `http://localhost:${E2E.apiPort}` },
       url: `http://localhost:${E2E.webPort}`,
       reuseExistingServer: false,
-      timeout: 60_000,
+      timeout: 180_000,
     },
   ],
 });

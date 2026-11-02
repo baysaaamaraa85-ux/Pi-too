@@ -21,6 +21,7 @@ import { DataTable, Pager, type Column } from "@/shared/ui/data-table";
 import { Field, FormError } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { Modal } from "@/shared/ui/modal";
+import { NotesPanel, ProgressSection } from "@/features/progress/progress-parts";
 import { AttendanceStatusChip, StatusChip } from "@/shared/ui/status-chip";
 import {
   useInvalidateDirectory,
@@ -467,7 +468,7 @@ export function AdminStudentDetailPage() {
                       </div>
                       <p className="mt-1 text-mid">
                         Багц {c.remainingVisits}/{c.totalVisits} · Чөлөө {c.leavesLeft} · Үнэ{" "}
-                        {formatMoney(c.price)}
+                        {formatMoney(c.price)} · Уулзалт {c.meetingsCount}
                       </p>
                       {c.classes.map((cls) => (
                         <p key={cls.id} className="text-muted">
@@ -481,25 +482,10 @@ export function AdminStudentDetailPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Сорил, шалгалт</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {s.assessments.length === 0 ? (
-                <p className="text-sm text-muted">Дүн бүртгэгдээгүй.</p>
-              ) : (
-                <ul className="divide-y divide-border-warm text-sm">
-                  {s.assessments.map((a) => (
-                    <li key={a.id} className="flex justify-between py-2">
-                      <span>{formatDate(a.takenOn)}</span>
-                      <span className="font-semibold">{Number(a.totalPercent)}%</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
+          <ProgressSection studentId={s.id} />
+          {s.contracts.map((c) => (
+            <NotesPanel key={c.id} contractId={c.id} />
+          ))}
 
           <Card>
             <CardHeader>

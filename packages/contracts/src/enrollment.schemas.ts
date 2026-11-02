@@ -14,14 +14,6 @@ export const createStudentSchema = z.object({
 });
 export type CreateStudentInput = z.infer<typeof createStudentSchema>;
 
-// ФШ-14: түвшин тогтоох шалгалт.
-export const createAssessmentSchema = z.object({
-  contractId: z.uuid().optional(),
-  takenOn: z.iso.date(),
-  totalPercent: z.number().min(0).max(100),
-});
-export type CreateAssessmentInput = z.infer<typeof createAssessmentSchema>;
-
 // ФШ-16, 17
 export const createContractSchema = z.object({
   studentId: z.uuid(),

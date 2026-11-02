@@ -18,6 +18,7 @@ import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import { Field, FormError } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { Modal } from "@/shared/ui/modal";
+import { NoteModal } from "@/features/progress/progress-parts";
 import { AttendanceStatusChip, StatusChip } from "@/shared/ui/status-chip";
 import { cn } from "@/shared/ui/utils";
 
@@ -255,6 +256,7 @@ export function AttendancePage() {
   const [reason, setReason] = React.useState("");
   const [editing, setEditing] = React.useState<AttendanceRowDto | null>(null);
   const [makeupOpen, setMakeupOpen] = React.useState(false);
+  const [noteRow, setNoteRow] = React.useState<AttendanceRowDto | null>(null);
   const keyRef = React.useRef(crypto.randomUUID());
   const isAdmin = user?.role === "ADMIN";
 
@@ -330,6 +332,11 @@ export function AttendancePage() {
           <li key={row.contractId}>
             <Card className="flex flex-wrap items-center justify-between gap-3 p-4" data-testid="attendance-row">
               <RowInfo row={row} />
+              {!isAdmin ? (
+                <Button variant="ghost" onClick={() => setNoteRow(row)} aria-label={`${row.studentName}: тэмдэглэл`}>
+                  Тэмдэглэл
+                </Button>
+              ) : null}
               {row.attendanceId ? (
                 <div className="flex items-center gap-2">
                   <span data-testid="row-status">
@@ -392,6 +399,14 @@ export function AttendancePage() {
 
       {editing ? (
         <EditModal row={editing} needsReason={needsReason} onClose={() => setEditing(null)} />
+      ) : null}
+      {noteRow ? (
+        <NoteModal
+          lessonId={lessonId}
+          contractId={noteRow.contractId}
+          studentName={noteRow.studentName}
+          onClose={() => setNoteRow(null)}
+        />
       ) : null}
       {makeupOpen ? (
         <MakeupModal lessonId={lessonId} needsReason={needsReason} onClose={() => setMakeupOpen(false)} />

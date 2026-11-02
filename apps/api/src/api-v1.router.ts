@@ -8,6 +8,7 @@ import { enrollmentRouter } from "./modules/enrollment/enrollment.routes.js";
 import { attendanceRouter } from "./modules/attendance/attendance.routes.js";
 import { directoryRouter } from "./modules/directory/directory.routes.js";
 import { payrollRouter } from "./modules/payroll/payroll.routes.js";
+import { progressRouter } from "./modules/progress/progress.routes.js";
 import { portalRouter } from "./modules/portal/portal.routes.js";
 
 // Модуль бүрийн route-ууд тухайн модулийг хийх үедээ энд холбогдоно.
@@ -26,4 +27,5 @@ apiV1Router.use(portalRouter);
 // directory: GET /parents (?phone=) enrollmentRouter-ийн ADMIN/TEACHER хаалтаас өмнө.
 apiV1Router.use(directoryRouter);
 apiV1Router.use(payrollRouter);
+apiV1Router.use(progressRouter);
 apiV1Router.use(enrollmentRouter);

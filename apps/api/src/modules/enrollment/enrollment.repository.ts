@@ -193,6 +193,7 @@ export function findActiveEnrollmentInClass(tx: Tx, contractId: string, classId:
 }
 
 const contractListInclude = {
+  _count: { select: { meetings: true } },
   student: true,
   program: true,
   planItems: { orderBy: { position: "asc" } },
@@ -255,5 +256,21 @@ export function findParentsOfStudent(tx: Tx, studentId: string) {
   return tx.parentStudent.findMany({
     where: { studentId },
     include: { parent: true },
+  });
+}
+
+// Багшийн сурагчид хандах эрх: өөрийн ангид идэвхтэй бүртгэлтэй, өөрийн зогсоосон,
+// эсвэл өөрийн хичээлд ирцтэй гэрээ байх.
+export function findTeacherContractOfStudent(tx: Tx, studentId: string, teacherId: string) {
+  return tx.contract.findFirst({
+    where: {
+      studentId,
+      OR: [
+        { enrollments: { some: { toDate: null, class: { teacherId } } } },
+        { pauses: { some: { pausedBy: teacherId } } },
+        { attendance: { some: { lesson: { teacherId } } } },
+      ],
+    },
+    select: { id: true },
   });
 }

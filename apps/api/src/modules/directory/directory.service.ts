@@ -41,6 +41,7 @@ function contractDto(c: ContractRow) {
     remainingVisits: c.remainingVisits,
     leavesLeft: c.leavesLeft,
     freeReviewsLeft: c.freeReviewsLeft,
+    meetingsCount: c._count.meetings,
     createdAt: c.createdAt.toISOString(),
     classes: c.enrollments.map((e) => classLabel(e.class)),
   };

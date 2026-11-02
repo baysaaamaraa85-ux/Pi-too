@@ -26,6 +26,7 @@ interface ContractRow {
   remainingVisits: number;
   leavesLeft: number;
   freeReviewsLeft: number;
+  meetingsCount: number;
   planItems: { position: number; topic: string; doneAt: string | null }[];
   activePause: { startedOn: string; holdSeat: boolean; reason: string } | null;
   classes: { id: string; branchName: string; weekday: number; startTime: string; teacherName: string }[];
@@ -304,7 +305,11 @@ export function TeacherStudentsPage() {
                   {c.activePause.reason}
                 </p>
               ) : null}
+              <p className="text-xs text-muted">Эцэг эхтэй уулзсан: {c.meetingsCount}</p>
               <div className="mt-4 flex flex-wrap gap-2">
+                <Button asChild variant="secondary">
+                  <Link to={`/teacher/students/${c.studentId}`}>Явц, тэмдэглэл</Link>
+                </Button>
                 <Button variant="secondary" onClick={() => setModal({ kind: "plan", contract: c })}>
                   Төлөвлөгөө
                 </Button>

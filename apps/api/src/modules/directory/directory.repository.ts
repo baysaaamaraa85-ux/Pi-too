@@ -116,6 +116,7 @@ export async function listParents(
 }
 
 const studentContractInclude = {
+  _count: { select: { meetings: true } },
   program: true,
   enrollments: {
     where: { toDate: null },

@@ -31,6 +31,7 @@ import {
 } from "@/features/portal/portal-pages";
 import { TeacherSchedulePage } from "@/features/schedule/schedule-page";
 import { TeacherClassesPage } from "@/features/teacher/classes-page";
+import { TeacherStudentDetailPage } from "@/features/teacher/student-detail-page";
 import { TeacherStudentsPage } from "@/features/teacher/students-page";
 import { TeacherTodayPage } from "@/features/teacher/today-page";
 import { AdminShell } from "./admin-shell";
@@ -78,6 +79,7 @@ const router = createBrowserRouter([
           { path: "/teacher/calendar", element: <TeacherSchedulePage /> },
           { path: "/teacher/classes", element: <TeacherClassesPage /> },
           { path: "/teacher/students", element: <TeacherStudentsPage /> },
+          { path: "/teacher/students/:studentId", element: <TeacherStudentDetailPage /> },
           { path: "/teacher/attendance/:lessonId", element: <AttendancePage /> },
           { path: "/teacher/salary", element: <TeacherSalaryPage /> },
           { path: "/teacher/enroll", element: <EnrollWizardPage mode="teacher" /> },

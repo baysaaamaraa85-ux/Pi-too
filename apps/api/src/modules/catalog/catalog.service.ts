@@ -21,6 +21,12 @@ const classDefaultsSchema = z.object({
   maxCapacity: z.number().int().positive(),
 });
 
+const assessmentDefaultsSchema = z.object({
+  freeReviewThresholdPercent: z.number().min(0).max(100),
+  freeReviewCount: z.number().int().nonnegative(),
+  weakTopicThresholdPercent: z.number().min(0).max(100),
+});
+
 const attendanceDefaultsSchema = z.object({
   editWindowHours: z.number().int().positive(),
 });
@@ -65,6 +71,13 @@ export async function getClassDefaults(tx: Tx) {
   const row = await repo.findSetting(tx, "class_defaults");
   if (!row) settingNotConfigured("class_defaults");
   return classDefaultsSchema.parse(row.value);
+}
+
+// ФШ-39, 42: давтлагын босго (93%), давтлагын тоо (3), сул сэдвийн босго (60%) settings-ээс.
+export async function getAssessmentDefaults(tx: Tx) {
+  const row = await repo.findSetting(tx, "assessment_defaults");
+  if (!row) settingNotConfigured("assessment_defaults");
+  return assessmentDefaultsSchema.parse(row.value);
 }
 
 // ФШ-33: ирц бүртгэх, засах хугацаа (24 цаг) settings-ээс.

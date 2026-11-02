@@ -109,7 +109,11 @@ async function main() {
   await prisma.settings.upsert({
     where: { key: "assessment_defaults" },
     update: {},
-    create: { key: "assessment_defaults", value: { freeReviewThresholdPercent: 93 } },
+    create: {
+      key: "assessment_defaults",
+      // ФШ-39: 93%-иас доош бол 3 үнэгүй давтлага. ФШ-42: 60%-иас доош сэдэв сул.
+      value: { freeReviewThresholdPercent: 93, freeReviewCount: 3, weakTopicThresholdPercent: 60 },
+    },
   });
   await prisma.settings.upsert({
     where: { key: "class_defaults" },

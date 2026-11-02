@@ -21,6 +21,7 @@ export interface ContractSummary {
   remainingVisits: number;
   leavesLeft: number;
   freeReviewsLeft: number;
+  meetingsCount: number;
   createdAt: string;
   classes: ClassLabel[];
 }

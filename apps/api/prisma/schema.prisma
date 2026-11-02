@@ -89,6 +89,8 @@ model Teacher {
   lessons       Lesson[]
   ledgerEntries LedgerEntry[]
   teacherTasks  TeacherTask[]
+  lessonNotes   LessonNote[]
+  meetings      ParentMeeting[]
   pausesPaused  ContractPause[] @relation("PausedBy")
   pausesResumed ContractPause[] @relation("ResumedBy")
 
@@ -259,6 +261,8 @@ model Contract {
   leaveRequests LeaveRequest[]
   teacherTasks  TeacherTask[]
   assessments   Assessment[]
+  lessonNotes   LessonNote[]
+  meetings      ParentMeeting[]
 
   @@map("contracts")
 }
@@ -281,11 +285,67 @@ model Assessment {
   totalPercent Decimal        @map("total_percent") @db.Decimal(5, 2)
   createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  student  Student   @relation(fields: [studentId], references: [id], onDelete: Restrict)
-  contract Contract? @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  student  Student           @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  contract Contract?         @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  topics   AssessmentTopic[]
 
   @@index([studentId])
   @@map("assessments")
+}
+
+// ФШ-38, 42: сорилын сэдэв тус бүрийн оноо. score_percent-ийн 0-100 хязгаарыг CHECK-ээр
+// хориглоно (гараар бичих migration).
+model AssessmentTopic {
+  id           String   @id @default(uuid()) @db.Uuid
+  assessmentId String   @map("assessment_id") @db.Uuid
+  topic        String
+  scorePercent Decimal  @map("score_percent") @db.Decimal(5, 2)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Restrict)
+
+  @@index([assessmentId])
+  @@map("assessment_topics")
+}
+
+enum NoteVisibility {
+  INTERNAL // Дотоод: багш, админ
+  SHARED // Хуваалцсан: эцэг эхэд харагдана
+}
+
+// ФШ-44: хичээлийн тэмдэглэл. Дотоод тэмдэглэл эцэг эхийн порталд харагдахгүй (Хүснэгт 2.2).
+model LessonNote {
+  id         String         @id @default(uuid()) @db.Uuid
+  lessonId   String         @map("lesson_id") @db.Uuid
+  contractId String         @map("contract_id") @db.Uuid
+  authorId   String         @map("author_id") @db.Uuid
+  visibility NoteVisibility
+  body       String
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  lesson   Lesson   @relation(fields: [lessonId], references: [id], onDelete: Restrict)
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  author   Teacher  @relation(fields: [authorId], references: [userId], onDelete: Restrict)
+
+  @@index([contractId, createdAt])
+  @@map("lesson_notes")
+}
+
+// ФШ-45: багш эцэг эхтэй хийсэн уулзалтын огноо, дүгнэлт.
+model ParentMeeting {
+  id         String   @id @default(uuid()) @db.Uuid
+  contractId String   @map("contract_id") @db.Uuid
+  teacherId  String   @map("teacher_id") @db.Uuid
+  metOn      DateTime @map("met_on") @db.Date
+  summary    String
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  teacher  Teacher  @relation(fields: [teacherId], references: [userId], onDelete: Restrict)
+
+  @@index([contractId])
+  @@map("parent_meetings")
 }
 
 // ФШ-72...75, ADR-014: зогсолт бүрийг тусад нь бичнэ. endedOn IS NULL мөрт
@@ -394,6 +454,7 @@ model Lesson {
   attendance    Attendance[]
   leaveRequests LeaveRequest[]
   ledgerEntries LedgerEntry[]
+  notes         LessonNote[]
 
   @@unique([classId, originalStartsAt])
   @@index([teacherId, startsAt])

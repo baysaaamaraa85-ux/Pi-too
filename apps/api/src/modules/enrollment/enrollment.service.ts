@@ -107,20 +107,6 @@ export async function registerStudentInTx(
   }
 }
 
-// ФШ-14: түвшин тогтоох шалгалт.
-export function recordPlacementAssessment(
-  studentId: string,
-  takenOn: string,
-  totalPercent: number,
-) {
-  return repo.createAssessment(prisma, {
-    studentId,
-    type: AssessmentType.PLACEMENT,
-    takenOn: new Date(takenOn),
-    totalPercent: totalPercent.toFixed(2),
-  });
-}
-
 function studentNotFound(): never {
   throw new DomainError({
     code: "student-not-found",
@@ -290,6 +276,7 @@ function mapContractRow(row: Awaited<ReturnType<typeof repo.listContracts>>["ite
     remainingVisits: row.remainingVisits,
     leavesLeft: row.leavesLeft,
     freeReviewsLeft: row.freeReviewsLeft,
+    meetingsCount: row._count.meetings,
     planItems: row.planItems.map((p) => ({
       position: p.position,
       topic: p.topic,
@@ -605,6 +592,24 @@ function forbiddenStudent(): never {
 
 // ADR-008, BOLA: эцэг эх зөвхөн parent_students-д холбогдсон хүүхдэд, сурагч
 // зөвхөн өөрт (students.user_id) хандана.
+// Сурагчийн сургалтын мэдээллийг (дүн, явц) харах эрх: админ бүгд, багш өөрийн сурагч,
+// эцэг эх өөрийн хүүхэд, сурагч өөрийгөө (Хүснэгт 2.2, ADR-008).
+export async function assertStudentReadAccessInTx(
+  tx: Tx,
+  user: { id: string; role: Role },
+  studentId: string,
+) {
+  if (user.role === Role.ADMIN) {
+    if (!(await repo.findStudentById(tx, studentId))) studentNotFound();
+    return;
+  }
+  if (user.role === Role.TEACHER) {
+    if (!(await repo.findTeacherContractOfStudent(tx, studentId, user.id))) forbiddenStudent();
+    return;
+  }
+  await assertStudentAccessInTx(tx, user, studentId);
+}
+
 export async function assertStudentAccessInTx(tx: Tx, user: PortalUser, studentId: string) {
   if (user.role === Role.PARENT) {
     const link = await repo.findParentStudentLink(tx, user.id, studentId);
