@@ -73,7 +73,7 @@ export async function listPayments(
 // ФШ-48: өртэй гэрээ (үнэ > төлсөн). Идэвхгүй ч (Дууссан) гэрээний өр хэвээр.
 export function listContractsForDebts(
   tx: Tx,
-  f: { branchId?: string; teacherId?: string; startedBefore?: Date },
+  f: { branchId?: string; teacherId?: string; startedBefore?: Date; search?: string },
 ) {
   const classFilter: Prisma.ClassWhereInput = {
     ...(f.branchId ? { branchId: f.branchId } : {}),
@@ -83,6 +83,27 @@ export function listContractsForDebts(
     where: {
       ...(f.startedBefore ? { createdAt: { lte: f.startedBefore } } : {}),
       ...(f.branchId || f.teacherId ? { enrollments: { some: { class: classFilter } } } : {}),
+      ...(f.search
+        ? {
+            OR: [
+              { student: { fullName: { contains: f.search, mode: "insensitive" as const } } },
+              {
+                student: {
+                  parentStudents: {
+                    some: {
+                      parent: {
+                        OR: [
+                          { fullName: { contains: f.search, mode: "insensitive" as const } },
+                          { phone: { contains: f.search } },
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+            ],
+          }
+        : {}),
     },
     include: {
       student: true,

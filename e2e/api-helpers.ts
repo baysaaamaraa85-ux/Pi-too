@@ -89,7 +89,7 @@ export async function enrollViaApi(
   request: APIRequestContext,
   token: string,
   classIds: string[],
-  extra: { studentName?: string; parentPhone?: string } = {},
+  extra: { studentName?: string; parentPhone?: string; studentPhone?: string } = {},
 ) {
   const now = new Date().toISOString();
   const res = await request.post("/api/v1/enrollments", {
@@ -98,6 +98,7 @@ export async function enrollViaApi(
       parentPhone: extra.parentPhone ?? uniquePhone(),
       parentFullName: "Эцэг",
       studentFullName: extra.studentName ?? `Сурагч ${uniquePhone()}`,
+      studentPhone: extra.studentPhone,
       programId: await firstProgramId(request),
       classIds,
       fromDate: now.slice(0, 10),

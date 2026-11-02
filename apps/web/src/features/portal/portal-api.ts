@@ -35,6 +35,7 @@ export interface PortalStudent {
 export interface AttendanceRecord {
   id: string;
   lessonId: string;
+  contractId: string;
   startsAt: string;
   programName: string;
   status: AttendanceStatus;

@@ -120,6 +120,7 @@ export async function getAttendanceOverview(user: PortalUser, studentId: string)
       records: rows.map((row) => ({
         id: row.id,
         lessonId: row.lessonId,
+        contractId: row.contractId,
         startsAt: row.lesson.startsAt.toISOString(),
         programName: row.contract.program.name,
         status: row.status,

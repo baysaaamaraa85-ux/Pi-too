@@ -335,6 +335,22 @@ describe("М7 Өртэй гэрээ (ФШ-48)", () => {
     expect(byTeacher.body.items.map((r: { contractId: string }) => r.contractId)).toEqual([b.contract.id]);
   });
 
+  it("ФШ-48: өртэй гэрээг сурагчийн нэр, эцэг эхийн утасаар хайна (500 сурагчтай төвд олох)", async () => {
+    const a = await fixture();
+    const b = await fixture();
+    const idsOf = (res: { body: { items: { contractId: string }[] } }) => res.body.items.map((r) => r.contractId);
+
+    const byName = await get(a.admin.token, `/debts?search=${encodeURIComponent(a.student.fullName)}`);
+    expect(idsOf(byName)).toEqual([a.contract.id]);
+
+    const parentRow = await prisma.parent.findUniqueOrThrow({ where: { userId: b.parent.userId } });
+    const byPhone = await get(a.admin.token, `/debts?search=${parentRow.phone}`);
+    expect(idsOf(byPhone)).toEqual([b.contract.id]);
+
+    const none = await get(a.admin.token, "/debts?search=олдохгүй-нэр-xyz");
+    expect(idsOf(none)).toEqual([]);
+  });
+
   it("ФШ-48: гэрээ эхэлснээс хойших хоногоор шүүнэ; цуцалсан төлбөр өрийг буцаан гаргана", async () => {
     const f = await fixture();
     await prisma.contract.update({

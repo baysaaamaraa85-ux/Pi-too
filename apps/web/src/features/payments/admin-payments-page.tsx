@@ -191,11 +191,13 @@ function DebtsTab() {
   const branches = useBranches();
   const [branchId, setBranchId] = React.useState("");
   const [sinceDays, setSinceDays] = React.useState("");
+  const [search, setSearch] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [paying, setPaying] = React.useState<DebtRowDto | null>(null);
   const params = new URLSearchParams({ page: String(page), limit: "20" });
   if (branchId) params.set("branchId", branchId);
   if (sinceDays) params.set("sinceDays", sinceDays);
+  if (search.trim()) params.set("search", search.trim());
   const debts = useQuery({
     queryKey: ["debts", params.toString()],
     queryFn: () => api.get<Paginated<DebtRowDto> & { totalDebt: string }>(`/debts?${params.toString()}`),
@@ -229,6 +231,9 @@ function DebtsTab() {
   return (
     <>
       <div className="mb-4 grid gap-3 sm:grid-cols-3">
+        <Field label="Сурагч, эцэг эхийн нэр, утасаар хайх" htmlFor="debt-search">
+          <Input id="debt-search" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
+        </Field>
         <Field label="Салбар" htmlFor="debt-branch">
           <Select id="debt-branch" value={branchId} onChange={(e) => { setBranchId(e.target.value); setPage(1); }}>
             <option value="">Бүх салбар</option>

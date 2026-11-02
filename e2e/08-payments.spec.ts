@@ -74,6 +74,8 @@ test("ФШ-48, 52: өртэй гэрээнээс төлбөр бүртгэж, ц
   await loginAsAdmin(page);
   await page.goto("/admin/payments");
   await page.getByRole("tab", { name: "Өртэй гэрээ" }).click();
+  // 20 мөрийн хуудаслалтаас гарахын тулд (өмнөх тестүүд өртэй гэрээ үлдээдэг) хайна.
+  await page.getByLabel("Сурагч, эцэг эхийн нэр, утасаар хайх").fill(f.studentName);
 
   const row = page.getByRole("row").filter({ hasText: f.studentName });
   await expect(row.getByTestId("debt-balance")).toHaveText("1 200 000 ₮");

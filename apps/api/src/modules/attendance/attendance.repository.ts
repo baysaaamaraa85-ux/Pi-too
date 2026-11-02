@@ -116,7 +116,8 @@ export function findAttendanceForStudent(tx: Tx, studentId: string) {
     where: { contract: { studentId } },
     include: { lesson: true, contract: { include: { program: true } } },
     orderBy: { lesson: { startsAt: "desc" } },
-    take: 100,
+    // ФШ-67: дууссан багц бүрийн ирц (багц тус бүр ~25-50 мөр) таслагдахгүй байх нөөцтэй хязгаар.
+    take: 1000,
   });
 }
 

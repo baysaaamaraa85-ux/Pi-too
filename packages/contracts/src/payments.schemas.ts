@@ -77,6 +77,8 @@ export const debtsQuerySchema = pageQuerySchema.extend({
   teacherId: z.uuid().optional(),
   // Гэрээ эхэлснээс хойш хоногоор (ФШ-48).
   sinceDays: z.coerce.number().int().min(0).max(3650).optional(),
+  // Сурагчийн нэр, эцэг эхийн нэр эсвэл утсаар хайх (500 сурагчтай төвд өртэй гэрээг олоход).
+  search: z.string().trim().max(120).optional(),
 });
 export type DebtsQuery = z.infer<typeof debtsQuerySchema>;
 

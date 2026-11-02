@@ -269,4 +269,92 @@ describe("Порталын хэсэг: эцэг эх, сурагч", () => {
       .send({ contractId: family.contractId, lessonId: lesson.id });
     expect(res.status).toBe(403);
   });
+
+  // ФШ-67: хоёр багц дуусгасан сурагчийн эцэг эх 50 ирэлтийг огноо, төлөвтэй нь, багц бүрээр нь харна.
+  it("ФШ-67: хоёр дууссан багцын 50 ирэлт огноо, төлөв, багцын ID-тай буцаж, багцын шалгалтын дүн харагдана", async () => {
+    const family = await createFamily({ withStudentAccount: true });
+    const lessonStart = (n: number) => new Date(Date.UTC(2026, 0, 1 + n, 2, 0, 0));
+    const statuses = ["PRESENT", "EXCUSED", "OVER_LIMIT", "MAKEUP"] as const;
+    const program = (await prisma.contract.findUniqueOrThrow({ where: { id: family.contractId } })).programId;
+
+    const contractIds: string[] = [];
+    for (let pack = 0; pack < 2; pack++) {
+      const contract =
+        pack === 0
+          ? await prisma.contract.update({
+              where: { id: family.contractId },
+              data: { status: "COMPLETED", remainingVisits: 0 },
+            })
+          : await prisma.contract.create({
+              data: {
+                studentId: family.studentId,
+                programId: program,
+                price: "1200000.00",
+                totalVisits: 25,
+                remainingVisits: 0,
+                leavesLeft: 3,
+                status: "COMPLETED",
+                rulesAckAt: new Date(),
+              },
+            });
+      contractIds.push(contract.id);
+      for (let i = 0; i < 25; i++) {
+        const n = pack * 25 + i;
+        const lesson = await prisma.lesson.create({
+          data: {
+            classId: family.classId,
+            teacherId: family.teacherId,
+            startsAt: lessonStart(n),
+            endsAt: new Date(lessonStart(n).getTime() + 90 * 60_000),
+            originalStartsAt: lessonStart(n),
+            status: "SCHEDULED",
+          },
+        });
+        await prisma.attendance.create({
+          data: {
+            lessonId: lesson.id,
+            contractId: contract.id,
+            marked: true,
+            status: statuses[i % statuses.length]!,
+            updatedBy: family.teacherId,
+          },
+        });
+      }
+    }
+    await prisma.assessment.create({
+      data: {
+        studentId: family.studentId,
+        contractId: contractIds[0]!,
+        type: "BATCH_EXAM",
+        takenOn: new Date("2026-03-01"),
+        totalPercent: "88.00",
+      },
+    });
+
+    for (const token of [family.parentToken, family.studentToken!]) {
+      const res = await request(app)
+        .get(`/api/v1/portal/students/${family.studentId}/attendance`)
+        .set("Authorization", `Bearer ${token}`);
+      expect(res.status).toBe(200);
+      const records = res.body.records as { contractId: string; startsAt: string; status: string }[];
+      expect(records).toHaveLength(50);
+      expect(records.filter((r) => r.contractId === contractIds[0])).toHaveLength(25);
+      expect(records.filter((r) => r.contractId === contractIds[1])).toHaveLength(25);
+      expect(records.every((r) => Boolean(r.startsAt) && Boolean(r.status))).toBe(true);
+      const dates = records.map((r) => r.startsAt);
+      expect(dates).toEqual([...dates].sort().reverse());
+    }
+
+    const progress = await request(app)
+      .get(`/api/v1/students/${family.studentId}/progress`)
+      .set("Authorization", `Bearer ${family.parentToken}`);
+    expect(progress.status).toBe(200);
+    expect(progress.body.assessments).toEqual([
+      expect.objectContaining({ type: "BATCH_EXAM", contractId: contractIds[0], totalPercent: "88.00" }),
+    ]);
+
+    const summary = await request(app).get("/api/v1/portal/summary").set("Authorization", `Bearer ${family.parentToken}`);
+    const ids = summary.body.students[0].contracts.map((c: { id: string }) => c.id);
+    expect(ids).toEqual(expect.arrayContaining(contractIds));
+  });
 });

@@ -154,7 +154,12 @@ export async function listPayments(q: PaymentsQuery) {
 }
 
 // ФШ-48: өртэй гэрээний жагсаалт. Нийт өр нь шүүлтээс хамаарна; шүүлтгүйгээр ФШ-69-ийн нийт өртэй тэнцүү.
-async function debtRows(f: { branchId?: string; teacherId?: string; sinceDays?: number }): Promise<DebtRowDto[]> {
+async function debtRows(f: {
+  branchId?: string;
+  teacherId?: string;
+  sinceDays?: number;
+  search?: string;
+}): Promise<DebtRowDto[]> {
   const startedBefore =
     f.sinceDays !== undefined ? new Date(Date.now() - f.sinceDays * 86_400_000) : undefined;
   const contracts = await repo.listContractsForDebts(prisma, { ...f, startedBefore });

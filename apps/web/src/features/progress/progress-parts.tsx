@@ -21,6 +21,7 @@ import { StatusChip } from "@/shared/ui/status-chip";
 export function useProgress(studentId: string) {
   return useQuery({
     queryKey: ["progress", studentId],
+    enabled: Boolean(studentId),
     queryFn: () => api.get<ProgressDto>(`/students/${studentId}/progress`),
   });
 }
