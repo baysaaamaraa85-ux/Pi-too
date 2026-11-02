@@ -10,3 +10,4 @@ export * from "./common.schemas.js";
 export * from "./directory.schemas.js";
 export * from "./payroll.schemas.js";
 export * from "./progress.schemas.js";
+export * from "./payments.schemas.js";

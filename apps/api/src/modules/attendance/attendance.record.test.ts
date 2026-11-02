@@ -596,6 +596,6 @@ describe("М5 Эрх (BOLA, ФБШ-20)", () => {
     expect(res.body.windowOpen).toBe(true);
     const flagged = res.body.rows.filter((r: { leaveRequested: boolean }) => r.leaveRequested);
     expect(flagged).toHaveLength(1);
-    expect(res.body.rows[0]).toMatchObject({ remainingVisits: 25, leavesLeft: 3, present: null, paymentStatus: null });
+    expect(res.body.rows[0]).toMatchObject({ remainingVisits: 25, leavesLeft: 3, present: null, paymentStatus: "DEBT" });
   });
 });

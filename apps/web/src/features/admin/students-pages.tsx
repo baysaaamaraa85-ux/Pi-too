@@ -1,6 +1,7 @@
 import {
   ATTENDANCE_STATUS_LABELS,
   CONTRACT_STATUS_LABELS,
+  PAYMENT_STATUS_LABELS,
   updateStudentSchema,
   type AttendanceStatus,
 } from "@pitoo/contracts";
@@ -21,6 +22,7 @@ import { DataTable, Pager, type Column } from "@/shared/ui/data-table";
 import { Field, FormError } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { Modal } from "@/shared/ui/modal";
+import { RecordPaymentModal } from "@/features/payments/admin-payments-page";
 import { NotesPanel, ProgressSection } from "@/features/progress/progress-parts";
 import { AttendanceStatusChip, StatusChip } from "@/shared/ui/status-chip";
 import {
@@ -288,6 +290,20 @@ export function AdminStudentsPage() {
         ),
     },
     {
+      key: "payment",
+      header: "Төлбөр",
+      cell: (s) =>
+        s.contract?.paymentStatus ? (
+          <span data-testid="payment-cell">
+            <StatusChip tone={s.contract.paymentStatus === "PAID" ? "success" : "warning"}>
+              {PAYMENT_STATUS_LABELS[s.contract.paymentStatus]}
+            </StatusChip>
+          </span>
+        ) : (
+          "-"
+        ),
+    },
+    {
       key: "parent",
       header: "Эцэг эх",
       cell: (s) => s.parents.map((p) => p.fullName).join(", ") || "-",
@@ -336,6 +352,7 @@ export function AdminStudentDetailPage() {
   const { id = "" } = useParams();
   const student = useStudent(id);
   const invalidate = useInvalidateDirectory();
+  const [payingContract, setPayingContract] = React.useState<ContractSummary | null>(null);
   const form = useForm<EditValues>({ resolver: zodResolver(updateStudentSchema) });
   const [saved, setSaved] = React.useState(false);
 
@@ -475,6 +492,19 @@ export function AdminStudentDetailPage() {
                           {classText(cls)}
                         </p>
                       ))}
+                      {c.paymentStatus ? (
+                        <div className="mt-2 flex flex-wrap items-center gap-2" data-testid="contract-payment">
+                          <StatusChip tone={c.paymentStatus === "PAID" ? "success" : "warning"}>
+                            {PAYMENT_STATUS_LABELS[c.paymentStatus]}
+                          </StatusChip>
+                          <span className="text-mid">
+                            Төлсөн {formatMoney(c.paid ?? "0")} · Үлдэгдэл {formatMoney(c.balance ?? "0")}
+                          </span>
+                          <Button variant="secondary" onClick={() => setPayingContract(c)}>
+                            Төлбөр бүртгэх
+                          </Button>
+                        </div>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
@@ -513,6 +543,14 @@ export function AdminStudentDetailPage() {
           </Card>
         </div>
       </div>
+      {payingContract ? (
+        <RecordPaymentModal
+          contractId={payingContract.id}
+          studentName={s.fullName}
+          defaultAmount={payingContract.balance ?? undefined}
+          onClose={() => setPayingContract(null)}
+        />
+      ) : null}
     </>
   );
 }

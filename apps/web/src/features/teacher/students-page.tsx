@@ -1,4 +1,10 @@
-import { CONTRACT_STATUS_LABELS, type ContractStatus, type Paginated } from "@pitoo/contracts";
+import {
+  CONTRACT_STATUS_LABELS,
+  TEACHER_PAYMENT_FLAG_LABELS,
+  type ContractStatus,
+  type Paginated,
+  type TeacherPaymentFlag,
+} from "@pitoo/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import { Link } from "react-router";
@@ -27,6 +33,7 @@ interface ContractRow {
   leavesLeft: number;
   freeReviewsLeft: number;
   meetingsCount: number;
+  paymentFlag: TeacherPaymentFlag;
   planItems: { position: number; topic: string; doneAt: string | null }[];
   activePause: { startedOn: string; holdSeat: boolean; reason: string } | null;
   classes: { id: string; branchName: string; weekday: number; startTime: string; teacherName: string }[];
@@ -305,7 +312,12 @@ export function TeacherStudentsPage() {
                   {c.activePause.reason}
                 </p>
               ) : null}
-              <p className="text-xs text-muted">Эцэг эхтэй уулзсан: {c.meetingsCount}</p>
+              <p className="text-xs text-muted">
+                Эцэг эхтэй уулзсан: {c.meetingsCount} · Төлбөр:{" "}
+                <strong className={c.paymentFlag === "DEBT" ? "text-warning" : "text-success"}>
+                  {TEACHER_PAYMENT_FLAG_LABELS[c.paymentFlag]}
+                </strong>
+              </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button asChild variant="secondary">
                   <Link to={`/teacher/students/${c.studentId}`}>Явц, тэмдэглэл</Link>

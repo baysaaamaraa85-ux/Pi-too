@@ -8,6 +8,7 @@ import {
 } from "../../generated/prisma/client.js";
 import { DomainError } from "../../shared/errors/domain-error.js";
 import { enqueue } from "../../shared/outbox/enqueue.js";
+import { balancesFor, teacherFlag } from "../../shared/payments/payment-status.js";
 import { writeAudit } from "../../shared/audit/write-audit.js";
 import { createUserInTx } from "../auth/auth.service.js";
 import {
@@ -308,7 +309,17 @@ export async function listContracts(
     ...q,
     teacherId: user.role === Role.TEACHER ? user.id : undefined,
   });
-  return { items: items.map(mapContractRow), page: q.page, limit: q.limit, total };
+  // ФШ-51: багш, админд дүнгүй "FULL" / "DEBT" тэмдэг.
+  const balances = await balancesFor(prisma, items);
+  return {
+    items: items.map((row) => ({
+      ...mapContractRow(row),
+      paymentFlag: teacherFlag(balances.get(row.id)!),
+    })),
+    page: q.page,
+    limit: q.limit,
+    total,
+  };
 }
 
 // ФШ-18

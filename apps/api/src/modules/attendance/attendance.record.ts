@@ -10,6 +10,7 @@ import { prisma, type Tx } from "../../shared/db/prisma.js";
 import { writeAudit } from "../../shared/audit/write-audit.js";
 import { DomainError } from "../../shared/errors/domain-error.js";
 import { runIdempotent } from "../../shared/idempotency/run-idempotent.js";
+import { balancesFor, teacherFlag } from "../../shared/payments/payment-status.js";
 import { enqueue } from "../../shared/outbox/enqueue.js";
 import { getAttendanceDefaults } from "../catalog/catalog.service.js";
 import { notifyParentsInTx } from "../enrollment/enrollment.service.js";
@@ -486,6 +487,9 @@ export async function getAttendanceSheet(actor: Actor, lessonId: string): Promis
     const leaves = new Set((await repo.findLeaveRequestsByLesson(tx, lessonId)).map((l) => l.contractId));
     const byContract = new Map(existing.map((a) => [a.contractId, a]));
 
+    // ФШ-51: төлбөрийн төлвийг дүнгүйгээр ("Бүрэн" / "Үлдэгдэлтэй").
+    const allContracts = [...roster.map((e) => e.contract), ...existing.map((a) => a.contract)];
+    const balances = await balancesFor(tx, allContracts);
     const rows: AttendanceRowDto[] = [];
     const seen = new Set<string>();
     const add = (contract: (typeof roster)[number]["contract"], isMakeupHint: boolean) => {
@@ -500,7 +504,7 @@ export async function getAttendanceSheet(actor: Actor, lessonId: string): Promis
         remainingVisits: contract.remainingVisits,
         leavesLeft: contract.leavesLeft,
         totalVisits: contract.totalVisits,
-        paymentStatus: null,
+        paymentStatus: balances.has(contract.id) ? teacherFlag(balances.get(contract.id)!) : null,
         leaveRequested: leaves.has(contract.id),
         isMakeup: att?.isMakeup ?? isMakeupHint,
         attendanceId: att?.id ?? null,

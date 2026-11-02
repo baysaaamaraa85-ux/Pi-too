@@ -44,6 +44,8 @@ model User {
   ledgerEntriesCreated LedgerEntry[]        @relation("LedgerCreatedBy")
   idempotencyKeys      IdempotencyKey[]
   notifications        NotificationOutbox[]
+  paymentsCreated      Payment[]            @relation("PaymentCreatedBy")
+  claimsResolved       PaymentClaim[]       @relation("ClaimResolvedBy")
 
   @@map("users")
 }
@@ -120,6 +122,7 @@ model Parent {
 
   user           User            @relation(fields: [userId], references: [id], onDelete: Restrict)
   parentStudents ParentStudent[]
+  paymentClaims  PaymentClaim[]
 
   @@map("parents")
 }
@@ -263,6 +266,8 @@ model Contract {
   assessments   Assessment[]
   lessonNotes   LessonNote[]
   meetings      ParentMeeting[]
+  payments      Payment[]
+  paymentClaims PaymentClaim[]
 
   @@map("contracts")
 }
@@ -626,4 +631,70 @@ model TeacherTask {
 
   @@index([teacherId, doneAt])
   @@map("teacher_tasks")
+}
+
+// ---------------------------------------------------------------------------
+// Д бүлэг: М7 Төлбөр ба өр (req 4.7; design 3.8.6, ADR-016)
+// ---------------------------------------------------------------------------
+
+enum PaymentChannel {
+  BANK_TRANSFER // Банкны шилжүүлэг
+  CASH // Бэлнээр
+  OTHER // Бусад
+}
+
+enum PaymentRecordStatus {
+  ACTIVE // Хүчинтэй
+  CANCELLED // Цуцалсан (үлдэгдлийн тооцоонд орохгүй, жагсаалтад харагдана)
+}
+
+// ФШ-46, 52: төлбөрийн бичлэг. Устгахгүй, цуцалбал шалтгаантай (CHECK, гараар бичих migration).
+// Төлбөрийн төлөв хадгалагдахгүй, SUM-аас тооцоологдоно (ФШ-47, 77).
+model Payment {
+  id           String              @id @default(uuid()) @db.Uuid
+  contractId   String              @map("contract_id") @db.Uuid
+  amount       Decimal             @db.Decimal(12, 2)
+  paidAt       DateTime            @map("paid_at") @db.Date
+  channel      PaymentChannel
+  reference    String?
+  status       PaymentRecordStatus @default(ACTIVE)
+  cancelReason String?             @map("cancel_reason")
+  createdBy    String              @map("created_by") @db.Uuid
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  contract Contract      @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  creator  User          @relation("PaymentCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  claim    PaymentClaim?
+
+  @@index([contractId, status])
+  @@map("payments")
+}
+
+enum ClaimStatus {
+  PENDING // Хүлээгдэж байна
+  CONFIRMED // Батлагдсан
+  REJECTED // Татгалзсан
+}
+
+// ФШ-76: эцэг эх "Шилжүүлсэн" гэж мэдэгдсэн бичлэг. Нэг гэрээнд нэг PENDING
+// (хэсэгчилсэн UNIQUE, гараар бичих migration).
+model PaymentClaim {
+  id           String      @id @default(uuid()) @db.Uuid
+  contractId   String      @map("contract_id") @db.Uuid
+  parentId     String      @map("parent_id") @db.Uuid
+  claimedAt    DateTime    @default(now()) @map("claimed_at") @db.Timestamptz(6)
+  status       ClaimStatus @default(PENDING)
+  resolvedBy   String?     @map("resolved_by") @db.Uuid
+  resolvedAt   DateTime?   @map("resolved_at") @db.Timestamptz(6)
+  rejectReason String?     @map("reject_reason")
+  paymentId    String?     @unique @map("payment_id") @db.Uuid
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  parent   Parent   @relation(fields: [parentId], references: [userId], onDelete: Restrict)
+  resolver User?    @relation("ClaimResolvedBy", fields: [resolvedBy], references: [id], onDelete: Restrict)
+  payment  Payment? @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  @@index([status, claimedAt])
+  @@map("payment_claims")
 }

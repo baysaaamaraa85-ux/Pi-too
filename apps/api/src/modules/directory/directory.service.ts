@@ -4,6 +4,7 @@ import { writeAudit } from "../../shared/audit/write-audit.js";
 import { DomainError } from "../../shared/errors/domain-error.js";
 import { createUser } from "../auth/auth.service.js";
 import { getTeacherBalance } from "../payroll/payroll.service.js";
+import { balancesFor, type ContractBalance } from "../../shared/payments/payment-status.js";
 import { searchParentsByPhone } from "../enrollment/enrollment.service.js";
 import * as repo from "./directory.repository.js";
 
@@ -31,8 +32,11 @@ function classLabel(cls: ContractRow["enrollments"][number]["class"]) {
   };
 }
 
-function contractDto(c: ContractRow) {
+function contractDto(c: ContractRow, balance?: ContractBalance) {
   return {
+    paid: balance?.paid.toFixed(2) ?? null,
+    balance: balance?.balance.toFixed(2) ?? null,
+    paymentStatus: balance?.status ?? null,
     id: c.id,
     programName: c.program.name,
     price: c.price.toFixed(2),
@@ -191,7 +195,7 @@ export async function getParent(id: string) {
       fullName: ps.student.fullName,
       grade: ps.student.grade,
       school: ps.student.school,
-      contracts: ps.student.contracts.map(contractDto),
+      contracts: ps.student.contracts.map((c) => contractDto(c)),
     })),
   };
 }
@@ -234,6 +238,7 @@ export function searchParents(phone: string) {
 
 export async function listStudents(q: Parameters<typeof repo.listStudents>[1]) {
   const { items, total } = await repo.listStudents(prisma, q);
+  const balances = await balancesFor(prisma, items.flatMap((s) => s.contracts));
   return {
     items: items.map((s) => {
       const primary = primaryContract(s.contracts);
@@ -250,7 +255,7 @@ export async function listStudents(q: Parameters<typeof repo.listStudents>[1]) {
           fullName: ps.parent.fullName,
           phone: ps.parent.phone,
         })),
-        contract: primary ? contractDto(primary) : null,
+        contract: primary ? contractDto(primary, balances.get(primary.id)) : null,
         contractCount: s.contracts.length,
       };
     }),
@@ -264,6 +269,7 @@ export async function getStudent(id: string) {
   const s = await repo.findStudent(prisma, id);
   if (!s) notFound("Сурагч");
   const attendance = await repo.findRecentAttendanceForStudent(prisma, id, 50);
+  const detailBalances = await balancesFor(prisma, s.contracts);
   return {
     id: s.id,
     fullName: s.fullName,
@@ -278,7 +284,7 @@ export async function getStudent(id: string) {
       fullName: ps.parent.fullName,
       phone: ps.parent.phone,
     })),
-    contracts: s.contracts.map(contractDto),
+    contracts: s.contracts.map((c) => contractDto(c, detailBalances.get(c.id))),
     assessments: s.assessments.map((a) => ({
       id: a.id,
       type: a.type,

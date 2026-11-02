@@ -7,6 +7,7 @@ import { AdminAttendancePage } from "@/features/attendance/admin-attendance-page
 import { AttendancePage } from "@/features/attendance/attendance-page";
 import { AdminPayrollPage } from "@/features/payroll/admin-payroll-page";
 import { TeacherSalaryPage } from "@/features/payroll/teacher-salary-page";
+import { AdminPaymentsPage } from "@/features/payments/admin-payments-page";
 import { AdminSetupPage } from "@/features/admin/setup-page";
 import { ComingSoonPage } from "@/features/admin/coming-soon-page";
 import { AdminParentDetailPage, AdminParentsPage } from "@/features/admin/parents-pages";
@@ -111,10 +112,7 @@ const router = createBrowserRouter([
           { path: "/admin/attendance", element: <AdminAttendancePage /> },
           { path: "/admin/attendance/:lessonId", element: <AttendancePage /> },
           { path: "/admin/payroll", element: <AdminPayrollPage /> },
-          {
-            path: "/admin/payments",
-            element: <ComingSoonPage title="Төлбөр" text="Төлбөрийн хэсэг дараагийн шатанд нэмэгдэнэ." />,
-          },
+          { path: "/admin/payments", element: <AdminPaymentsPage /> },
           {
             path: "/admin/notifications",
             element: <ComingSoonPage title="Мэдэгдэл" text="Мэдэгдлийн хэсэг дараагийн шатанд нэмэгдэнэ." />,

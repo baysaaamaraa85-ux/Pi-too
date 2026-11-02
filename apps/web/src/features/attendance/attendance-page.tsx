@@ -1,5 +1,6 @@
 import {
   ATTENDANCE_STATUS_LABELS,
+  TEACHER_PAYMENT_FLAG_LABELS,
   type AttendanceRowDto,
   type AttendanceSheetDto,
   type AttendanceStatus,
@@ -99,7 +100,9 @@ function RowInfo({ row }: { row: AttendanceRowDto }) {
       <p className="mt-0.5 text-sm text-mid">
         Багц <strong data-testid="row-balance">{row.remainingVisits}/{row.totalVisits}</strong> · Чөлөө{" "}
         <strong>{row.leavesLeft}</strong>
-        {row.paymentStatus ? ` · ${row.paymentStatus}` : ""}
+        {row.paymentStatus
+          ? ` · ${TEACHER_PAYMENT_FLAG_LABELS[row.paymentStatus as keyof typeof TEACHER_PAYMENT_FLAG_LABELS] ?? ""}`
+          : ""}
       </p>
       <div className="mt-1 flex flex-wrap gap-1.5">
         {row.leaveRequested ? <StatusChip tone="warning">Чөлөө хүссэн</StatusChip> : null}

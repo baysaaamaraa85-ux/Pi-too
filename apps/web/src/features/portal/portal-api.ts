@@ -1,5 +1,6 @@
-import type { AttendanceStatus, ContractStatus } from "@pitoo/contracts";
+import type { AttendanceStatus, ContractStatus, PaymentStatus } from "@pitoo/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import * as React from "react";
 import { api } from "@/shared/api-client/client";
 
 // Backend-ийн /portal/* хариуны хэлбэрүүд (design 5.4, М10).
@@ -47,6 +48,10 @@ export interface AttendanceOverview {
 
 export interface PaymentInstructions {
   contractId: string;
+  paid: string;
+  balance: string;
+  status: PaymentStatus;
+  pendingClaimId: string | null;
   studentName: string;
   programName: string;
   price: string;
@@ -95,4 +100,18 @@ export function contractByClassId(student: PortalStudent | undefined) {
     for (const cls of contract.classes) map.set(cls.id, contract);
   }
   return map;
+}
+
+// ФШ-76: эцэг эх "Шилжүүлсэн" гэж мэдэгдэнэ (Idempotency-Key-тэй).
+export function useClaimTransfer() {
+  const queryClient = useQueryClient();
+  const keyRef = React.useRef(crypto.randomUUID());
+  return useMutation({
+    mutationFn: (contractId: string) =>
+      api.post<{ id: string }>("/payment-claims", { contractId }, keyRef.current),
+    onSuccess: async () => {
+      keyRef.current = crypto.randomUUID();
+      await queryClient.invalidateQueries({ queryKey: ["portal", "payment"] });
+    },
+  });
 }

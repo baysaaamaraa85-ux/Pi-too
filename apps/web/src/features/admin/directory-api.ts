@@ -1,4 +1,4 @@
-import type { ContractStatus, Paginated } from "@pitoo/contracts";
+import type { ContractStatus, Paginated, PaymentStatus } from "@pitoo/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/shared/api-client/client";
 
@@ -22,6 +22,9 @@ export interface ContractSummary {
   leavesLeft: number;
   freeReviewsLeft: number;
   meetingsCount: number;
+  paid: string | null;
+  balance: string | null;
+  paymentStatus: PaymentStatus | null;
   createdAt: string;
   classes: ClassLabel[];
 }

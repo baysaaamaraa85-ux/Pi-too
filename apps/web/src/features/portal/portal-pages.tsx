@@ -1,4 +1,4 @@
-import { ATTENDANCE_STATUS_LABELS } from "@pitoo/contracts";
+import { ATTENDANCE_STATUS_LABELS, PAYMENT_STATUS_LABELS } from "@pitoo/contracts";
 import * as Dialog from "@radix-ui/react-dialog";
 import { CalendarDays, ClipboardCheck, Wallet } from "lucide-react";
 import * as React from "react";
@@ -18,10 +18,11 @@ import {
 import { formatMoney } from "@/shared/format/money";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
-import { AttendanceStatusChip } from "@/shared/ui/status-chip";
+import { AttendanceStatusChip, StatusChip } from "@/shared/ui/status-chip";
 import {
   contractByClassId,
   useAttendanceOverview,
+  useClaimTransfer,
   usePaymentInstructions,
   usePortalSummary,
   type PortalStudent,
@@ -30,6 +31,7 @@ import {
   ChildPicker,
   ContractSummary,
   EmptyNote,
+  errorText,
   LeaveRequestAction,
   PortalLoading,
   useSelectedChild,
@@ -353,8 +355,26 @@ function CopyRow({ label, value }: { label: string; value: string }) {
 
 // ФШ-49, ADR-016: банкны шилжүүлгийн заавар. Төлбөрийн төлөв (ФШ-77) төлбөрийн
 // модуль (М7) хийгдсэний дараа энд нэмэгдэнэ.
+// ФШ-77: гэрээний карт дээрх тооцоолсон төлбөрийн төлөв (Хүлээгдэж байна, Төлөгдсөн,
+// Дутуу төлөгдсөн, Төлөгдөөгүй) ба үлдэгдэл.
+function PaymentStatusLine({ contractId }: { contractId: string }) {
+  const info = usePaymentInstructions(contractId);
+  if (!info.data) return null;
+  const tone =
+    info.data.status === "PAID" ? "success" : info.data.status === "PENDING" ? "info" : "warning";
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="payment-status">
+      <StatusChip tone={tone}>{PAYMENT_STATUS_LABELS[info.data.status]}</StatusChip>
+      <span className="text-mid">
+        Төлсөн {formatMoney(info.data.paid)} · Үлдэгдэл {formatMoney(info.data.balance)}
+      </span>
+    </div>
+  );
+}
+
 function PaymentDialog({ contractId, onClose }: { contractId: string | null; onClose: () => void }) {
   const info = usePaymentInstructions(contractId);
+  const claim = useClaimTransfer();
   return (
     <Dialog.Root open={contractId !== null} onOpenChange={(open) => !open && onClose()}>
       <Dialog.Portal>
@@ -377,17 +397,33 @@ function PaymentDialog({ contractId, onClose }: { contractId: string | null; onC
                   <CopyRow label="IBAN" value={info.data.account.iban} />
                 ) : null}
                 <CopyRow label="Багцын үнэ" value={formatMoney(info.data.price)} />
+                <CopyRow label="Төлөх үлдэгдэл" value={formatMoney(info.data.balance)} />
                 <CopyRow label="Гүйлгээний утга" value={info.data.transferNote} />
               </>
             ) : null}
           </div>
           <p className="mt-4 text-xs text-muted">
-            Шилжүүлсний дараа админ банкны хуулгаас тулгаж баталгаажуулна.
+            Шилжүүлсний дараа "Шилжүүлсэн" товчийг дарна. Админ банкны хуулгаас тулгаж баталгаажуулна.
           </p>
-          <div className="mt-5 flex justify-end">
-            <Button variant="secondary" size="sm" onClick={onClose}>
+          {claim.error ? (
+            <p role="alert" className="mt-2 text-sm font-semibold text-danger">
+              {errorText(claim.error)}
+            </p>
+          ) : null}
+          <div className="mt-5 flex justify-end gap-2">
+            <Button variant="secondary" onClick={onClose}>
               Хаах
             </Button>
+            {info.data && contractId ? (
+              <Button
+                disabled={
+                  claim.isPending || info.data.pendingClaimId !== null || Number(info.data.balance) <= 0
+                }
+                onClick={() => claim.mutate(contractId)}
+              >
+                {info.data.pendingClaimId !== null ? "Хүлээгдэж байна" : "Шилжүүлсэн"}
+              </Button>
+            ) : null}
           </div>
         </Dialog.Content>
       </Dialog.Portal>
@@ -420,6 +456,7 @@ export function PortalPaymentPage() {
         {selected?.contracts.map((contract) => (
           <div key={contract.id} className="grid gap-3">
             <ContractSummary contract={contract} />
+            <PaymentStatusLine contractId={contract.id} />
             <div>
               <Button onClick={() => setContractId(contract.id)}>Төлбөр төлөх</Button>
             </div>
