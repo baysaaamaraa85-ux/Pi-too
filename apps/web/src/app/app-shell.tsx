@@ -18,6 +18,7 @@ import {
 import { NavLink, Outlet } from "react-router";
 import { useAuth } from "@/features/auth/auth-context";
 import { OfflineBanner } from "@/shared/offline/sync";
+import { HeroWaves } from "@/features/dashboard/hero-art";
 import { TeacherSidebar } from "./teacher-sidebar";
 import { TeacherTopBar } from "./teacher-topbar";
 import { Logo } from "@/shared/ui/logo";
@@ -70,9 +71,12 @@ export function AppShell() {
     <div
       className={cn(
         "min-h-screen",
-        isTeacher ? "luxury-bg md:pl-64" : "bg-gradient-to-b from-white to-background to-[140px]",
+        isTeacher ? "luxury-bg relative md:pl-64" : "bg-gradient-to-b from-white to-background to-[140px]",
       )}
     >
+      {isTeacher ? (
+        <HeroWaves className="pointer-events-none absolute inset-x-0 top-0 z-0 h-64 w-full [mask-image:linear-gradient(to_bottom,black_55%,transparent)] md:left-64 md:w-[calc(100%-16rem)]" />
+      ) : null}
       {isTeacher ? <TeacherSidebar items={items} onLogout={() => void logout()} /> : null}
       <header
         className={cn(
@@ -122,7 +126,12 @@ export function AppShell() {
 
       <OfflineBanner />
 
-      <main className="mx-auto max-w-270 px-4 pb-28 pt-6 sm:px-7 md:pb-14 md:pt-9">
+      <main
+        className={cn(
+          "relative z-10 mx-auto px-4 pb-28 pt-6 sm:px-7",
+          isTeacher ? "max-w-[96rem] md:px-8 md:pb-6 md:pt-0" : "max-w-270 md:pb-14 md:pt-9",
+        )}
+      >
         <Outlet />
       </main>
 

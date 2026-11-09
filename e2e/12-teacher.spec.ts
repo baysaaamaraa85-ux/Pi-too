@@ -161,6 +161,13 @@ test("Багшийн нүүр: нэртэй мэндчилгээ, дөрвөн �
   await expect(page.getByTestId("stat-attendance")).toBeVisible();
   await expect(page.getByTestId("stat-unfilled")).toContainText("0");
 
+  // Нэг дэлгэцэнд багтана (гүйлгэхгүй): 1280x800.
+  const [scrollHeight, innerHeight] = await page.evaluate(() => [
+    document.documentElement.scrollHeight,
+    window.innerHeight,
+  ]);
+  expect(scrollHeight).toBeLessThanOrEqual(innerHeight);
+
   const sidebar = page.getByRole("navigation", { name: "Багшийн цэс" });
   for (const label of ["Өнөөдөр", "Хуваарь", "Анги", "Сурагчид", "Цалин"]) {
     await expect(sidebar.getByRole("link", { name: label })).toBeVisible();

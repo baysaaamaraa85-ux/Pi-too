@@ -1,13 +1,13 @@
 // Баннерын чимэглэл: долгионтой зураасан дэвсгэр, төгсөлтийн малгай ба номны овоолго.
 // Цэвэр SVG тул дэлгэцийн хэмжээнээс үл хамааран тод харагдана.
 
-export function HeroWaves() {
+export function HeroWaves({ className }: { className?: string }) {
   return (
     <svg
       aria-hidden="true"
       viewBox="0 0 1200 240"
       preserveAspectRatio="none"
-      className="pointer-events-none absolute inset-0 h-full w-full"
+      className={className ?? "pointer-events-none absolute inset-0 h-full w-full"}
     >
       <defs>
         <linearGradient id="hw-peach" x1="0" x2="1" y1="0" y2="1">

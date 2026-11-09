@@ -42,7 +42,7 @@ function StudentSearch() {
         onChange={(e) => setQ(e.target.value)}
         aria-label="Сурагч хайх"
         placeholder="Сурагч хайх..."
-        className="h-12 w-full rounded-2xl border border-border-warm bg-white/80 pl-11 pr-4 text-sm text-foreground shadow-soft backdrop-blur placeholder:text-muted focus:border-primary focus:outline-none focus:ring-3 focus:ring-primary/10"
+        className="h-11 w-full rounded-2xl border border-border-warm bg-white/80 pl-11 pr-4 text-sm text-foreground shadow-soft backdrop-blur placeholder:text-muted focus:border-primary focus:outline-none focus:ring-3 focus:ring-primary/10"
       />
     </form>
   );
@@ -67,12 +67,12 @@ function ReminderBell() {
         aria-label={count > 0 ? `Сануулга: ${count}` : "Сануулга"}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="relative grid size-12 place-items-center rounded-2xl text-primary transition-colors hover:bg-white/70"
+        className="relative grid size-11 place-items-center rounded-2xl text-primary transition-colors hover:bg-white/70"
         data-testid="reminder-bell"
       >
         <Bell className="size-[22px]" />
         {count > 0 ? (
-          <span className="absolute right-3 top-3 size-2.5 rounded-full bg-danger ring-2 ring-white" data-testid="bell-dot" />
+          <span className="absolute right-2.5 top-2.5 size-2.5 rounded-full bg-danger ring-2 ring-white" data-testid="bell-dot" />
         ) : null}
       </button>
       {open ? (
@@ -123,14 +123,14 @@ function ReminderBell() {
 
 export function TeacherTopBar({ onLogout }: { onLogout: () => void }) {
   return (
-    <div className="sticky top-0 z-30 hidden items-center justify-between gap-4 px-10 py-4 md:flex">
+    <div className="sticky top-0 z-30 hidden items-center justify-between gap-4 bg-[#fbf1ea]/60 px-8 py-3 backdrop-blur-md md:flex">
       <StudentSearch />
       <div className="flex items-center gap-2">
         <ReminderBell />
         <button
           type="button"
           onClick={onLogout}
-          className="inline-flex min-h-12 items-center gap-2 rounded-2xl border border-border-warm bg-white/80 px-5 text-sm font-semibold text-primary shadow-soft transition-colors hover:bg-white"
+          className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-border-warm bg-white/80 px-5 text-sm font-semibold text-primary shadow-soft transition-colors hover:bg-white"
         >
           <LogOut className="size-4" />
           Гарах
