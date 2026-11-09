@@ -5,6 +5,7 @@ import {
   CalendarDays,
   ClipboardCheck,
   ClipboardList,
+  KeyRound,
   LayoutDashboard,
   LogOut,
   School,
@@ -16,6 +17,7 @@ import {
 } from "lucide-react";
 import { NavLink, Outlet } from "react-router";
 import { useAuth } from "@/features/auth/auth-context";
+import { OfflineBanner } from "@/shared/offline/sync";
 import { Logo } from "@/shared/ui/logo";
 import { cn } from "@/shared/ui/utils";
 
@@ -84,15 +86,26 @@ export function AppShell() {
             ))}
           </nav>
         </div>
+        <div className="flex items-center gap-2">
+        <NavLink
+          to="/change-password"
+          className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border-warm bg-surface px-3.5 py-2 text-sm font-semibold text-mid transition-colors hover:bg-primary/6"
+        >
+          <KeyRound className="size-4" />
+          <span className="max-sm:sr-only">Нууц үг</span>
+        </NavLink>
         <button
           type="button"
           onClick={() => void logout()}
-          className="inline-flex items-center gap-2 rounded-xl border border-border-warm bg-surface px-3.5 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/6"
+          className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border-warm bg-surface px-3.5 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/6"
         >
           <LogOut className="size-4" />
           <span className="max-sm:sr-only">Гарах</span>
         </button>
+        </div>
       </header>
+
+      <OfflineBanner />
 
       <main className="mx-auto max-w-270 px-4 pb-28 pt-6 sm:px-7 md:pb-14 md:pt-9">
         <Outlet />

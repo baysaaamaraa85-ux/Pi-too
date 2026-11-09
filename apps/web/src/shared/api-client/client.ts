@@ -26,6 +26,44 @@ export interface SessionUser {
 
 let refreshPromise: Promise<SessionUser | null> | null = null;
 
+// fetch сүлжээний алдаанд TypeError шиддэг (сервер хариу өгөөгүй). HTTP алдаа (4xx, 5xx) биш.
+export function isNetworkError(error: unknown): boolean {
+  return error instanceof TypeError;
+}
+
+// ФБШ-15: сүлжээгүй үед хуудас дахин ачаалахад refresh cookie-г шалгах боломжгүй. Сүүлд нэвтэрсэн
+// хэрэглэгчийн id, үүргийг (token БИШ) хадгалж, ирцийн дэлгэцийг нээж, ирцийг дараалалд хийнэ.
+// Сервер бүх хүсэлтийг өөрөө шалгах тул энэ нь зөвхөн дэлгэц харуулахад.
+const LAST_USER_KEY = "pitoo.lastUser";
+
+export function rememberUser(user: SessionUser): void {
+  try {
+    localStorage.setItem(LAST_USER_KEY, JSON.stringify({ id: user.id, role: user.role }));
+  } catch {
+    // хувийн цонх зэрэгт хадгалахгүй
+  }
+}
+
+export function forgetUser(): void {
+  try {
+    localStorage.removeItem(LAST_USER_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+function storedUser(): SessionUser | null {
+  try {
+    const raw = localStorage.getItem(LAST_USER_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { id?: string; role?: Role };
+    if (!parsed.id || !parsed.role) return null;
+    return { id: parsed.id, role: parsed.role, mustChangePassword: false };
+  } catch {
+    return null;
+  }
+}
+
 // Refresh cookie-гоор access token-ийг шинэчилж, хэрэглэгчийн мэдээллийг буцаана.
 async function refreshSession(): Promise<SessionUser | null> {
   refreshPromise ??= (async () => {
@@ -37,9 +75,11 @@ async function refreshSession(): Promise<SessionUser | null> {
       }
       const data = (await res.json()) as { accessToken: string; user: SessionUser };
       setAccessToken(data.accessToken);
+      rememberUser(data.user);
       return data.user;
-    } catch {
-      return null;
+    } catch (error) {
+      // Сервертэй холбогдож чадсангүй: сүүлд нэвтэрсэн хэрэглэгчээр офлайн ажиллана.
+      return isNetworkError(error) ? storedUser() : null;
     } finally {
       refreshPromise = null;
     }

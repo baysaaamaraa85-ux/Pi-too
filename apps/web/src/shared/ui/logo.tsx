@@ -16,7 +16,7 @@ export function LogoMark({ className }: { className?: string }) {
 
 export function Logo({ to = "/", label = "Пи тоо" }: { to?: string; label?: string }) {
   return (
-    <Link to={to} className="flex items-center gap-2.5 no-underline">
+    <Link to={to} className="flex min-h-11 items-center gap-2.5 no-underline">
       <LogoMark />
       <span className="font-display text-base font-bold tracking-tight text-foreground-strong">
         {label}

@@ -1,47 +1,48 @@
+import * as React from "react";
 import { Link, createBrowserRouter, Navigate, RouterProvider } from "react-router";
-import { AdminCatalogPage } from "@/features/admin/catalog-page";
-import { AdminDashboardPage } from "@/features/admin/dashboard-page";
-import { EnrollWizardPage } from "@/features/enroll/enroll-wizard";
-import { AdminRequestsPage } from "@/features/admin/requests-page";
-import { AdminAttendancePage } from "@/features/attendance/admin-attendance-page";
-import { AttendancePage } from "@/features/attendance/attendance-page";
-import { AdminPayrollPage } from "@/features/payroll/admin-payroll-page";
-import { TeacherSalaryPage } from "@/features/payroll/teacher-salary-page";
-import { AdminPaymentsPage } from "@/features/payments/admin-payments-page";
-import { AdminAuditPage } from "@/features/audit/audit-page";
-import { AdminReportsPage } from "@/features/reports/reports-page";
-import { AdminNotificationsPage } from "@/features/notifications/admin-notifications-page";
-import { PortalNotificationSettingsPage } from "@/features/notifications/portal-settings-page";
-import { AdminSetupPage } from "@/features/admin/setup-page";
 import { ComingSoonPage } from "@/features/admin/coming-soon-page";
-import { AdminParentDetailPage, AdminParentsPage } from "@/features/admin/parents-pages";
-import { AdminStudentDetailPage, AdminStudentsPage } from "@/features/admin/students-pages";
-import { AdminTeacherDetailPage, AdminTeachersPage } from "@/features/admin/teachers-pages";
 import { LoginPage } from "@/features/auth/login-page";
-import {
-  ChangePasswordPage,
-  ForgotPasswordPage,
-  ResetPasswordPage,
-} from "@/features/auth/password-pages";
-import { ContactPage } from "@/features/public/contact-page";
+import { ChangePasswordPage, ForgotPasswordPage, ResetPasswordPage } from "@/features/auth/password-pages";
 import { HomePage } from "@/features/public/home-page";
-import { ProgramsPage } from "@/features/public/programs-page";
 import { PublicLayout } from "@/features/public/public-layout";
-import { TeachersPage } from "@/features/public/teachers-page";
-import {
-  PortalAttendancePage,
-  PortalHomePage,
-  PortalPaymentPage,
-  PortalSchedulePage,
-} from "@/features/portal/portal-pages";
-import { TeacherSchedulePage } from "@/features/schedule/schedule-page";
-import { TeacherClassesPage } from "@/features/teacher/classes-page";
-import { TeacherStudentDetailPage } from "@/features/teacher/student-detail-page";
-import { TeacherStudentsPage } from "@/features/teacher/students-page";
-import { TeacherTodayPage } from "@/features/teacher/today-page";
 import { AdminShell } from "./admin-shell";
 import { AppShell } from "./app-shell";
 import { RequireAuth } from "./guards";
+
+// ФБШ-04: хуудас бүр өөрийн файлаар (code splitting), нэвтрэх, нүүр хуудас шууд ачаалагдана.
+const { lazy, Suspense } = React;
+const AdminCatalogPage = lazy(() => import("@/features/admin/catalog-page").then((m) => ({ default: m.AdminCatalogPage })));
+const AdminDashboardPage = lazy(() => import("@/features/admin/dashboard-page").then((m) => ({ default: m.AdminDashboardPage })));
+const EnrollWizardPage = lazy(() => import("@/features/enroll/enroll-wizard").then((m) => ({ default: m.EnrollWizardPage })));
+const AdminRequestsPage = lazy(() => import("@/features/admin/requests-page").then((m) => ({ default: m.AdminRequestsPage })));
+const AdminAttendancePage = lazy(() => import("@/features/attendance/admin-attendance-page").then((m) => ({ default: m.AdminAttendancePage })));
+const AttendancePage = lazy(() => import("@/features/attendance/attendance-page").then((m) => ({ default: m.AttendancePage })));
+const AdminPayrollPage = lazy(() => import("@/features/payroll/admin-payroll-page").then((m) => ({ default: m.AdminPayrollPage })));
+const TeacherSalaryPage = lazy(() => import("@/features/payroll/teacher-salary-page").then((m) => ({ default: m.TeacherSalaryPage })));
+const AdminPaymentsPage = lazy(() => import("@/features/payments/admin-payments-page").then((m) => ({ default: m.AdminPaymentsPage })));
+const AdminAuditPage = lazy(() => import("@/features/audit/audit-page").then((m) => ({ default: m.AdminAuditPage })));
+const AdminReportsPage = lazy(() => import("@/features/reports/reports-page").then((m) => ({ default: m.AdminReportsPage })));
+const AdminNotificationsPage = lazy(() => import("@/features/notifications/admin-notifications-page").then((m) => ({ default: m.AdminNotificationsPage })));
+const PortalNotificationSettingsPage = lazy(() => import("@/features/notifications/portal-settings-page").then((m) => ({ default: m.PortalNotificationSettingsPage })));
+const AdminSetupPage = lazy(() => import("@/features/admin/setup-page").then((m) => ({ default: m.AdminSetupPage })));
+const AdminParentDetailPage = lazy(() => import("@/features/admin/parents-pages").then((m) => ({ default: m.AdminParentDetailPage })));
+const AdminParentsPage = lazy(() => import("@/features/admin/parents-pages").then((m) => ({ default: m.AdminParentsPage })));
+const AdminStudentDetailPage = lazy(() => import("@/features/admin/students-pages").then((m) => ({ default: m.AdminStudentDetailPage })));
+const AdminStudentsPage = lazy(() => import("@/features/admin/students-pages").then((m) => ({ default: m.AdminStudentsPage })));
+const AdminTeacherDetailPage = lazy(() => import("@/features/admin/teachers-pages").then((m) => ({ default: m.AdminTeacherDetailPage })));
+const AdminTeachersPage = lazy(() => import("@/features/admin/teachers-pages").then((m) => ({ default: m.AdminTeachersPage })));
+const ContactPage = lazy(() => import("@/features/public/contact-page").then((m) => ({ default: m.ContactPage })));
+const ProgramsPage = lazy(() => import("@/features/public/programs-page").then((m) => ({ default: m.ProgramsPage })));
+const TeachersPage = lazy(() => import("@/features/public/teachers-page").then((m) => ({ default: m.TeachersPage })));
+const PortalAttendancePage = lazy(() => import("@/features/portal/portal-pages").then((m) => ({ default: m.PortalAttendancePage })));
+const PortalHomePage = lazy(() => import("@/features/portal/portal-pages").then((m) => ({ default: m.PortalHomePage })));
+const PortalPaymentPage = lazy(() => import("@/features/portal/portal-pages").then((m) => ({ default: m.PortalPaymentPage })));
+const PortalSchedulePage = lazy(() => import("@/features/portal/portal-pages").then((m) => ({ default: m.PortalSchedulePage })));
+const TeacherSchedulePage = lazy(() => import("@/features/schedule/schedule-page").then((m) => ({ default: m.TeacherSchedulePage })));
+const TeacherClassesPage = lazy(() => import("@/features/teacher/classes-page").then((m) => ({ default: m.TeacherClassesPage })));
+const TeacherStudentDetailPage = lazy(() => import("@/features/teacher/student-detail-page").then((m) => ({ default: m.TeacherStudentDetailPage })));
+const TeacherStudentsPage = lazy(() => import("@/features/teacher/students-page").then((m) => ({ default: m.TeacherStudentsPage })));
+const TeacherTodayPage = lazy(() => import("@/features/teacher/today-page").then((m) => ({ default: m.TeacherTodayPage })));
 
 function NotFound() {
   return (
@@ -155,5 +156,9 @@ const router = createBrowserRouter([
 ]);
 
 export function AppRouter() {
-  return <RouterProvider router={router} />;
+  return (
+    <Suspense fallback={<p className="p-8 text-sm text-muted">Ачаалж байна...</p>}>
+      <RouterProvider router={router} />
+    </Suspense>
+  );
 }

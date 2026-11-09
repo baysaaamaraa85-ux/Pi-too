@@ -8,6 +8,7 @@ import { PageHeader } from "@/app/app-shell";
 import { useAuth } from "@/features/auth/auth-context";
 import { DayGroups, LessonCard, useLessons } from "@/features/schedule/lessons";
 import { TeacherDashboardSections } from "@/features/dashboard/teacher-dashboard";
+import { PushEnableCard } from "@/features/notifications/push-card";
 import { LessonActions } from "./lesson-actions";
 
 export function useTeacherClasses(teacherId: string) {
@@ -47,6 +48,7 @@ export function TeacherTodayPage() {
         title="Өнөөдөр"
         subtitle={`${weekdayName(new Date(`${today}T00:00:00Z`).getUTCDay() || 7)} · ${formatDate(new Date())}`}
       />
+      <PushEnableCard />
       <TeacherDashboardSections />
       {lessons.isLoading ? (
         <p className="text-sm text-muted">Ачаалж байна...</p>

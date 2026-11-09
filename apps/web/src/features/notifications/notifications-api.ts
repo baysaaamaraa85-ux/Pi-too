@@ -58,7 +58,11 @@ export function usePushSubscribe(vapidPublicKey: string | null | undefined) {
       if (!vapidPublicKey) throw new Error("Push тохиргоо хийгдээгүй байна.");
       const permission = await Notification.requestPermission();
       if (permission !== "granted") throw new Error("Мэдэгдэл хүлээн авах зөвшөөрөл өгөөгүй байна.");
-      const registration = await navigator.serviceWorker.register("/push-sw.js");
+      // Үйлдвэрлэлд PWA-ийн service worker (push-sw.js-ийг агуулсан) бүртгэгдсэн байна. Хөгжүүлэлтийн
+      // сервер дээр PWA идэвхгүй тул push-sw.js-ийг тусад нь бүртгэнэ.
+      const registration =
+        (await navigator.serviceWorker.getRegistration()) ??
+        (await navigator.serviceWorker.register("/push-sw.js"));
       await navigator.serviceWorker.ready;
       const subscription =
         (await registration.pushManager.getSubscription()) ??

@@ -9,6 +9,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
+            // ФБШ-15: service worker-ийн кэшээс (хичээл, ирцийн жагсаалт) офлайн үед уншина.
+            networkMode: "offlineFirst",
             staleTime: 30_000,
             // 4xx алдааг (эрх, олдсонгүй) дахин оролдохгүй.
             retry: (count, error) =>

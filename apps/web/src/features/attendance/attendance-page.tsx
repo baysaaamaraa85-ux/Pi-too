@@ -11,7 +11,9 @@ import { Link, useParams } from "react-router";
 import { PageHeader } from "@/app/app-shell";
 import { errorMessage } from "@/features/admin/list-kit";
 import { useAuth } from "@/features/auth/auth-context";
-import { api } from "@/shared/api-client/client";
+import { api, isNetworkError } from "@/shared/api-client/client";
+import { enqueueAttendance } from "@/shared/offline/attendance-queue";
+import { useQueue } from "@/shared/offline/sync";
 import { formatDate, formatTime } from "@/shared/format/date";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
@@ -24,6 +26,8 @@ import { AttendanceStatusChip, StatusChip } from "@/shared/ui/status-chip";
 import { cn } from "@/shared/ui/utils";
 
 interface SaveResult {
+  // ФБШ-15: сүлжээгүй үед ирц төхөөрөмжид хадгалагдсан (холбогдмогц илгээгдэнэ).
+  queued?: true;
   entries: {
     attendanceId: string;
     contractId: string;
@@ -263,14 +267,31 @@ export function AttendancePage() {
   const keyRef = React.useRef(crypto.randomUUID());
   const isAdmin = user?.role === "ADMIN";
 
+  const queue = useQueue();
+  const queued = queue.find((q) => q.lessonId === lessonId && q.status === "pending");
+
   const save = useMutation({
-    mutationFn: (entries: { contractId: string; present: boolean }[]) =>
-      api.put<SaveResult>(
-        `/lessons/${lessonId}/attendance`,
-        { entries, reason: reason.trim() || undefined },
-        keyRef.current,
-      ),
-    onSuccess: async () => {
+    // ФБШ-15: сүлжээгүй үед TanStack Query хүсэлтийг түр зогсоодог. Ирцийг дараалалд хийхийн тулд
+    // функц заавал ажиллах ёстой.
+    networkMode: "always",
+    mutationFn: async (entries: { contractId: string; present: boolean }[]): Promise<SaveResult> => {
+      const body = { entries, reason: reason.trim() || undefined };
+      try {
+        return await api.put<SaveResult>(`/lessons/${lessonId}/attendance`, body, keyRef.current);
+      } catch (error) {
+        // ФБШ-15, ADR-007: сүлжээ тасарсан бол ижил Idempotency-Key-тэйгээр төхөөрөмжид хадгална.
+        if (isNetworkError(error) && user) {
+          await enqueueAttendance({ lessonId, userId: user.id, key: keyRef.current, ...body });
+          return { queued: true, entries: [] };
+        }
+        throw error;
+      }
+    },
+    onSuccess: async (result) => {
+      if (result.queued) {
+        keyRef.current = crypto.randomUUID();
+        return;
+      }
       keyRef.current = crypto.randomUUID();
       setMarks({});
       await queryClient.invalidateQueries({ queryKey: [SHEET_KEY] });
@@ -323,6 +344,16 @@ export function AttendancePage() {
           {isAdmin
             ? "Засах хугацаа (24 цаг) дууссан. Админ шалтгаан бичиж бүртгэнэ."
             : "Засах хугацаа (24 цаг) дууссан. Зөвхөн админ засна, админд хандана уу."}
+        </p>
+      ) : null}
+
+      {queued ? (
+        <p
+          role="status"
+          className="mb-4 rounded-xl bg-warning-bg px-4 py-3 text-sm font-semibold text-warning"
+          data-testid="queued-notice"
+        >
+          Энэ хичээлийн ирц төхөөрөмжид хадгалагдсан, холбогдмогц автоматаар илгээгдэнэ.
         </p>
       ) : null}
 
@@ -390,7 +421,9 @@ export function AttendancePage() {
             </Button>
             <Button
               className="flex-1 sm:flex-none sm:min-w-40"
-              disabled={unsaved.length === 0 || save.isPending || (needsReason && !reason.trim())}
+              disabled={
+                unsaved.length === 0 || save.isPending || Boolean(queued) || (needsReason && !reason.trim())
+              }
               onClick={() =>
                 save.mutate(unsaved.map((r) => ({ contractId: r.contractId, present: effective(r) })))
               }

@@ -1,6 +1,6 @@
 import type { Role } from "@pitoo/contracts";
 import * as React from "react";
-import { api, bootstrapSession, type SessionUser } from "@/shared/api-client/client";
+import { api, bootstrapSession, forgetUser, rememberUser, type SessionUser } from "@/shared/api-client/client";
 import { setAccessToken, subscribeAccessToken } from "@/shared/api-client/token-store";
 
 export type AuthUser = SessionUser;
@@ -50,6 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user: { id: string; role: Role; mustChangePassword: boolean };
     }>("/auth/login", { identifier, password });
     setAccessToken(result.accessToken);
+    rememberUser(result.user);
     setUser(result.user);
     setStatus("authenticated");
     return result.user;
@@ -57,6 +58,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = React.useCallback(async () => {
     await api.post("/auth/logout").catch(() => undefined);
+    forgetUser();
+    // Төхөөрөмж дээр хадгалсан хичээл, ирцийн жагсаалтыг (сурагчдын нэр) цэвэрлэнэ.
+    if ("caches" in window) await caches.delete("api-lessons").catch(() => false);
     setAccessToken(null);
   }, []);
 
