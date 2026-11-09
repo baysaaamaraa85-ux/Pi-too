@@ -30,7 +30,7 @@ import { cn } from "@/shared/ui/utils";
 import { useTeacherDashboard } from "./dashboard-api";
 import { CapAndBooks } from "./hero-art";
 
-const panel = "rounded-3xl border border-border-warm bg-surface p-4 shadow-md sm:p-5";
+const panel = "rounded-2xl border border-border-warm bg-surface p-4 shadow-soft sm:p-5";
 
 function PanelTitle({ icon: Icon, children, action }: { icon: LucideIcon; children: React.ReactNode; action?: React.ReactNode }) {
   return (
@@ -61,12 +61,12 @@ function StatCard({
 }) {
   return (
     <div
-      className="relative z-20 flex flex-col items-start gap-2.5 rounded-3xl border border-border-warm bg-surface p-3.5 shadow-md sm:flex-row sm:items-center sm:gap-3.5"
+      className="relative z-20 flex flex-col items-start gap-2.5 rounded-2xl border border-border-warm bg-surface p-3.5 shadow-soft sm:flex-row sm:items-center sm:gap-3.5"
       data-testid={testId}
     >
       <span
         className={cn(
-          "grid size-10 shrink-0 place-items-center rounded-2xl sm:size-12",
+          "grid size-10 shrink-0 place-items-center rounded-xl sm:size-11",
           tone === "danger" ? "bg-danger-bg text-danger" : "bg-primary/8 text-primary",
         )}
       >
@@ -83,12 +83,12 @@ function StatCard({
 // ---- Баннер: карт биш. Долгионтой дэвсгэр (AppShell) дээр мэндчилгээ, баруун талд малгай ба ном
 function Banner({ name }: { name: string | undefined }) {
   return (
-    <header className="relative mb-3 min-h-[4.75rem]">
+    <header className="relative mb-3 min-h-[7rem]">
       <div className="relative z-10 max-w-[58%] pt-1 md:pt-0">
         <h1 className="font-display text-[clamp(1.6rem,2.5vw,2.3rem)] font-black leading-tight text-foreground-strong">
           {name ? `${name} багшдаа` : "Сайн байна уу"} <span aria-hidden="true">👋</span>
         </h1>
-        <p className="mt-1 text-sm text-mid">Өнөөдрийн ажлын амжилт хүсье!</p>
+        <p className="mt-1 text-sm text-mid">Өнөөдрийн ажилд нь амжилт хүсье!</p>
       </div>
       <CapAndBooks className="pointer-events-none absolute -top-1 right-0 z-10 h-24 w-auto sm:h-32 md:top-0 md:right-4 md:h-36 xl:h-40" />
     </header>
@@ -153,9 +153,20 @@ export function bucketize(points: TeacherProgressPointDto[], range: Range, today
 
 export function ProgressTrend({ buckets }: { buckets: Bucket[] }) {
   const id = React.useId().replace(/:/g, "");
-  const width = 640;
-  const height = 180;
-  const pad = { left: 38, right: 24, top: 24, bottom: 28 };
+  // Өргөнийг хэмжиж viewBox-д өгнө: график ямар өргөнтэй ч бичвэр 1:1 хэмжээтэй, өндөр тогтмол.
+  const box = React.useRef<HTMLDivElement>(null);
+  const [width, setWidth] = React.useState(320);
+  React.useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const update = () => setWidth(Math.max(280, Math.round(el.clientWidth)));
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  const height = 160;
+  const pad = { left: 38, right: 24, top: 22, bottom: 26 };
   const innerW = width - pad.left - pad.right;
   const innerH = height - pad.top - pad.bottom;
   const inset = 34;
@@ -167,11 +178,14 @@ export function ProgressTrend({ buckets }: { buckets: Bucket[] }) {
   const area = filled.length > 1 ? `${x(filled[0]!.i)},${pad.top + innerH} ${line} ${x(filled[filled.length - 1]!.i)},${pad.top + innerH}` : "";
 
   return (
+    <div ref={box} className="w-full min-w-0 overflow-hidden">
     <svg
       viewBox={`0 0 ${width} ${height}`}
+      width={width}
+      height={height}
       role="img"
       aria-label={`Сурагчдын дундаж ахиц: ${filled.map((p) => `${p.label} ${Math.round(p.value)}%`).join(", ")}`}
-      className="h-auto w-full"
+      className="block"
       data-testid="trend-chart"
     >
       <defs>
@@ -206,6 +220,7 @@ export function ProgressTrend({ buckets }: { buckets: Bucket[] }) {
         </text>
       ))}
     </svg>
+    </div>
   );
 }
 
@@ -220,7 +235,7 @@ function ProgressPanel({ points }: { points: TeacherProgressPointDto[] }) {
       <PanelTitle
         icon={TrendingUp}
         action={
-          <div role="group" aria-label="Хугацаа" className="flex gap-1.5">
+          <div role="group" aria-label="Хугацаа" className="flex gap-0.5 rounded-xl bg-background-soft p-1">
             {RANGES.map((r) => (
               <button
                 key={r.key}
@@ -228,10 +243,8 @@ function ProgressPanel({ points }: { points: TeacherProgressPointDto[] }) {
                 aria-pressed={range === r.key}
                 onClick={() => setRange(r.key)}
                 className={cn(
-                  "min-h-11 rounded-full px-3.5 text-[0.8rem] font-semibold transition-colors",
-                  range === r.key
-                    ? "bg-primary text-primary-foreground shadow-md"
-                    : "border border-border-warm bg-background-soft text-mid hover:border-primary/30",
+                  "min-h-11 rounded-lg px-3.5 text-[0.8rem] font-semibold transition-colors",
+                  range === r.key ? "bg-primary text-primary-foreground shadow-soft" : "text-mid hover:text-primary",
                 )}
               >
                 {r.label}
@@ -257,128 +270,111 @@ function ProgressPanel({ points }: { points: TeacherProgressPointDto[] }) {
 function Categories({ categories }: { categories: TeacherCategoryDto[] }) {
   const total = categories.reduce((s, c) => s + c.students, 0);
   return (
-    <section className="overflow-hidden rounded-3xl border border-border-warm bg-surface shadow-md" aria-labelledby="cat-title" data-testid="categories">
-      <h2 id="cat-title" className="bg-gradient-to-br from-primary to-primary-hover px-4 py-3 font-display text-lg font-bold text-primary-foreground">
-        Категори
-      </h2>
-      <ul className="grid gap-0.5 p-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-1">
-        <li className="flex min-h-11 items-center justify-between gap-3 rounded-xl bg-primary/8 px-3 font-semibold text-primary">
-          <span className="flex items-center gap-2.5">
-            <LayoutGrid className="size-[18px]" /> Бүгд
-          </span>
+    <section className={panel} aria-labelledby="cat-title" data-testid="categories">
+      <PanelTitle icon={LayoutGrid}>
+        <span id="cat-title">Категори</span>
+      </PanelTitle>
+      <ul className="grid max-h-44 gap-1 overflow-y-auto pr-0.5">
+        <li className="flex min-h-11 items-center justify-between gap-3 rounded-xl bg-primary/8 px-3 text-sm font-semibold text-primary">
+          <span>Бүгд</span>
           <span data-testid="category-total">{total}</span>
         </li>
         {categories.map((c) => (
-          <li key={c.programId} className="flex min-h-11 items-center justify-between gap-3 rounded-xl px-3 text-sm font-medium text-mid" data-testid="category-row">
+          <li
+            key={c.programId}
+            className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-border-warm bg-background-soft/50 px-3 text-sm text-mid"
+            data-testid="category-row"
+          >
             <span className="flex min-w-0 items-center gap-2.5">
-              <BookOpen className="size-[18px] shrink-0 text-muted" />
+              <BookOpen className="size-4 shrink-0 text-primary" />
               <span className="truncate">{c.name}</span>
             </span>
-            <span className="font-semibold text-muted">{c.students}</span>
+            <span className="font-semibold text-foreground-strong">{c.students}</span>
           </li>
         ))}
-        {categories.length === 0 ? (
-          <li className="px-3.5 py-3 text-sm text-muted">Идэвхтэй сурагч алга.</li>
-        ) : null}
+        {categories.length === 0 ? <li className="px-3 py-2 text-sm text-muted">Идэвхтэй сурагч алга.</li> : null}
       </ul>
     </section>
   );
 }
 
-function TodayLessons({ lessons }: { lessons: DashboardLessonDto[] }) {
+// Өнөөдрийн хичээл ба ирц бөглөөгүй хичээл (ФШ-70) нэг жагсаалтад: бөглөөгүй нь дээд талд, улаан тэмдэглэгээтэй.
+// Ирц хадгалмагц бөглөөгүй мөр тэр дороо арилна.
+function TodayLessons({ lessons, unfilled }: { lessons: DashboardLessonDto[]; unfilled: DashboardLessonDto[] }) {
+  const unfilledIds = new Set(unfilled.map((l) => l.id));
+  const today = lessons.filter((l) => !unfilledIds.has(l.id));
+  const empty = today.length === 0 && unfilled.length === 0;
   return (
     <section className={panel} aria-labelledby="today-title" data-testid="today-lessons">
       <PanelTitle
         icon={CalendarDays}
         action={
-          <Link to="/teacher/calendar" className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-primary hover:underline">
-            Бүгдийг харах <ArrowRight className="size-4" />
+          <Link to="/teacher/calendar" className="inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-primary hover:underline">
+            Бүгдийг харах <ArrowRight className="size-3.5" />
           </Link>
         }
       >
         <span id="today-title">Өнөөдрийн хичээл</span>
       </PanelTitle>
-      {lessons.length === 0 ? (
-        <p className="rounded-2xl bg-background-soft px-5 py-6 text-center text-sm text-muted">Өнөөдөр хичээл алга.</p>
+      {empty ? (
+        <p className="rounded-xl bg-background-soft px-5 py-6 text-center text-sm text-muted">Өнөөдөр хичээл алга.</p>
       ) : (
-        <ul className="grid max-h-40 gap-2.5 overflow-y-auto pr-1">
-          {lessons.map((lesson) => {
-            const done = lesson.expected > 0 && lesson.recorded >= lesson.expected;
-            return (
-              <li
-                key={lesson.id}
-                className="flex flex-wrap items-center gap-3 rounded-2xl border border-border-warm bg-background-soft/60 p-2.5"
-                data-testid="today-lesson"
-              >
-                <span className="rounded-xl bg-primary/8 px-3 py-2.5 text-sm font-bold text-primary">
-                  {formatTime(lesson.startsAt)} - {formatTime(lesson.endsAt)}
-                </span>
-                <div className="min-w-[8rem] flex-1">
-                  <p className="font-bold text-foreground-strong">{lesson.branchName}</p>
-                  <p className="text-[0.82rem] text-muted">{lesson.expected} сурагч</p>
-                </div>
-                {lesson.status === "CANCELLED" ? (
-                  <StatusChip tone="neutral">Цуцлагдсан</StatusChip>
-                ) : done ? (
-                  <StatusChip tone="success">Ирц бөглөсөн</StatusChip>
-                ) : (
-                  <Button asChild className="w-full rounded-full sm:w-auto">
+        <div className="grid max-h-52 gap-2 overflow-y-auto pr-1">
+          {unfilled.length > 0 ? (
+            <ul className="grid gap-2" data-testid="unfilled-lessons" aria-label="Ирц бөглөөгүй хичээл">
+              {unfilled.map((lesson) => (
+                <li
+                  key={lesson.id}
+                  className="flex flex-wrap items-center gap-3 rounded-xl border border-primary/30 bg-primary/6 p-2.5"
+                  data-testid="unfilled-lesson"
+                >
+                  <span className="rounded-lg bg-primary/10 px-3 py-2.5 text-[0.82rem] font-bold text-primary">
+                    {formatDate(lesson.startsAt)} {formatTime(lesson.startsAt)}
+                  </span>
+                  <div className="min-w-[8rem] flex-1">
+                    <p className="text-sm font-semibold text-foreground-strong">{lesson.branchName}</p>
+                    <p className="text-xs text-danger">Ирц бөглөөгүй · {lesson.expected} сурагч</p>
+                  </div>
+                  <Button asChild className="w-full rounded-lg sm:w-auto">
                     <Link to={`/teacher/attendance/${lesson.id}`}>Ирц бүртгэх</Link>
                   </Button>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {today.length > 0 ? (
+            <ul className="grid gap-2">
+              {today.map((lesson) => {
+                const done = lesson.expected > 0 && lesson.recorded >= lesson.expected;
+                return (
+                  <li
+                    key={lesson.id}
+                    className="flex flex-wrap items-center gap-3 rounded-xl border border-border-warm bg-background-soft/60 p-2.5"
+                    data-testid="today-lesson"
+                  >
+                    <span className="rounded-lg bg-primary/8 px-3 py-2.5 text-[0.82rem] font-bold text-primary">
+                      {formatTime(lesson.startsAt)} - {formatTime(lesson.endsAt)}
+                    </span>
+                    <div className="min-w-[8rem] flex-1">
+                      <p className="text-sm font-semibold text-foreground-strong">{lesson.branchName}</p>
+                      <p className="text-xs text-muted">{lesson.expected} сурагч</p>
+                    </div>
+                    {lesson.status === "CANCELLED" ? (
+                      <StatusChip tone="neutral">Цуцлагдсан</StatusChip>
+                    ) : done ? (
+                      <StatusChip tone="success">Ирц бөглөсөн</StatusChip>
+                    ) : (
+                      <Button asChild className="w-full rounded-lg sm:w-auto">
+                        <Link to={`/teacher/attendance/${lesson.id}`}>Ирц бүртгэх</Link>
+                      </Button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+        </div>
       )}
-    </section>
-  );
-}
-
-// Ирц бөглөөгүй хичээл (ФШ-70): maroon хүчтэй карт. Ирц хадгалмагц тэр дороо хасагдана.
-function AttentionCard({ lessons }: { lessons: DashboardLessonDto[] }) {
-  if (lessons.length === 0) {
-    return (
-      <section className="rounded-3xl bg-gradient-to-br from-primary to-primary-hover p-4 text-primary-foreground shadow-lg sm:p-5">
-        <p className="flex items-center gap-2 text-sm font-semibold text-white/90">
-          <Sparkles className="size-4 text-accent" /> Бүх ирц бөглөгдсөн
-        </p>
-        <p className="mt-1.5 font-display text-lg font-bold leading-snug">Өнгөрсөн хичээл бүрийн ирц бүртгэгдсэн байна.</p>
-      </section>
-    );
-  }
-  return (
-    <section
-      className="rounded-3xl bg-gradient-to-br from-primary to-primary-hover p-4 text-primary-foreground shadow-lg sm:p-5"
-      data-testid="unfilled-lessons"
-    >
-      <p className="flex items-center gap-2 text-sm font-semibold text-white/90">
-        <Sparkles className="size-4 text-accent" /> Ирц бөглөөгүй хичээл ({lessons.length})
-      </p>
-      <ul className="mt-2.5 grid max-h-36 gap-2 overflow-y-auto pr-1">
-        {lessons.map((lesson) => (
-          <li
-            key={lesson.id}
-            className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-white/10 p-2.5"
-            data-testid="unfilled-lesson"
-          >
-            <div>
-              <p className="font-display text-base font-bold">
-                {formatDate(lesson.startsAt)} · {formatTime(lesson.startsAt)}
-              </p>
-              <p className="text-[0.82rem] text-white/80">
-                {lesson.branchName} · {lesson.expected} сурагч
-              </p>
-            </div>
-            <Link
-              to={`/teacher/attendance/${lesson.id}`}
-              className="inline-flex min-h-11 items-center rounded-full bg-white px-5 text-sm font-bold text-primary transition-colors hover:bg-background"
-            >
-              Ирц бүртгэх
-            </Link>
-          </li>
-        ))}
-      </ul>
     </section>
   );
 }
@@ -396,18 +392,19 @@ function QuickActions() {
       <PanelTitle icon={Sparkles}>
         <span id="actions-title">Шуурхай үйлдлүүд</span>
       </PanelTitle>
-      <div className="grid grid-cols-4 gap-2">
+      <ul className="grid grid-cols-2 gap-2">
         {ACTIONS.map((a) => (
-          <Link
-            key={a.to}
-            to={a.to}
-            className="flex min-h-[4.75rem] flex-col items-center justify-center gap-1.5 rounded-2xl border border-border-warm bg-background-soft/60 p-1.5 text-center text-[0.68rem] font-semibold leading-tight text-mid transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:text-primary"
-          >
-            <a.icon className="size-5 text-primary" />
-            {a.label}
-          </Link>
+          <li key={a.to}>
+            <Link
+              to={a.to}
+              className="flex min-h-12 items-center gap-2 rounded-xl border border-border-warm bg-background-soft/60 px-2.5 text-[0.8rem] font-medium leading-tight text-mid transition-colors hover:border-primary/30 hover:text-primary"
+            >
+              <a.icon className="size-4 shrink-0 text-primary" />
+              <span className="flex-1">{a.label}</span>
+            </Link>
+          </li>
         ))}
-      </div>
+      </ul>
     </section>
   );
 }
@@ -421,10 +418,10 @@ function Reminders({ tasks }: { tasks: TeacherTaskDto[] }) {
       </PanelTitle>
       <ul className="grid max-h-36 gap-2 overflow-y-auto pr-1">
         {tasks.map((task) => (
-          <li key={task.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-background-soft/60 p-2.5">
+          <li key={task.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-background-soft/60 p-2.5">
             <div className="min-w-0">
-              <p className="truncate font-semibold text-foreground-strong">{task.studentName}</p>
-              <p className="text-[0.82rem] text-muted">
+              <p className="truncate text-sm font-semibold text-foreground-strong">{task.studentName}</p>
+              <p className="text-xs text-muted">
                 {task.programName} · {formatDate(task.dueOn)}
               </p>
             </div>
@@ -432,7 +429,7 @@ function Reminders({ tasks }: { tasks: TeacherTaskDto[] }) {
               <StatusChip tone={task.type === "MEETING" ? "warning" : "info"}>
                 {task.type === "MEETING" ? "Эцэг эхтэй уулзах" : "Багцын шалгалт"}
               </StatusChip>
-              <Button variant="secondary" size="sm" asChild>
+              <Button variant="secondary" size="sm" className="rounded-lg" asChild>
                 <Link to={`/teacher/students/${task.studentId}`}>Нээх</Link>
               </Button>
             </div>
@@ -443,7 +440,7 @@ function Reminders({ tasks }: { tasks: TeacherTaskDto[] }) {
   );
 }
 
-// Багшийн нүүр: баннер, дөрвөн үзүүлэлт, категори, өнөөдрийн хичээл, ахицын график, анхаарах зүйл (ФШ-43, 70).
+// Багшийн нүүр: баннер, дөрвөн үзүүлэлт, зүүн талд хичээл ба ахиц, баруун талд анхаарах зүйл, шуурхай үйлдэл, категори (ФШ-43, 70).
 export function TeacherHome() {
   const dash = useTeacherDashboard();
   const d = dash.data;
@@ -477,27 +474,24 @@ export function TeacherHome() {
         />
       </div>
 
-      {/* Утсанд нэг багана (order), lg-д хоёр, xl-д гурван багана: категори | хичээл, график | анхаарах зүйл */}
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] xl:grid-cols-[13.5rem_minmax(0,1fr)_19rem]">
-        <div className="order-3 lg:order-3 lg:col-span-2 xl:order-1 xl:col-span-1">
-          <Categories categories={d?.categories ?? []} />
-        </div>
-        <div className="contents lg:order-1 lg:grid lg:content-start lg:gap-4 xl:order-2">
-          <div className="order-2">
-            <TodayLessons lessons={d?.todayLessons ?? []} />
+      {/* Утсанд нэг багана (order), lg-ээс хоёр багана: зүүн хичээл, ахиц | баруун анхаарах, үйлдэл, категори */}
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="contents min-w-0 lg:grid lg:content-start lg:gap-4">
+          <div className="min-w-0 order-2">
+            <TodayLessons lessons={d?.todayLessons ?? []} unfilled={d?.unfilledLessons ?? []} />
           </div>
-          <div className="order-6">
+          <div className="min-w-0 order-6">
             <ProgressPanel points={d?.progress ?? []} />
           </div>
         </div>
-        <div className="contents lg:order-2 lg:grid lg:content-start lg:gap-4 xl:order-3">
-          <div className="order-1">
-            <AttentionCard lessons={d?.unfilledLessons ?? []} />
-          </div>
-          <div className="order-4">
+        <div className="contents min-w-0 lg:grid lg:content-start lg:gap-4">
+          <div className="min-w-0 order-3">
             <QuickActions />
           </div>
-          <div className="order-5">
+          <div className="min-w-0 order-4">
+            <Categories categories={d?.categories ?? []} />
+          </div>
+          <div className="min-w-0 order-5 empty:hidden">
             <Reminders tasks={d?.tasks ?? []} />
           </div>
         </div>

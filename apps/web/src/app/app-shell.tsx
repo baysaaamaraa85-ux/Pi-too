@@ -71,7 +71,7 @@ export function AppShell() {
     <div
       className={cn(
         "min-h-screen",
-        isTeacher ? "luxury-bg relative md:pl-64" : "bg-gradient-to-b from-white to-background to-[140px]",
+        isTeacher ? "luxury-bg teacher-zoom relative md:pl-64" : "bg-gradient-to-b from-white to-background to-[140px]",
       )}
     >
       {isTeacher ? (

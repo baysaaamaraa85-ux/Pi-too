@@ -30,7 +30,7 @@ export function TeacherSidebar({ items, onLogout }: { items: Item[]; onLogout: (
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-border-warm bg-white/85 backdrop-blur-md md:flex">
-      <div className="flex h-20 items-center px-6">
+      <div className="flex h-16 items-center px-5">
         <Logo to="/teacher" label="Багш" />
       </div>
 
@@ -42,7 +42,7 @@ export function TeacherSidebar({ items, onLogout }: { items: Item[]; onLogout: (
             end={item.end}
             className={({ isActive }) =>
               cn(
-                "flex min-h-12 items-center gap-3 rounded-2xl px-4 text-[0.95rem] font-semibold text-mid transition-all hover:bg-primary/6 hover:text-primary",
+                "flex min-h-11 items-center gap-3 rounded-xl px-3.5 text-sm font-semibold text-mid transition-all hover:bg-primary/6 hover:text-primary",
                 isActive && "bg-primary text-primary-foreground shadow-md hover:bg-primary hover:text-primary-foreground",
               )
             }
