@@ -1,15 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router";
 import { api } from "@/shared/api-client/client";
 import type { BranchDto, ClassDto } from "@/shared/api-client/types";
-import { addDaysToKey, formatDate, localDateKey, weekdayName } from "@/shared/format/date";
-import { Button } from "@/shared/ui/button";
-import { PageHeader } from "@/app/app-shell";
-import { useAuth } from "@/features/auth/auth-context";
-import { DayGroups, LessonCard, useLessons } from "@/features/schedule/lessons";
-import { TeacherDashboardSections } from "@/features/dashboard/teacher-dashboard";
-import { PushEnableCard } from "@/features/notifications/push-card";
-import { LessonActions } from "./lesson-actions";
+import { weekdayName } from "@/shared/format/date";
+import { TeacherHome } from "@/features/dashboard/teacher-home";
 
 export function useTeacherClasses(teacherId: string) {
   const classes = useQuery({
@@ -32,54 +25,7 @@ export function classLabel(
   return `${branch ?? "Салбар"} · ${weekdayName(cls.weekday)} ${cls.startTime}`;
 }
 
-// ФШ-69: багшийн нүүр. Өнөөдрийн хичээлүүд (Улаанбаатарын өдрөөр).
+// Багшийн нүүр: мэндчилгээ, үзүүлэлт, өнөөдрийн хичээл, ахиц (features/dashboard/teacher-home.tsx).
 export function TeacherTodayPage() {
-  const { user } = useAuth();
-  const today = localDateKey(new Date());
-  // UTC ба Улаанбаатарын өдөр зөрдөг тул өргөн хүрээ авч, өдрөөр нь шүүнэ.
-  const lessons = useLessons(addDaysToKey(today, -1), addDaysToKey(today, 2));
-  const { classes, branches } = useTeacherClasses(user!.id);
-
-  const todays = (lessons.data ?? []).filter((l) => localDateKey(l.startsAt) === today);
-
-  return (
-    <>
-      <PageHeader
-        title="Өнөөдөр"
-        subtitle={`${weekdayName(new Date(`${today}T00:00:00Z`).getUTCDay() || 7)} · ${formatDate(new Date())}`}
-      />
-      <PushEnableCard />
-      <TeacherDashboardSections />
-      {lessons.isLoading ? (
-        <p className="text-sm text-muted">Ачаалж байна...</p>
-      ) : lessons.isError ? (
-        <p role="alert" className="text-sm font-semibold text-danger">
-          Хичээлийн жагсаалтыг ачаалж чадсангүй.
-        </p>
-      ) : (
-        <DayGroups
-          lessons={todays}
-          renderLesson={(lesson) => (
-            <LessonCard
-              lesson={lesson}
-              extra={classLabel(
-                classes.data?.find((c) => c.id === lesson.classId),
-                branches.data,
-              )}
-              actions={
-                <>
-                  {lesson.status === "SCHEDULED" ? (
-                    <Button asChild>
-                      <Link to={`/teacher/attendance/${lesson.id}`}>Ирц бүртгэх</Link>
-                    </Button>
-                  ) : null}
-                  <LessonActions lesson={lesson} />
-                </>
-              }
-            />
-          )}
-        />
-      )}
-    </>
-  );
+  return <TeacherHome />;
 }

@@ -120,6 +120,59 @@ export function continuation(tx: Tx, m: MonthRange) {
     GROUP BY sb.branch_id`;
 }
 
+// ---- Багшийн самбар (ФШ-70, design)
+export function teacherName(tx: Tx, teacherId: string) {
+  return tx.teacher.findUnique({ where: { userId: teacherId }, select: { fullName: true } });
+}
+
+// Багшийн одоогийн сурагчид: идэвхтэй гэрээтэй, багшийн ангид бүртгэл нь хаагдаагүй өвөрмөц сурагч.
+export async function teacherStudentCount(tx: Tx, teacherId: string) {
+  const rows = await tx.$queryRaw<{ value: number }[]>`
+    SELECT COUNT(DISTINCT ct.student_id)::int AS value
+    FROM enrollments e
+    JOIN classes cl ON cl.id = e.class_id
+    JOIN contracts ct ON ct.id = e.contract_id
+    WHERE cl.teacher_id = ${teacherId}::uuid AND e.to_date IS NULL AND ct.status = 'ACTIVE'`;
+  return rows[0]?.value ?? 0;
+}
+
+export async function teacherLessonCount(tx: Tx, teacherId: string, m: MonthRange) {
+  const rows = await tx.$queryRaw<{ value: number }[]>`
+    SELECT COUNT(*)::int AS value
+    FROM lessons
+    WHERE teacher_id = ${teacherId}::uuid AND status = 'SCHEDULED'
+      AND starts_at >= ${m.start} AND starts_at < ${m.end}`;
+  return rows[0]?.value ?? 0;
+}
+
+export async function teacherAttendanceCounts(tx: Tx, teacherId: string, m: MonthRange) {
+  const rows = await tx.$queryRaw<{ total: number; attended: number }[]>`
+    SELECT COUNT(*)::int AS total,
+           (COUNT(*) FILTER (WHERE a.status IN ('PRESENT', 'MAKEUP', 'FREE_REVIEW')))::int AS attended
+    FROM attendance a
+    JOIN lessons l ON l.id = a.lesson_id
+    WHERE l.teacher_id = ${teacherId}::uuid
+      AND l.starts_at >= ${m.start} AND l.starts_at < ${m.end}`;
+  return rows[0] ?? { total: 0, attended: 0 };
+}
+
+// Багшийн (одоо болон өмнө бүртгэлтэй) сурагчдын сарын дундаж дүн.
+export function teacherProgress(tx: Tx, teacherId: string, fromDate: string) {
+  return tx.$queryRaw<{ month: string; value: Prisma.Decimal }[]>`
+    SELECT to_char(a.taken_on, 'YYYY-MM') AS month, AVG(a.total_percent) AS value
+    FROM assessments a
+    WHERE a.taken_on >= ${fromDate}::date
+      AND a.student_id IN (
+        SELECT ct.student_id
+        FROM enrollments e
+        JOIN classes cl ON cl.id = e.class_id
+        JOIN contracts ct ON ct.id = e.contract_id
+        WHERE cl.teacher_id = ${teacherId}::uuid
+      )
+    GROUP BY 1
+    ORDER BY 1`;
+}
+
 // ---- Аудитын жагсаалт (админ унших)
 export function listAudit(
   tx: Tx,

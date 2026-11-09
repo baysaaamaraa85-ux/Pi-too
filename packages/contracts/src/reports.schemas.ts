@@ -59,8 +59,23 @@ export type AdminDashboardDto = {
   todayLessons: DashboardLessonDto[];
 };
 
+export type TeacherStatsDto = {
+  // Багшийн идэвхтэй гэрээтэй, одоо ангид бүртгэлтэй өвөрмөц сурагч.
+  students: number;
+  // Энэ сарын (Улаанбаатар) цуцлагдаагүй хичээл.
+  lessonsThisMonth: number;
+  // Энэ сарын ирцийн хувь: (Ирсэн + Нөхөлт + Үнэгүй давтлага) / нийт ирцийн мөр. Мөр байхгүй бол null.
+  attendancePercent: string | null;
+};
+
+export type TeacherProgressPointDto = { month: string; averagePercent: string };
+
 export type TeacherDashboardDto = {
   role: "TEACHER";
+  teacherName: string;
+  stats: TeacherStatsDto;
+  // Сүүлийн 6 сарын сорил, шалгалтын дундаж дүн (багшийн сурагчдын).
+  progress: TeacherProgressPointDto[];
   todayLessons: DashboardLessonDto[];
   unfilledLessons: DashboardLessonDto[];
   tasks: TeacherTaskDto[];

@@ -37,13 +37,45 @@ export async function getDashboard(actor: { id: string; role: Role }): Promise<D
     const dto: AdminDashboardDto = { role: "ADMIN", debts, negativeTeachers, todayLessons };
     return dto;
   }
-  const [todayLessons, unfilledLessons, tasks] = await Promise.all([
+  const month = today.slice(0, 7);
+  const range = monthRange(month);
+  const progressFrom = `${shiftMonth(month, -5)}-01`;
+  const [todayLessons, unfilledLessons, tasks, extra] = await Promise.all([
     listLessonsForDay(actor, { date: today }),
     listUnfilledLessons(actor),
     listOpenTasks(actor),
+    prisma.$transaction(async (tx) => {
+      const [teacher, students, lessons, attendance, progress] = await Promise.all([
+        repo.teacherName(tx, actor.id),
+        repo.teacherStudentCount(tx, actor.id),
+        repo.teacherLessonCount(tx, actor.id, range),
+        repo.teacherAttendanceCounts(tx, actor.id, range),
+        repo.teacherProgress(tx, actor.id, progressFrom),
+      ]);
+      return { teacher, students, lessons, attendance, progress };
+    }),
   ]);
-  const dto: TeacherDashboardDto = { role: "TEACHER", todayLessons, unfilledLessons, tasks };
+  const dto: TeacherDashboardDto = {
+    role: "TEACHER",
+    teacherName: extra.teacher?.fullName ?? "",
+    stats: {
+      students: extra.students,
+      lessonsThisMonth: extra.lessons,
+      attendancePercent: percent(extra.attendance.attended, extra.attendance.total),
+    },
+    progress: extra.progress.map((p) => ({ month: p.month, averagePercent: p.value.toFixed(1) })),
+    todayLessons,
+    unfilledLessons,
+    tasks,
+  };
   return dto;
+}
+
+// "ОООО-СС"-ээс n сарын өмнөх/хойших "ОООО-СС".
+function shiftMonth(month: string, delta: number): string {
+  const [year, mon] = month.split("-").map(Number) as [number, number];
+  const index = year * 12 + (mon - 1) + delta;
+  return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, "0")}`;
 }
 
 function monthRange(month: string): repo.MonthRange {

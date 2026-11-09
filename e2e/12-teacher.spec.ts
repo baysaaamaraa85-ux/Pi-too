@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   backdateEnrollment,
+  bearer,
   createTeacherWithClasses,
   enrollViaApi,
   insertLesson,
@@ -131,4 +132,46 @@ test("ФБШ-10: багшийн бүх хуудсанд хүрэх товч, т�
     );
     expect(overflow, `${path} хэвтээ гүйлгэлт`).toBeLessThanOrEqual(0);
   }
+});
+
+// Багшийн нүүр (дизайн): мэндчилгээ, дөрвөн үзүүлэлт, хажуугийн цэс, сурагчдын ахицын график.
+test("Багшийн нүүр: нэртэй мэндчилгээ, дөрвөн үзүүлэлт, хажуугийн цэс, ахицын график", async ({ page, request }) => {
+  const teacher = await createTeacherWithClasses(request, weekdaysExceptToday(2));
+  const res = await enrollViaApi(request, teacher.token, teacher.classIds, {
+    studentName: `Ахицтай ${uniquePhone()}`,
+  });
+  const body = (await res.json()) as { contractId: string; studentId: string };
+  const today = new Date().toISOString().slice(0, 10);
+  for (const [takenOn, totalPercent] of [
+    [today, 80],
+    [today, 60],
+  ] as const) {
+    const r = await request.post(`/api/v1/students/${body.studentId}/assessments`, {
+      headers: bearer(teacher.token),
+      data: { type: "QUIZ", takenOn, totalPercent, contractId: body.contractId },
+    });
+    expect(r.status()).toBe(201);
+  }
+
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await loginTeacher(page, teacher);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(`Багш ${teacher.phone} багшдаа`);
+  await expect(page.getByTestId("stat-students")).toContainText("1");
+  await expect(page.getByTestId("stat-lessons")).toBeVisible();
+  await expect(page.getByTestId("stat-attendance")).toBeVisible();
+  await expect(page.getByTestId("stat-unfilled")).toContainText("0");
+
+  const sidebar = page.getByRole("navigation", { name: "Багшийн цэс" });
+  for (const label of ["Өнөөдөр", "Хуваарь", "Анги", "Сурагчид", "Цалин"]) {
+    await expect(sidebar.getByRole("link", { name: label })).toBeVisible();
+  }
+  await expect(page.getByTestId("sidebar-name")).toContainText(`Багш ${teacher.phone}`);
+
+  // Нэг сарын дундаж (80 ба 60) = 70%.
+  await expect(page.getByTestId("trend-point")).toHaveCount(1);
+  await expect(page.getByTestId("trend-chart")).toContainText("70%");
+
+  // Хажуугийн цэсээр шилжинэ.
+  await sidebar.getByRole("link", { name: "Сурагчид" }).click();
+  await expect(page).toHaveURL(/\/teacher\/students$/);
 });

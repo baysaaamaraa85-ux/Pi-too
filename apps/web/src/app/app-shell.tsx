@@ -18,6 +18,7 @@ import {
 import { NavLink, Outlet } from "react-router";
 import { useAuth } from "@/features/auth/auth-context";
 import { OfflineBanner } from "@/shared/offline/sync";
+import { TeacherSidebar } from "./teacher-sidebar";
 import { Logo } from "@/shared/ui/logo";
 import { cn } from "@/shared/ui/utils";
 
@@ -62,10 +63,22 @@ export function AppShell() {
   const { user, logout } = useAuth();
   if (!user) return null;
   const items = NAV[user.role];
+  const isTeacher = user.role === "TEACHER";
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-background to-[140px]">
-      <header className="sticky top-0 z-40 flex h-16 items-center justify-between gap-4 border-b border-border-warm bg-white/90 px-4 backdrop-blur-md sm:px-8">
+    <div
+      className={cn(
+        "min-h-screen",
+        isTeacher ? "luxury-bg md:pl-64" : "bg-gradient-to-b from-white to-background to-[140px]",
+      )}
+    >
+      {isTeacher ? <TeacherSidebar items={items} onLogout={() => void logout()} /> : null}
+      <header
+        className={cn(
+          "sticky top-0 z-40 flex h-16 items-center justify-between gap-4 border-b border-border-warm bg-white/90 px-4 backdrop-blur-md sm:px-8",
+          isTeacher && "md:hidden",
+        )}
+      >
         <div className="flex items-center gap-8">
           <Logo to={items[0]?.to ?? "/"} label={ROLE_LABELS[user.role]} />
           <nav className="hidden items-center gap-1 md:flex" aria-label="Үндсэн цэс">

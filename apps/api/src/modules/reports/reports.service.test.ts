@@ -171,6 +171,45 @@ describe("М11 Багшийн самбар (ФШ-70, 43)", () => {
     expect(ids).not.toContain(cancelled.id);
   });
 
+  it("Багшийн самбарын үзүүлэлт: нэр, сурагчийн тоо, энэ сарын хичээл, ирцийн хувь, сарын дундаж дүн", async () => {
+    const teacher = await loginUser(Role.TEACHER);
+    const other = await loginUser(Role.TEACHER);
+    const branch = await makeBranch("Үзүүлэлт");
+    const cls = await makeClass(teacher.userId, branch.id);
+    const a = await makeContract(cls.id);
+    const b = await makeContract(cls.id);
+    await makeContract(cls.id, { status: ContractStatus.COMPLETED }); // идэвхгүй гэрээ тооцогдохгүй
+    const startsAt = new Date();
+    const lesson = await prisma.lesson.create({
+      data: { classId: cls.id, teacherId: teacher.userId, startsAt, endsAt: new Date(startsAt.getTime() + 2 * HOUR), originalStartsAt: startsAt },
+    });
+    await prisma.attendance.createMany({
+      data: [
+        { lessonId: lesson.id, contractId: a.contract.id, marked: true, status: "PRESENT", updatedBy: teacher.userId },
+        { lessonId: lesson.id, contractId: b.contract.id, marked: false, status: "OVER_LIMIT", updatedBy: teacher.userId },
+      ],
+    });
+    const today = new Date().toISOString().slice(0, 10);
+    await prisma.assessment.createMany({
+      data: [
+        { studentId: a.studentId, contractId: a.contract.id, type: "QUIZ", takenOn: new Date(today), totalPercent: "80.00" },
+        { studentId: b.studentId, contractId: b.contract.id, type: "QUIZ", takenOn: new Date(today), totalPercent: "60.00" },
+      ],
+    });
+
+    const dash = await get(teacher.token, "/dashboard");
+    expect(dash.status).toBe(200);
+    expect(dash.body.teacherName).toBe((await prisma.teacher.findUniqueOrThrow({ where: { userId: teacher.userId } })).fullName);
+    expect(dash.body.stats).toEqual({ students: 2, lessonsThisMonth: 1, attendancePercent: "50.0" });
+    const last = (dash.body.progress as { month: string; averagePercent: string }[]).at(-1)!;
+    expect(last).toEqual({ month: today.slice(0, 7), averagePercent: "70.0" });
+
+    // Өөр багшид эдгээр тоо огт нөлөөлөхгүй.
+    const empty = await get(other.token, "/dashboard");
+    expect(empty.body.stats).toEqual({ students: 0, lessonsThisMonth: 0, attendancePercent: null });
+    expect(empty.body.progress).toEqual([]);
+  });
+
   it("ФШ-43, 70: эцэг эхтэй уулзах сануулга биелэх хүртэл багшийн самбарт харагдана", async () => {
     const teacher = await loginUser(Role.TEACHER);
     const other = await loginUser(Role.TEACHER);

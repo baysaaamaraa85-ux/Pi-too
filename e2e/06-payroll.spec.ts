@@ -118,7 +118,7 @@ test("ФШ-58: багш өөрийн цалинг хичээлээр, сураг
 
   await login(page, teacher.phone, teacher.password);
   await expect(page).toHaveURL(/\/teacher$/);
-  await page.getByRole("navigation", { name: "Үндсэн цэс" }).first().getByRole("link", { name: "Цалин" }).click();
+  await page.getByRole("navigation", { name: "Багшийн цэс" }).getByRole("link", { name: "Цалин" }).click();
 
   await expect(page.getByTestId("card-earned")).toContainText("20 000 ₮");
   await expect(page.getByTestId("group-total")).toHaveText("20 000 ₮");
