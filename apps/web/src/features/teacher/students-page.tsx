@@ -7,7 +7,7 @@ import {
 } from "@pitoo/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { PageHeader } from "@/app/app-shell";
 import { errorMessage } from "@/features/admin/list-kit";
 import { api } from "@/shared/api-client/client";
@@ -239,7 +239,9 @@ function PlanModal({ contract, onClose }: { contract: ContractRow; onClose: () =
 }
 
 export function TeacherStudentsPage() {
-  const [search, setSearch] = React.useState("");
+  // Дээд мөрний хайлт `?q=`-ээр орж ирнэ.
+  const [urlParams] = useSearchParams();
+  const [search, setSearch] = React.useState(urlParams.get("q") ?? "");
   const [page, setPage] = React.useState(1);
   const [modal, setModal] = React.useState<{
     kind: "pause" | "resume" | "plan";

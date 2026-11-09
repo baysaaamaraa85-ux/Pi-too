@@ -19,6 +19,7 @@ import { NavLink, Outlet } from "react-router";
 import { useAuth } from "@/features/auth/auth-context";
 import { OfflineBanner } from "@/shared/offline/sync";
 import { TeacherSidebar } from "./teacher-sidebar";
+import { TeacherTopBar } from "./teacher-topbar";
 import { Logo } from "@/shared/ui/logo";
 import { cn } from "@/shared/ui/utils";
 
@@ -117,6 +118,7 @@ export function AppShell() {
         </button>
         </div>
       </header>
+      {isTeacher ? <TeacherTopBar onLogout={() => void logout()} /> : null}
 
       <OfflineBanner />
 

@@ -68,14 +68,20 @@ export type TeacherStatsDto = {
   attendancePercent: string | null;
 };
 
-export type TeacherProgressPointDto = { month: string; averagePercent: string };
+// Өдөр бүрийн дундаж дүн (Улаанбаатарын огноо). count нь тэр өдрийн сорилын тоо: клиент 7 хоног, 1 сар,
+// 3 сараар нэгтгэхдээ жигнэсэн дундаж тооцоход хэрэглэнэ.
+export type TeacherProgressPointDto = { date: string; averagePercent: string; count: number };
+
+// Багш сурагчдаа хөтөлбөрөөр (категориор) хуваасан байдал: хөтөлбөр бүрийн идэвхтэй сурагчийн тоо.
+export type TeacherCategoryDto = { programId: string; name: string; students: number };
 
 export type TeacherDashboardDto = {
   role: "TEACHER";
   teacherName: string;
   stats: TeacherStatsDto;
-  // Сүүлийн 6 сарын сорил, шалгалтын дундаж дүн (багшийн сурагчдын).
+  // Сүүлийн 92 хоногийн сорил, шалгалтын өдөр тутмын дундаж дүн (багшийн сурагчдын).
   progress: TeacherProgressPointDto[];
+  categories: TeacherCategoryDto[];
   todayLessons: DashboardLessonDto[];
   unfilledLessons: DashboardLessonDto[];
   tasks: TeacherTaskDto[];

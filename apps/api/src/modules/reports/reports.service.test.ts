@@ -201,13 +201,18 @@ describe("М11 Багшийн самбар (ФШ-70, 43)", () => {
     expect(dash.status).toBe(200);
     expect(dash.body.teacherName).toBe((await prisma.teacher.findUniqueOrThrow({ where: { userId: teacher.userId } })).fullName);
     expect(dash.body.stats).toEqual({ students: 2, lessonsThisMonth: 1, attendancePercent: "50.0" });
-    const last = (dash.body.progress as { month: string; averagePercent: string }[]).at(-1)!;
-    expect(last).toEqual({ month: today.slice(0, 7), averagePercent: "70.0" });
+    const last = (dash.body.progress as { date: string; averagePercent: string; count: number }[]).at(-1)!;
+    expect(last).toEqual({ date: today, averagePercent: "70.0", count: 2 });
+    // Категори: багшийн идэвхтэй сурагчид хөтөлбөрөөр (идэвхгүй гэрээ тооцогдохгүй).
+    expect(dash.body.categories).toEqual([
+      { programId: expect.any(String), name: expect.any(String), students: 2 },
+    ]);
 
     // Өөр багшид эдгээр тоо огт нөлөөлөхгүй.
     const empty = await get(other.token, "/dashboard");
     expect(empty.body.stats).toEqual({ students: 0, lessonsThisMonth: 0, attendancePercent: null });
     expect(empty.body.progress).toEqual([]);
+    expect(empty.body.categories).toEqual([]);
   });
 
   it("ФШ-43, 70: эцэг эхтэй уулзах сануулга биелэх хүртэл багшийн самбарт харагдана", async () => {

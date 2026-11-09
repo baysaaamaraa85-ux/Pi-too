@@ -167,9 +167,25 @@ test("Багшийн нүүр: нэртэй мэндчилгээ, дөрвөн �
   }
   await expect(page.getByTestId("sidebar-name")).toContainText(`Багш ${teacher.phone}`);
 
+  // Категори: сурагч хөтөлбөрөөр (Бүгд = 1).
+  await expect(page.getByTestId("category-total")).toHaveText("1");
+  await expect(page.getByTestId("category-row")).toHaveCount(1);
+  // Хонх: ирц бөглөөгүй хичээл, сануулга байхгүй тул цэггүй. Хайлт сурагчийн жагсаалт руу.
+  await expect(page.getByTestId("bell-dot")).toHaveCount(0);
   // Нэг сарын дундаж (80 ба 60) = 70%.
   await expect(page.getByTestId("trend-point")).toHaveCount(1);
   await expect(page.getByTestId("trend-chart")).toContainText("70%");
+
+  // 7 хоног руу шилжүүлэхэд өнөөдрийн цэг хэвээр.
+  await page.getByRole("button", { name: "7 хоног" }).click();
+  await expect(page.getByTestId("trend-chart")).toContainText("70%");
+
+  // Дээд мөрний хайлт сурагчийн жагсаалтыг нэрээр шүүнэ.
+  await page.getByLabel("Сурагч хайх").fill("Ахицтай");
+  await page.getByLabel("Сурагч хайх").press("Enter");
+  await expect(page).toHaveURL(/\/teacher\/students\?q=/);
+  await expect(page.getByLabel("Сурагчийн нэрээр хайх")).toHaveValue("Ахицтай");
+  await page.goto("/teacher");
 
   // Хажуугийн цэсээр шилжинэ.
   await sidebar.getByRole("link", { name: "Сурагчид" }).click();

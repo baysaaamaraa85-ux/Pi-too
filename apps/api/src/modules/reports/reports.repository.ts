@@ -156,10 +156,23 @@ export async function teacherAttendanceCounts(tx: Tx, teacherId: string, m: Mont
   return rows[0] ?? { total: 0, attended: 0 };
 }
 
-// Багшийн (одоо болон өмнө бүртгэлтэй) сурагчдын сарын дундаж дүн.
+// Багшийн сурагчид хөтөлбөр бүрээр (категори): идэвхтэй гэрээтэй, ангид бүртгэл нь хаагдаагүй сурагч.
+export function teacherCategories(tx: Tx, teacherId: string) {
+  return tx.$queryRaw<{ programId: string; name: string; students: number }[]>`
+    SELECT p.id AS "programId", p.name AS name, COUNT(DISTINCT ct.student_id)::int AS students
+    FROM enrollments e
+    JOIN classes cl ON cl.id = e.class_id
+    JOIN contracts ct ON ct.id = e.contract_id
+    JOIN programs p ON p.id = ct.program_id
+    WHERE cl.teacher_id = ${teacherId}::uuid AND e.to_date IS NULL AND ct.status = 'ACTIVE'
+    GROUP BY p.id, p.name
+    ORDER BY students DESC, p.name ASC`;
+}
+
+// Багшийн (одоо болон өмнө бүртгэлтэй) сурагчдын өдөр тутмын дундаж дүн.
 export function teacherProgress(tx: Tx, teacherId: string, fromDate: string) {
-  return tx.$queryRaw<{ month: string; value: Prisma.Decimal }[]>`
-    SELECT to_char(a.taken_on, 'YYYY-MM') AS month, AVG(a.total_percent) AS value
+  return tx.$queryRaw<{ date: string; value: Prisma.Decimal; count: number }[]>`
+    SELECT to_char(a.taken_on, 'YYYY-MM-DD') AS date, AVG(a.total_percent) AS value, COUNT(*)::int AS count
     FROM assessments a
     WHERE a.taken_on >= ${fromDate}::date
       AND a.student_id IN (

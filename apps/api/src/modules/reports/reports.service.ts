@@ -39,20 +39,21 @@ export async function getDashboard(actor: { id: string; role: Role }): Promise<D
   }
   const month = today.slice(0, 7);
   const range = monthRange(month);
-  const progressFrom = `${shiftMonth(month, -5)}-01`;
+  const progressFrom = dateKey(new Date(todayInUlaanbaatar().getTime() - 92 * 86_400_000));
   const [todayLessons, unfilledLessons, tasks, extra] = await Promise.all([
     listLessonsForDay(actor, { date: today }),
     listUnfilledLessons(actor),
     listOpenTasks(actor),
     prisma.$transaction(async (tx) => {
-      const [teacher, students, lessons, attendance, progress] = await Promise.all([
+      const [teacher, students, lessons, attendance, progress, categories] = await Promise.all([
         repo.teacherName(tx, actor.id),
         repo.teacherStudentCount(tx, actor.id),
         repo.teacherLessonCount(tx, actor.id, range),
         repo.teacherAttendanceCounts(tx, actor.id, range),
         repo.teacherProgress(tx, actor.id, progressFrom),
+        repo.teacherCategories(tx, actor.id),
       ]);
-      return { teacher, students, lessons, attendance, progress };
+      return { teacher, students, lessons, attendance, progress, categories };
     }),
   ]);
   const dto: TeacherDashboardDto = {
@@ -63,19 +64,13 @@ export async function getDashboard(actor: { id: string; role: Role }): Promise<D
       lessonsThisMonth: extra.lessons,
       attendancePercent: percent(extra.attendance.attended, extra.attendance.total),
     },
-    progress: extra.progress.map((p) => ({ month: p.month, averagePercent: p.value.toFixed(1) })),
+    progress: extra.progress.map((p) => ({ date: p.date, averagePercent: p.value.toFixed(1), count: p.count })),
+    categories: extra.categories,
     todayLessons,
     unfilledLessons,
     tasks,
   };
   return dto;
-}
-
-// "ОООО-СС"-ээс n сарын өмнөх/хойших "ОООО-СС".
-function shiftMonth(month: string, delta: number): string {
-  const [year, mon] = month.split("-").map(Number) as [number, number];
-  const index = year * 12 + (mon - 1) + delta;
-  return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, "0")}`;
 }
 
 function monthRange(month: string): repo.MonthRange {
