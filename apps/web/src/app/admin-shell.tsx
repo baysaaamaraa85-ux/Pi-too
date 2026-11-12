@@ -1,5 +1,5 @@
-import { ROLE_LABELS } from "@pitoo/contracts";
 import * as Dialog from "@radix-ui/react-dialog";
+import { useQuery } from "@tanstack/react-query";
 import {
   Bell,
   CalendarDays,
@@ -17,20 +17,17 @@ import {
   Users,
   Wallet,
   X,
-  type LucideIcon,
 } from "lucide-react";
 import * as React from "react";
-import { NavLink, Outlet, useLocation } from "react-router";
+import { Outlet, useLocation } from "react-router";
 import { useAuth } from "@/features/auth/auth-context";
+import { api } from "@/shared/api-client/client";
+import type { ClaimDto } from "@pitoo/contracts";
+import type { PlacementRequestDto } from "@/shared/api-client/types";
+import { HeroWaves } from "@/shared/ui/hero-art";
 import { Logo } from "@/shared/ui/logo";
-import { cn } from "@/shared/ui/utils";
-
-interface NavItem {
-  to: string;
-  label: string;
-  icon: LucideIcon;
-  end?: boolean;
-}
+import { AppSidebar, SidebarNav, type NavItem } from "./app-sidebar";
+import { AppTopBar, ReminderBell, SearchBox, type BellItem } from "./app-topbar";
 
 // Шинэ шаардлага 1.1: компьютерт зориулсан хажуугийн цэс, бичвэртэй.
 export const ADMIN_NAV: NavItem[] = [
@@ -49,28 +46,22 @@ export const ADMIN_NAV: NavItem[] = [
   { to: "/admin/catalog", label: "Тохиргоо", icon: Settings },
 ];
 
-function NavList({ onNavigate }: { onNavigate?: () => void }) {
-  return (
-    <nav aria-label="Админы цэс" className="grid gap-0.5">
-      {ADMIN_NAV.map((item) => (
-        <NavLink
-          key={item.to}
-          to={item.to}
-          end={item.end}
-          onClick={onNavigate}
-          className={({ isActive }) =>
-            cn(
-              "flex min-h-11 items-center gap-3 rounded-xl px-3.5 text-sm font-semibold text-mid transition-colors hover:bg-background-soft hover:text-primary",
-              isActive && "bg-primary/8 text-primary",
-            )
-          }
-        >
-          <item.icon className="size-[18px] shrink-0" />
-          {item.label}
-        </NavLink>
-      ))}
-    </nav>
-  );
+// Хонх: шинэ түвшин тогтоох хүсэлт, баталгаажуулах төлбөрийн мэдэгдэл.
+function AdminBell() {
+  const requests = useQuery({
+    queryKey: ["placement-requests", "NEW"],
+    queryFn: () => api.get<PlacementRequestDto[]>("/placement-requests?status=NEW"),
+  });
+  const claims = useQuery({
+    queryKey: ["claims", "PENDING"],
+    queryFn: () => api.get<ClaimDto[]>("/payment-claims?status=PENDING"),
+  });
+  const items: BellItem[] = [];
+  const r = requests.data?.length ?? 0;
+  const c = claims.data?.length ?? 0;
+  if (r > 0) items.push({ key: "requests", to: "/admin/requests", title: `Шинэ хүсэлт: ${r}`, detail: "Түвшин тогтоох цагийн хүсэлт" });
+  if (c > 0) items.push({ key: "claims", to: "/admin/payments", title: `Төлбөрийн мэдэгдэл: ${c}`, detail: "Баталгаажуулах хүлээгдэж буй" });
+  return <ReminderBell items={items} />;
 }
 
 export function AdminShell() {
@@ -80,31 +71,22 @@ export function AdminShell() {
   React.useEffect(() => setOpen(false), [location.pathname]);
   if (!user) return null;
 
-  const logoutButton = (
-    <button
-      type="button"
-      onClick={() => void logout()}
-      className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border-warm bg-surface px-3.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/6"
-    >
-      <LogOut className="size-4" />
-      Гарах
-    </button>
-  );
-
   return (
-    <div className="min-h-screen bg-background">
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-border-warm bg-white md:flex">
-        <div className="flex h-16 items-center border-b border-border-warm px-5">
-          <Logo to="/admin" label={ROLE_LABELS[user.role]} />
-        </div>
-        <div className="flex-1 overflow-y-auto p-3">
-          <NavList />
-        </div>
-        <div className="border-t border-border-warm p-3">{logoutButton}</div>
-      </aside>
+    <div className="luxury-bg app-zoom relative min-h-screen md:pl-64">
+      <HeroWaves className="pointer-events-none absolute inset-x-0 top-0 z-0 h-64 w-full [mask-image:linear-gradient(to_bottom,black_55%,transparent)] md:left-64 md:w-[calc(100%-16rem)]" />
+
+      <AppSidebar
+        items={ADMIN_NAV}
+        ariaLabel="Админы цэс"
+        logoTo="/admin"
+        logoLabel="Пи тоо"
+        userName={user.displayName ?? ""}
+        roleLabel="Захирал"
+        onLogout={() => void logout()}
+      />
 
       <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border-warm bg-white/95 px-4 backdrop-blur-md md:hidden">
-        <Logo to="/admin" label={ROLE_LABELS[user.role]} />
+        <Logo to="/admin" label="Админ" />
         <Dialog.Root open={open} onOpenChange={setOpen}>
           <Dialog.Trigger
             aria-label="Цэс нээх"
@@ -126,18 +108,31 @@ export function AdminShell() {
                 </Dialog.Close>
               </div>
               <div className="flex-1 overflow-y-auto">
-                <NavList onNavigate={() => setOpen(false)} />
+                <SidebarNav items={ADMIN_NAV} ariaLabel="Админы цэс" onNavigate={() => setOpen(false)} />
               </div>
-              <div className="pt-3">{logoutButton}</div>
+              <div className="pt-3">
+                <button
+                  type="button"
+                  onClick={() => void logout()}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border-warm bg-surface px-3.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/6"
+                >
+                  <LogOut className="size-4" />
+                  Гарах
+                </button>
+              </div>
             </Dialog.Content>
           </Dialog.Portal>
         </Dialog.Root>
       </header>
 
-      <main className="px-4 pb-14 pt-6 sm:px-7 md:ml-64 md:px-10 md:pt-9">
-        <div className="mx-auto max-w-6xl">
-          <Outlet />
-        </div>
+      <AppTopBar
+        left={<SearchBox placeholder="Сурагч хайх..." ariaLabel="Сурагч хайх" to="/admin/students" />}
+        bell={<AdminBell />}
+        onLogout={() => void logout()}
+      />
+
+      <main className="relative z-10 mx-auto max-w-[96rem] px-4 pb-14 pt-6 sm:px-7 md:px-8 md:pb-8 md:pt-0">
+        <Outlet />
       </main>
     </div>
   );

@@ -56,7 +56,6 @@ export type AdminDashboardDto = {
   role: "ADMIN";
   debts: { count: number; totalDebt: string };
   negativeTeachers: { count: number; totalNegative: string };
-  todayLessons: DashboardLessonDto[];
 };
 
 export type TeacherStatsDto = {

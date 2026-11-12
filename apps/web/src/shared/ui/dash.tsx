@@ -1,0 +1,147 @@
+import type { LucideIcon } from "lucide-react";
+import * as React from "react";
+import { Link } from "react-router";
+import { CapAndBooks } from "./hero-art";
+import { cn } from "./utils";
+
+// Бүх dashboard-ын нийтлэг загвар: цагаан панел, нимгэн хүрээ, зөөлөн сүүдэр, serif гарчиг,
+// Inter-ийн тод тоо. Үүрэг бүр (админ, багш, эцэг эх, сурагч) энэ хэсгүүдийг л ашиглана.
+
+export const panelClass = "rounded-2xl border border-border-warm bg-surface p-4 shadow-soft sm:p-5";
+
+export function Panel({
+  className,
+  children,
+  ...props
+}: React.HTMLAttributes<HTMLElement> & { children: React.ReactNode }) {
+  return (
+    <section className={cn(panelClass, className)} {...props}>
+      {children}
+    </section>
+  );
+}
+
+export function PanelTitle({
+  icon: Icon,
+  children,
+  action,
+}: {
+  icon: LucideIcon;
+  children: React.ReactNode;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <h2 className="flex items-center gap-2.5 font-display text-lg font-bold text-foreground-strong">
+        <span className="grid size-8 place-items-center rounded-xl bg-primary/8 text-primary">
+          <Icon className="size-4" />
+        </span>
+        {children}
+      </h2>
+      {action}
+    </div>
+  );
+}
+
+export function StatCard({
+  icon: Icon,
+  value,
+  label,
+  hint,
+  hintTone,
+  testId,
+  valueTestId,
+  tone = "primary",
+  to,
+}: {
+  icon: LucideIcon;
+  value: React.ReactNode;
+  label: string;
+  hint?: React.ReactNode;
+  hintTone?: "danger" | "muted";
+  testId?: string;
+  valueTestId?: string;
+  tone?: "primary" | "danger" | "warning";
+  to?: string;
+}) {
+  const body = (
+    <>
+      <span
+        className={cn(
+          "grid size-10 shrink-0 place-items-center rounded-xl sm:size-11",
+          tone === "danger" && "bg-danger-bg text-danger",
+          tone === "warning" && "bg-warning-bg text-warning",
+          tone === "primary" && "bg-primary/8 text-primary",
+        )}
+      >
+        <Icon className="size-5" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-[0.78rem] leading-tight text-muted">{label}</p>
+        <p
+          className="mt-1 text-2xl font-extrabold leading-none tracking-tight text-foreground-strong tabular-nums"
+          data-testid={valueTestId}
+        >
+          {value}
+        </p>
+        {hint ? (
+          <p className={cn("mt-1 text-[0.78rem] font-semibold leading-tight", hintTone === "danger" ? "text-danger" : "text-muted")}>
+            {hint}
+          </p>
+        ) : null}
+      </div>
+    </>
+  );
+  const cls =
+    "relative z-20 flex flex-col items-start gap-2.5 rounded-2xl border border-border-warm bg-surface p-3.5 shadow-soft sm:flex-row sm:items-center sm:gap-3.5";
+  if (to) {
+    return (
+      <Link to={to} className={cn(cls, "transition-colors hover:border-primary/30")} data-testid={testId}>
+        {body}
+      </Link>
+    );
+  }
+  return (
+    <div className={cls} data-testid={testId}>
+      {body}
+    </div>
+  );
+}
+
+// Баннер: карт биш. Долгионтой дэвсгэр (shell) дээр мэндчилгээ, баруун талд малгай ба ном.
+export function Banner({ title, subtitle }: { title: React.ReactNode; subtitle?: React.ReactNode }) {
+  return (
+    <header className="relative mb-3 min-h-[7rem]">
+      <div className="relative z-10 max-w-[58%] pt-1 md:pt-0">
+        <h1 className="font-display text-[clamp(1.6rem,2.5vw,2.3rem)] font-black leading-tight text-foreground-strong">
+          {title}
+        </h1>
+        {subtitle ? <p className="mt-1 text-sm text-mid">{subtitle}</p> : null}
+      </div>
+      <CapAndBooks className="pointer-events-none absolute -top-1 right-0 z-10 h-24 w-auto sm:h-32 md:right-4 md:top-0 md:h-36 xl:h-40" />
+    </header>
+  );
+}
+
+// Малгайгүй гарчигтай толгой (админы самбар гэх мэт): гарчиг, тайлбар, баруун талд нэмэлт зүйл.
+export function DashHeader({
+  title,
+  subtitle,
+  aside,
+}: {
+  title: React.ReactNode;
+  subtitle?: React.ReactNode;
+  aside?: React.ReactNode;
+}) {
+  return (
+    <header className="relative z-10 mb-4 flex flex-wrap items-start justify-between gap-3 pt-1 md:pt-2">
+      <div>
+        <h1 className="font-display text-[clamp(1.7rem,2.7vw,2.5rem)] font-black leading-tight text-foreground-strong">
+          {title}
+        </h1>
+        {subtitle ? <p className="mt-1 text-sm text-mid">{subtitle}</p> : null}
+      </div>
+      {aside}
+    </header>
+  );
+}

@@ -25,75 +25,12 @@ import { Link } from "react-router";
 import { PushEnableCard } from "@/features/notifications/push-card";
 import { addDaysToKey, formatDate, formatTime, localDateKey, weekdayName, weekdayOf } from "@/shared/format/date";
 import { Button } from "@/shared/ui/button";
+import { Banner, PanelTitle, StatCard, panelClass } from "@/shared/ui/dash";
 import { StatusChip } from "@/shared/ui/status-chip";
 import { cn } from "@/shared/ui/utils";
 import { useTeacherDashboard } from "./dashboard-api";
-import { CapAndBooks } from "./hero-art";
 
-const panel = "rounded-2xl border border-border-warm bg-surface p-4 shadow-soft sm:p-5";
-
-function PanelTitle({ icon: Icon, children, action }: { icon: LucideIcon; children: React.ReactNode; action?: React.ReactNode }) {
-  return (
-    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-      <h2 className="flex items-center gap-2.5 font-display text-lg font-bold text-foreground-strong">
-        <span className="grid size-8 place-items-center rounded-xl bg-primary/8 text-primary">
-          <Icon className="size-4" />
-        </span>
-        {children}
-      </h2>
-      {action}
-    </div>
-  );
-}
-
-function StatCard({
-  icon: Icon,
-  value,
-  label,
-  testId,
-  tone = "primary",
-}: {
-  icon: LucideIcon;
-  value: React.ReactNode;
-  label: string;
-  testId: string;
-  tone?: "primary" | "danger";
-}) {
-  return (
-    <div
-      className="relative z-20 flex flex-col items-start gap-2.5 rounded-2xl border border-border-warm bg-surface p-3.5 shadow-soft sm:flex-row sm:items-center sm:gap-3.5"
-      data-testid={testId}
-    >
-      <span
-        className={cn(
-          "grid size-10 shrink-0 place-items-center rounded-xl sm:size-11",
-          tone === "danger" ? "bg-danger-bg text-danger" : "bg-primary/8 text-primary",
-        )}
-      >
-        <Icon className="size-5" />
-      </span>
-      <div className="min-w-0">
-        <p className="text-2xl font-extrabold leading-none tracking-tight text-foreground-strong tabular-nums">{value}</p>
-        <p className="mt-1 text-[0.78rem] leading-tight text-muted">{label}</p>
-      </div>
-    </div>
-  );
-}
-
-// ---- Баннер: карт биш. Долгионтой дэвсгэр (AppShell) дээр мэндчилгээ, баруун талд малгай ба ном
-function Banner({ name }: { name: string | undefined }) {
-  return (
-    <header className="relative mb-3 min-h-[7rem]">
-      <div className="relative z-10 max-w-[58%] pt-1 md:pt-0">
-        <h1 className="font-display text-[clamp(1.6rem,2.5vw,2.3rem)] font-black leading-tight text-foreground-strong">
-          {name ? `${name} багшдаа` : "Сайн байна уу"} <span aria-hidden="true">👋</span>
-        </h1>
-        <p className="mt-1 text-sm text-mid">Өнөөдрийн ажилд нь амжилт хүсье!</p>
-      </div>
-      <CapAndBooks className="pointer-events-none absolute -top-1 right-0 z-10 h-24 w-auto sm:h-32 md:top-0 md:right-4 md:h-36 xl:h-40" />
-    </header>
-  );
-}
+const panel = panelClass;
 
 // ---- Сурагчдын ахиц: 7 хоног, 1 сар, 3 сараар нэгтгэсэн дундаж дүн (%)
 type Range = "week" | "month" | "quarter";
@@ -447,7 +384,14 @@ export function TeacherHome() {
 
   return (
     <>
-      <Banner name={d?.teacherName} />
+      <Banner
+        title={
+          <>
+            {d?.teacherName ? `${d.teacherName} багшдаа` : "Сайн байна уу"} <span aria-hidden="true">👋</span>
+          </>
+        }
+        subtitle="Өнөөдрийн ажлын амжилт хүсье!"
+      />
       <PushEnableCard />
 
       {dash.isError ? (

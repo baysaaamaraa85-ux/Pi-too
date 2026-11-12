@@ -101,7 +101,7 @@ describe("М11 Админы самбар (ФШ-68)", () => {
     expect(dash.body.negativeTeachers.count).toBe(negatives.length);
     expect(dash.body.negativeTeachers.count).toBeGreaterThanOrEqual(1);
     expect(Number(dash.body.negativeTeachers.totalNegative)).toBeLessThanOrEqual(-50000);
-    expect(Array.isArray(dash.body.todayLessons)).toBe(true);
+    expect(dash.body.todayLessons).toBeUndefined();
   });
 
   it("Эрхийн матриц: эцэг эх, сурагч самбар, тайлан, аудитыг харахад 403", async () => {

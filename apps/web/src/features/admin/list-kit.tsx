@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Copy, Search } from "lucide-react";
 import * as React from "react";
+import { useSearchParams } from "react-router";
 import { ApiError, api } from "@/shared/api-client/client";
 import type { BranchDto } from "@/shared/api-client/types";
 import { Button } from "@/shared/ui/button";
@@ -21,8 +22,10 @@ export function useBranches() {
 }
 
 export function useListFilters() {
+  // Дээд мөрний хайлт `?q=`-ээр орж ирнэ.
+  const [urlParams] = useSearchParams();
   const [filters, setFilters] = React.useState<ListFilters>({
-    search: "",
+    search: urlParams.get("q") ?? "",
     branchId: "",
     status: "",
     page: 1,

@@ -29,12 +29,9 @@ function dateKey(date: Date): string {
 export async function getDashboard(actor: { id: string; role: Role }): Promise<DashboardDto> {
   const today = dateKey(todayInUlaanbaatar());
   if (actor.role === Role.ADMIN) {
-    const [debts, negativeTeachers, todayLessons] = await Promise.all([
-      getDebtSummary(),
-      negativeBalanceTeachers(),
-      listLessonsForDay(actor, { date: today }),
-    ]);
-    const dto: AdminDashboardDto = { role: "ADMIN", debts, negativeTeachers, todayLessons };
+    // Захирлын самбарт өнөөдрийн хичээл харуулахгүй (D-63).
+    const [debts, negativeTeachers] = await Promise.all([getDebtSummary(), negativeBalanceTeachers()]);
+    const dto: AdminDashboardDto = { role: "ADMIN", debts, negativeTeachers };
     return dto;
   }
   const month = today.slice(0, 7);

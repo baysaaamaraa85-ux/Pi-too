@@ -103,3 +103,18 @@ export function findPasswordResetByHash(tx: Tx, tokenHash: string) {
 export function markPasswordResetUsed(tx: Tx, id: string) {
   return tx.passwordReset.update({ where: { id }, data: { usedAt: new Date() } });
 }
+
+// Дэлгэц дээр харуулах нэр: багш, эцэг эх, сурагчийн овог нэр, админд имэйл эсвэл утас.
+export async function findDisplayName(tx: Tx, userId: string): Promise<string> {
+  const u = await tx.user.findUnique({
+    where: { id: userId },
+    select: {
+      phone: true,
+      email: true,
+      teacher: { select: { fullName: true } },
+      parent: { select: { fullName: true } },
+      student: { select: { fullName: true } },
+    },
+  });
+  return u?.teacher?.fullName ?? u?.parent?.fullName ?? u?.student?.fullName ?? u?.email ?? u?.phone ?? "";
+}

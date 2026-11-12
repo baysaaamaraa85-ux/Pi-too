@@ -1,180 +1,144 @@
 import { useQuery } from "@tanstack/react-query";
-import { ClipboardList, Settings, UserPlus, Users, type LucideIcon } from "lucide-react";
+import {
+  CalendarDays,
+  ChevronRight,
+  ClipboardList,
+  FileBarChart,
+  Bell,
+  FileText,
+  Settings,
+  Sparkles,
+  UserPlus,
+  Users,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
 import { Link } from "react-router";
-import { PageHeader } from "@/app/app-shell";
+import { useAdminDashboard } from "@/features/dashboard/dashboard-api";
 import { api } from "@/shared/api-client/client";
 import type { PlacementRequestDto } from "@/shared/api-client/types";
-import { formatTime } from "@/shared/format/date";
+import { formatDate, weekdayName, weekdayOf } from "@/shared/format/date";
 import { formatMoney } from "@/shared/format/money";
-import { Card } from "@/shared/ui/card";
-import { StatusChip } from "@/shared/ui/status-chip";
-import { useAdminDashboard } from "@/features/dashboard/dashboard-api";
+import { DashHeader, Panel, PanelTitle, StatCard } from "@/shared/ui/dash";
 
-function QuickLink({
-  to,
-  icon: Icon,
-  title,
-  text,
-}: {
-  to: string;
-  icon: LucideIcon;
-  title: string;
-  text: string;
-}) {
-  return (
-    <Link
-      to={to}
-      className="group rounded-2xl border border-border-warm bg-surface p-5 shadow-md transition duration-300 hover:-translate-y-0.75 hover:border-primary/25"
-    >
-      <span className="mb-4 grid size-11 place-items-center rounded-xl bg-primary/9 text-primary">
-        <Icon className="size-5" />
-      </span>
-      <h2 className="font-display text-base font-bold text-foreground-strong">{title}</h2>
-      <p className="mt-1 text-[0.82rem] leading-relaxed text-muted">{text}</p>
-    </Link>
-  );
-}
+const SETUP: { to: string; label: string; icon: LucideIcon }[] = [
+  { to: "/admin/catalog", label: "Салбар, хөтөлбөр, журам", icon: Settings },
+  { to: "/admin/teachers", label: "Багш, сурагч, эцэг эх", icon: Users },
+  { to: "/admin/enroll", label: "Шинэ сурагч бүртгэх", icon: UserPlus },
+  { to: "/admin/setup", label: "Анхны тохиргооны алхмууд", icon: Sparkles },
+];
 
-// ФШ-68: "үйлдэлд хөтлөх" хоёр карт (өртэй гэрээ, сөрөг үлдэгдэлтэй багш), дарахад шүүлттэй
-// жагсаалт нээгдэнэ. Доор нь өнөөдрийн хичээлүүд.
-function KpiCard({
-  to,
-  label,
-  count,
-  amount,
-  tone,
-  testId,
-}: {
-  to: string;
-  label: string;
-  count: number | undefined;
-  amount: string | undefined;
-  tone: "danger" | "warning";
-  testId: string;
-}) {
-  return (
-    <Link to={to} className="block" data-testid={testId}>
-      <Card className="h-full p-5 transition hover:border-primary/25 sm:p-6">
-        <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">{label}</p>
-        <p
-          className={`mt-1 font-display text-4xl font-black ${tone === "danger" ? "text-danger" : "text-warning"}`}
-          data-testid={`${testId}-count`}
-        >
-          {count === undefined ? "..." : count}
-        </p>
-        <p className="text-sm text-muted">
-          {amount === undefined ? "" : formatMoney(amount)}
-        </p>
-      </Card>
-    </Link>
-  );
-}
+const ACTIONS: { to: string; label: string; icon: LucideIcon }[] = [
+  { to: "/admin/enroll", label: "Сурагч бүртгэх", icon: UserPlus },
+  { to: "/admin/teachers", label: "Багш нэмэх", icon: Users },
+  { to: "/admin/attendance", label: "Ирц харах", icon: CalendarDays },
+  { to: "/admin/payments", label: "Төлбөр бүртгэх", icon: Wallet },
+  { to: "/admin/notifications", label: "Мэдэгдэл харах", icon: Bell },
+  { to: "/admin/reports", label: "Тайлан гаргах", icon: FileBarChart },
+];
 
+// Захирлын самбар: "үйлдэлд хөтлөх" гурван карт (ФШ-68: өртэй гэрээ, сөрөг үлдэгдэлтэй багш, шинэ хүсэлт),
+// дарахад шүүлттэй жагсаалт нээгдэнэ. Доор тохиргооны сонголт ба шуурхай үйлдэл.
 export function AdminDashboardPage() {
   const dash = useAdminDashboard();
-  const newRequests = useQuery({
+  const requests = useQuery({
     queryKey: ["placement-requests", "NEW"],
     queryFn: () => api.get<PlacementRequestDto[]>("/placement-requests?status=NEW"),
   });
-  const count = newRequests.data?.length;
   const d = dash.data;
+  const now = new Date();
 
   return (
     <>
-      <PageHeader title="Админы самбар" subtitle="Өнөөдрийн хийх ажлууд" />
+      <DashHeader
+        title="Захирлын самбар"
+        subtitle="Өнөөдрийн ажил нь амжилт хүсье!"
+        aside={
+          <span className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-border-warm bg-white/80 px-4 text-sm font-semibold text-mid shadow-soft">
+            <CalendarDays className="size-4 text-primary" />
+            {formatDate(now)}, {weekdayName(weekdayOf(now))}
+          </span>
+        }
+      />
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-2">
-        <KpiCard
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <StatCard
           testId="kpi-debts"
+          valueTestId="kpi-debts-count"
           to="/admin/payments?tab=debts"
-          label="Үлдэгдэлтэй гэрээ"
-          count={d?.debts.count}
-          amount={d?.debts.totalDebt}
+          icon={FileText}
           tone="danger"
+          label="Үлдэгдэлтэй гэрээ"
+          value={d?.debts.count ?? "..."}
+          hint={d ? formatMoney(d.debts.totalDebt) : undefined}
+          hintTone="danger"
         />
-        <KpiCard
+        <StatCard
           testId="kpi-negative-teachers"
+          valueTestId="kpi-negative-teachers-count"
           to="/admin/payroll?negative=1"
-          label="Сөрөг үлдэгдэлтэй багш"
-          count={d?.negativeTeachers.count}
-          amount={d?.negativeTeachers.totalNegative}
+          icon={Wallet}
           tone="warning"
+          label="Сөрөг үлдэгдэлтэй багш"
+          value={d?.negativeTeachers.count ?? "..."}
+          hint={d ? formatMoney(d.negativeTeachers.totalNegative) : undefined}
+        />
+        <StatCard
+          testId="kpi-requests"
+          valueTestId="kpi-requests-count"
+          to="/admin/requests"
+          icon={ClipboardList}
+          label="Түвшин тогтоох хүсэлт"
+          value={requests.data?.length ?? "..."}
+          hint="шинэ хүсэлт"
         />
       </div>
 
-      <section className="mb-8" aria-labelledby="today-lessons-title">
-        <h2 id="today-lessons-title" className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-muted">
-          Өнөөдрийн хичээл
+      <section
+        className="mb-4 rounded-2xl bg-gradient-to-br from-primary to-primary-hover p-4 text-primary-foreground shadow-lg sm:p-5"
+        aria-labelledby="setup-title"
+      >
+        <h2 id="setup-title" className="mb-3 font-display text-xl font-bold">
+          Тохиргооны сонголтууд
         </h2>
-        {d && d.todayLessons.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-border bg-surface px-5 py-8 text-center text-sm text-muted">
-            Өнөөдөр хичээл алга.
-          </p>
-        ) : null}
-        <div className="grid gap-2" data-testid="today-lessons">
-          {d?.todayLessons.map((lesson) => (
-            <Link key={lesson.id} to={`/admin/attendance/${lesson.id}`}>
-              <Card className="flex flex-wrap items-center justify-between gap-3 p-4 hover:border-primary/25">
-                <div>
-                  <p className="font-semibold text-foreground-strong">
-                    {formatTime(lesson.startsAt)} · {lesson.branchName}
-                  </p>
-                  <p className="text-[0.82rem] text-muted">{lesson.teacherName}</p>
-                </div>
-                {lesson.status === "CANCELLED" ? (
-                  <StatusChip tone="neutral">Цуцлагдсан</StatusChip>
-                ) : lesson.expected > 0 && lesson.recorded >= lesson.expected ? (
-                  <StatusChip tone="success">Ирц бөглөсөн</StatusChip>
-                ) : (
-                  <StatusChip tone="warning">
-                    Ирц {lesson.recorded}/{lesson.expected}
-                  </StatusChip>
-                )}
-              </Card>
-            </Link>
+        <ul className="grid gap-2">
+          {SETUP.map((s) => (
+            <li key={s.to + s.label}>
+              <Link
+                to={s.to}
+                className="flex min-h-12 items-center gap-3 rounded-xl border border-white/20 bg-white/10 px-3 text-sm font-semibold transition-colors hover:bg-white/20"
+              >
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white text-primary">
+                  <s.icon className="size-[18px]" />
+                </span>
+                <span className="flex-1">{s.label}</span>
+                <ChevronRight className="size-4 text-white/80" />
+              </Link>
+            </li>
           ))}
-        </div>
+        </ul>
       </section>
 
-      <Link to="/admin/setup" className="mb-4 block text-sm font-semibold text-primary hover:underline">
-        Анхны тохиргооны алхмууд
-      </Link>
-
-      <Link to="/admin/requests" className="mb-6 block">
-        <Card className="flex items-center justify-between gap-4 p-5 transition hover:border-primary/25 sm:p-6">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">
-              Түвшин тогтоох цагийн хүсэлт
-            </p>
-            <p className="mt-1 font-display text-4xl font-black text-primary">
-              {count === undefined ? "..." : count}
-            </p>
-            <p className="text-sm text-muted">Холбогдох шаардлагатай шинэ хүсэлт</p>
-          </div>
-          <ClipboardList className="size-10 text-primary/30" />
-        </Card>
-      </Link>
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        <QuickLink
-          to="/admin/enroll"
-          icon={UserPlus}
-          title="Шинэ сурагч бүртгэх"
-          text="Эцэг эх, сурагч, багц, ангийг нэг дор бүртгэнэ."
-        />
-        <QuickLink
-          to="/admin/teachers"
-          icon={Users}
-          title="Багш, сурагч, эцэг эх"
-          text="Хэрэглэгчийн данс үүсгэх, түр нууц үг."
-        />
-        <QuickLink
-          to="/admin/catalog"
-          icon={Settings}
-          title="Салбар, хөтөлбөр, журам"
-          text="Салбар, багцын үнэ, журмын утгууд."
-        />
-      </div>
+      <Panel aria-labelledby="actions-title">
+        <PanelTitle icon={Sparkles}>
+          <span id="actions-title">Шуурхай үйлдлүүд</span>
+        </PanelTitle>
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+          {ACTIONS.map((a) => (
+            <li key={a.label}>
+              <Link
+                to={a.to}
+                className="flex min-h-[5.5rem] flex-col items-center justify-center gap-2 rounded-xl p-2 text-center text-[0.78rem] font-semibold text-mid transition-colors hover:bg-primary/6 hover:text-primary"
+              >
+                <span className="grid size-11 place-items-center rounded-xl bg-primary/8 text-primary">
+                  <a.icon className="size-5" />
+                </span>
+                {a.label}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </Panel>
     </>
   );
 }

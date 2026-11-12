@@ -22,6 +22,8 @@ export interface SessionUser {
   id: string;
   role: Role;
   mustChangePassword: boolean;
+  // Дэлгэц дээр харуулах нэр (хоосон байж болно: офлайн сэргэлтэд).
+  displayName?: string;
 }
 
 let refreshPromise: Promise<SessionUser | null> | null = null;
@@ -38,7 +40,10 @@ const LAST_USER_KEY = "pitoo.lastUser";
 
 export function rememberUser(user: SessionUser): void {
   try {
-    localStorage.setItem(LAST_USER_KEY, JSON.stringify({ id: user.id, role: user.role }));
+    localStorage.setItem(
+      LAST_USER_KEY,
+      JSON.stringify({ id: user.id, role: user.role, displayName: user.displayName }),
+    );
   } catch {
     // хувийн цонх зэрэгт хадгалахгүй
   }
@@ -56,9 +61,9 @@ function storedUser(): SessionUser | null {
   try {
     const raw = localStorage.getItem(LAST_USER_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as { id?: string; role?: Role };
+    const parsed = JSON.parse(raw) as { id?: string; role?: Role; displayName?: string };
     if (!parsed.id || !parsed.role) return null;
-    return { id: parsed.id, role: parsed.role, mustChangePassword: false };
+    return { id: parsed.id, role: parsed.role, mustChangePassword: false, displayName: parsed.displayName };
   } catch {
     return null;
   }

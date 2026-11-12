@@ -32,7 +32,7 @@ export interface LoginResult {
   accessToken: string;
   refreshToken: string;
   refreshExpiresAt: Date;
-  user: { id: string; role: Role; mustChangePassword: boolean };
+  user: { id: string; role: Role; mustChangePassword: boolean; displayName: string };
 }
 
 type LoginOutcome =
@@ -87,7 +87,12 @@ export async function login(identifier: string, password: string): Promise<Login
         accessToken,
         refreshToken: refreshValue,
         refreshExpiresAt,
-        user: { id: user.id, role: user.role, mustChangePassword: user.mustChangePassword },
+        user: {
+          id: user.id,
+          role: user.role,
+          mustChangePassword: user.mustChangePassword,
+          displayName: await repo.findDisplayName(tx, user.id),
+        },
       },
     };
   });
@@ -120,7 +125,7 @@ export interface RefreshResult {
   accessToken: string;
   refreshToken: string;
   refreshExpiresAt: Date;
-  user: { id: string; role: Role; mustChangePassword: boolean };
+  user: { id: string; role: Role; mustChangePassword: boolean; displayName: string };
 }
 
 type RefreshOutcome =
@@ -169,7 +174,12 @@ export async function refresh(refreshTokenValue: string): Promise<RefreshResult>
         accessToken: signAccessToken({ id: user.id, role: user.role }),
         refreshToken: newRefreshValue,
         refreshExpiresAt: newExpiresAt,
-        user: { id: user.id, role: user.role, mustChangePassword: user.mustChangePassword },
+        user: {
+          id: user.id,
+          role: user.role,
+          mustChangePassword: user.mustChangePassword,
+          displayName: await repo.findDisplayName(tx, user.id),
+        },
       },
     };
   });

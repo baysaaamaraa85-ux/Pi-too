@@ -18,8 +18,8 @@ import {
 import { NavLink, Outlet } from "react-router";
 import { useAuth } from "@/features/auth/auth-context";
 import { OfflineBanner } from "@/shared/offline/sync";
-import { HeroWaves } from "@/features/dashboard/hero-art";
-import { TeacherSidebar } from "./teacher-sidebar";
+import { HeroWaves } from "@/shared/ui/hero-art";
+import { AppSidebar } from "./app-sidebar";
 import { TeacherTopBar } from "./teacher-topbar";
 import { Logo } from "@/shared/ui/logo";
 import { cn } from "@/shared/ui/utils";
@@ -71,13 +71,23 @@ export function AppShell() {
     <div
       className={cn(
         "min-h-screen",
-        isTeacher ? "luxury-bg teacher-zoom relative md:pl-64" : "bg-gradient-to-b from-white to-background to-[140px]",
+        isTeacher ? "luxury-bg app-zoom relative md:pl-64" : "bg-gradient-to-b from-white to-background to-[140px]",
       )}
     >
       {isTeacher ? (
         <HeroWaves className="pointer-events-none absolute inset-x-0 top-0 z-0 h-64 w-full [mask-image:linear-gradient(to_bottom,black_55%,transparent)] md:left-64 md:w-[calc(100%-16rem)]" />
       ) : null}
-      {isTeacher ? <TeacherSidebar items={items} onLogout={() => void logout()} /> : null}
+      {isTeacher ? (
+        <AppSidebar
+          items={items}
+          ariaLabel="Багшийн цэс"
+          logoTo="/teacher"
+          logoLabel="Багш"
+          userName={user.displayName ?? ""}
+          roleLabel={ROLE_LABELS[user.role]}
+          onLogout={() => void logout()}
+        />
+      ) : null}
       <header
         className={cn(
           "sticky top-0 z-40 flex h-16 items-center justify-between gap-4 border-b border-border-warm bg-white/90 px-4 backdrop-blur-md sm:px-8",
