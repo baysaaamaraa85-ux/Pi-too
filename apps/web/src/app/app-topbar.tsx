@@ -1,6 +1,7 @@
 import { Bell, LogOut, Search } from "lucide-react";
 import * as React from "react";
 import { Link, useNavigate } from "react-router";
+import { DateChip } from "@/shared/ui/dash";
 
 // Компьютерийн дээд мөр (md+): хайлт, сануулгын хонх, гарах. Бүх үүрэгт нэг хэлбэр.
 
@@ -70,7 +71,7 @@ export function ReminderBell({ items }: { items: BellItem[] }) {
         aria-label={count > 0 ? `Сануулга: ${count}` : "Сануулга"}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="relative grid size-11 place-items-center rounded-2xl text-primary transition-colors hover:bg-white/70"
+        className="relative grid size-11 place-items-center rounded-full border border-border-warm bg-white/80 text-primary shadow-soft transition-colors hover:bg-white"
         data-testid="reminder-bell"
       >
         <Bell className="size-[22px]" />
@@ -107,17 +108,20 @@ export function ReminderBell({ items }: { items: BellItem[] }) {
 export function AppTopBar({
   left,
   bell,
+  dateChip,
   onLogout,
 }: {
   left?: React.ReactNode;
   bell?: React.ReactNode;
+  dateChip?: boolean;
   onLogout: () => void;
 }) {
   return (
     <div className="sticky top-0 z-30 hidden items-center justify-between gap-4 bg-[#fbf1ea]/60 px-8 py-3 backdrop-blur-md md:flex">
       {left ?? <span />}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2.5">
         {bell}
+        {dateChip ? <DateChip /> : null}
         <button
           type="button"
           onClick={onLogout}

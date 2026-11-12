@@ -107,3 +107,20 @@ export function CapAndBooks({ className }: { className?: string }) {
     </svg>
   );
 }
+
+// Shell-ийн дэвсгэр: долгион (зөөлөн уусдаг), хүсвэл том π тэмдэг.
+export function ShellBackdrop({ watermark = true }: { watermark?: boolean }) {
+  return (
+    <>
+      <HeroWaves className="pointer-events-none absolute inset-x-0 top-0 z-0 h-64 w-full [mask-image:linear-gradient(to_bottom,black_55%,transparent)] md:left-64 md:w-[calc(100%-16rem)]" />
+      {watermark ? (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute right-6 top-6 z-0 hidden select-none font-display text-[12rem] font-black leading-none text-primary/[0.07] md:block"
+        >
+          π
+        </span>
+      ) : null}
+    </>
+  );
+}

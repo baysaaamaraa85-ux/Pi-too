@@ -1,6 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 import * as React from "react";
+import { CalendarDays } from "lucide-react";
 import { Link } from "react-router";
+import { formatDate, weekdayName, weekdayOf } from "../format/date";
 import { CapAndBooks } from "./hero-art";
 import { cn } from "./utils";
 
@@ -77,9 +79,9 @@ export function StatCard({
         <Icon className="size-5" />
       </span>
       <div className="min-w-0">
-        <p className="text-[0.78rem] leading-tight text-muted">{label}</p>
+        <p className="mb-1 text-[0.78rem] leading-snug text-muted">{label}</p>
         <p
-          className="mt-1 text-2xl font-extrabold leading-none tracking-tight text-foreground-strong tabular-nums"
+          className="text-2xl font-extrabold leading-none tracking-tight text-foreground-strong tabular-nums"
           data-testid={valueTestId}
         >
           {value}
@@ -135,7 +137,7 @@ export function DashHeader({
 }) {
   return (
     <header className="relative z-10 mb-4 flex flex-wrap items-start justify-between gap-3 pt-1 md:pt-2">
-      <div>
+      <div className="min-w-0">
         <h1 className="font-display text-[clamp(1.7rem,2.7vw,2.5rem)] font-black leading-tight text-foreground-strong">
           {title}
         </h1>
@@ -143,5 +145,16 @@ export function DashHeader({
       </div>
       {aside}
     </header>
+  );
+}
+
+// Өнөөдрийн огноо, гараг: "2026.11.12, Пүрэв".
+export function DateChip() {
+  const now = new Date();
+  return (
+    <span className="inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-2xl border border-border-warm bg-white/80 px-4 text-sm font-semibold text-mid shadow-soft">
+      <CalendarDays className="size-4 text-primary" />
+      {formatDate(now)}, {weekdayName(weekdayOf(now))}
+    </span>
   );
 }

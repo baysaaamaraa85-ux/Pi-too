@@ -1,18 +1,14 @@
 import {
-  ASSESSMENT_TYPE_LABELS,
   ATTENDANCE_STATUS_LABELS,
   CONTRACT_STATUS_LABELS,
   PAYMENT_STATUS_LABELS,
 } from "@pitoo/contracts";
 import * as Dialog from "@radix-ui/react-dialog";
-import { CalendarDays, ClipboardCheck, Wallet } from "lucide-react";
 import * as React from "react";
-import { Link } from "react-router";
 import { PageHeader } from "@/app/app-shell";
 import { useAuth } from "@/features/auth/auth-context";
 import { ProgressSection, useProgress } from "@/features/progress/progress-parts";
 import { DayGroups, LessonCard, useLessons } from "@/features/schedule/lessons";
-import type { LessonDto } from "@/shared/api-client/types";
 import {
   addDaysToKey,
   formatDate,
@@ -52,169 +48,7 @@ function classIdsOf(student: PortalStudent | undefined) {
   return new Set((student?.contracts ?? []).flatMap((c) => c.classes.map((cls) => cls.id)));
 }
 
-// Сурагчийн дараагийн товлогдсон хичээл (ирээдүйн, цуцлагдаагүй).
-function nextLessonOf(lessons: LessonDto[] | undefined, student: PortalStudent) {
-  const classIds = classIdsOf(student);
-  const now = Date.now();
-  return lessons?.find(
-    (l) => classIds.has(l.classId) && l.status === "SCHEDULED" && new Date(l.startsAt).getTime() > now,
-  );
-}
-
-function QuickLink({
-  to,
-  icon: Icon,
-  title,
-  text,
-}: {
-  to: string;
-  icon: typeof CalendarDays;
-  title: string;
-  text: string;
-}) {
-  return (
-    <Link
-      to={to}
-      className="flex items-center gap-4 rounded-2xl border border-border-warm bg-surface p-4 shadow-sm transition-colors hover:border-primary"
-    >
-      <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-accent/16 text-primary">
-        <Icon className="size-5" />
-      </span>
-      <span>
-        <span className="block font-bold text-foreground-strong">{title}</span>
-        <span className="block text-[0.82rem] text-muted">{text}</span>
-      </span>
-    </Link>
-  );
-}
-
-// ФШ-65: нүүр хуудас нэг хүүхдийн дөрвөн үзүүлэлтийг (багцын үлдэгдэл, чөлөөний эрх,
-// дараагийн хичээл, сүүлийн сорилын дүн) 360 px дэлгэцэд гүйлгэхгүйгээр харуулна.
-// Хэд хэдэн хүүхэдтэй эцэг эх дээрээс сонгоно. Төлбөрийн мэдээлэл зөвхөн эцэг эхэд (ФШ-66).
-function StatCard({
-  label,
-  value,
-  hint,
-  testId,
-}: {
-  label: string;
-  value: React.ReactNode;
-  hint?: React.ReactNode;
-  testId: string;
-}) {
-  return (
-    <Card className="flex min-h-[7.5rem] flex-col justify-between p-4" data-testid={testId}>
-      <p className="text-[0.7rem] font-bold uppercase tracking-[0.12em] text-muted">{label}</p>
-      <p className="mt-1 font-display text-2xl font-bold leading-tight text-foreground-strong">{value}</p>
-      <p className="mt-1 min-h-4 text-xs text-muted">{hint}</p>
-    </Card>
-  );
-}
-
-export function PortalHomePage() {
-  const { user } = useAuth();
-  const isParent = user?.role === "PARENT";
-  const summary = usePortalSummary();
-  const { selected, select } = useSelectedChild(summary.data?.students);
-  const { from, to } = useRange(29);
-  const lessons = useLessons(from, to);
-  const progress = useProgress(selected?.studentId ?? "");
-  const students = summary.data?.students ?? [];
-
-  const contract = selected?.contracts.find((c) => c.status === "ACTIVE") ?? selected?.contracts[0];
-  const next = selected ? nextLessonOf(lessons.data, selected) : undefined;
-  const assessments = progress.data?.assessments ?? [];
-  const lastAssessment = assessments[assessments.length - 1];
-
-  return (
-    <>
-      <PageHeader
-        title={isParent ? "Таны хүүхэд" : "Миний самбар"}
-        subtitle={selected && isParent ? selected.fullName : "Багц, чөлөө, дараагийн хичээл"}
-      />
-      <PortalLoading query={summary} />
-      {summary.data && students.length === 0 ? (
-        <EmptyNote>
-          {isParent
-            ? "Таны данстай холбогдсон сурагч алга байна. Төвтэй холбогдоно уу."
-            : "Таны данстай холбогдсон бүртгэл алга байна. Төвтэй холбогдоно уу."}
-        </EmptyNote>
-      ) : null}
-      <ChildPicker students={students} selectedId={selected?.studentId} onSelect={select} />
-
-      {selected ? (
-        <>
-          <div className="grid grid-cols-2 gap-3" data-testid="portal-stats">
-            <StatCard
-              testId="stat-remaining"
-              label="Багцын үлдэгдэл"
-              value={
-                contract ? (
-                  <>
-                    {contract.remainingVisits}
-                    <span className="text-base font-semibold text-muted"> / {contract.totalVisits}</span>
-                  </>
-                ) : (
-                  "Багц алга"
-                )
-              }
-              hint={contract?.programName}
-            />
-            <StatCard
-              testId="stat-leaves"
-              label="Чөлөөний эрх"
-              value={contract ? contract.leavesLeft : "-"}
-              hint={
-                contract && contract.freeReviewsLeft > 0
-                  ? `Үнэгүй давтлага: ${contract.freeReviewsLeft}`
-                  : undefined
-              }
-            />
-            <StatCard
-              testId="stat-next-lesson"
-              label="Дараагийн хичээл"
-              value={next ? formatTime(next.startsAt) : "Алга"}
-              hint={next ? `${weekdayName(weekdayOf(next.startsAt))} · ${formatDate(next.startsAt)}` : undefined}
-            />
-            <StatCard
-              testId="stat-last-assessment"
-              label="Сүүлийн сорил"
-              value={lastAssessment ? `${Number(lastAssessment.totalPercent)}%` : "Алга"}
-              hint={
-                lastAssessment
-                  ? `${ASSESSMENT_TYPE_LABELS[lastAssessment.type]} · ${formatDate(lastAssessment.takenOn)}`
-                  : undefined
-              }
-            />
-          </div>
-
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            <QuickLink
-              to="/portal/schedule"
-              icon={CalendarDays}
-              title={isParent ? "Хүүхдийн хуваарь" : "Миний хуваарь"}
-              text="Дараагийн 4 долоо хоногийн хичээл"
-            />
-            <QuickLink
-              to="/portal/attendance"
-              icon={ClipboardCheck}
-              title={isParent ? "Хүүхдийн ирц, дүн" : "Миний ирц, дүн"}
-              text="Ирцийн түүх, дүнгийн график, чөлөө хүсэх"
-            />
-            {isParent ? (
-              <QuickLink
-                to="/portal/payment"
-                icon={Wallet}
-                title="Гэрээ, төлбөр"
-                text="Төлбөр шилжүүлэх заавар"
-              />
-            ) : null}
-          </div>
-        </>
-      ) : null}
-    </>
-  );
-}
+export { PortalHomePage } from "./portal-home";
 
 // ФШ-23: эцэг эх "Таны хүүхдийн хуваарь", сурагч "Миний хуваарь". Хичээл бүр дээрээс чөлөө хүснэ (ФШ-30).
 export function PortalSchedulePage() {

@@ -24,7 +24,7 @@ import { useAuth } from "@/features/auth/auth-context";
 import { api } from "@/shared/api-client/client";
 import type { ClaimDto } from "@pitoo/contracts";
 import type { PlacementRequestDto } from "@/shared/api-client/types";
-import { HeroWaves } from "@/shared/ui/hero-art";
+import { ShellBackdrop } from "@/shared/ui/hero-art";
 import { Logo } from "@/shared/ui/logo";
 import { AppSidebar, SidebarNav, type NavItem } from "./app-sidebar";
 import { AppTopBar, ReminderBell, SearchBox, type BellItem } from "./app-topbar";
@@ -73,13 +73,13 @@ export function AdminShell() {
 
   return (
     <div className="luxury-bg app-zoom relative min-h-screen md:pl-64">
-      <HeroWaves className="pointer-events-none absolute inset-x-0 top-0 z-0 h-64 w-full [mask-image:linear-gradient(to_bottom,black_55%,transparent)] md:left-64 md:w-[calc(100%-16rem)]" />
+      <ShellBackdrop />
 
       <AppSidebar
         items={ADMIN_NAV}
         ariaLabel="Админы цэс"
         logoTo="/admin"
-        logoLabel="Пи тоо"
+        logoLabel="Админ"
         userName={user.displayName ?? ""}
         roleLabel="Захирал"
         onLogout={() => void logout()}

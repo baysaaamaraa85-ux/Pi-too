@@ -11,15 +11,15 @@ import {
   UserPlus,
   Users,
   Wallet,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 import { Link } from "react-router";
 import { useAdminDashboard } from "@/features/dashboard/dashboard-api";
 import { api } from "@/shared/api-client/client";
 import type { PlacementRequestDto } from "@/shared/api-client/types";
-import { formatDate, weekdayName, weekdayOf } from "@/shared/format/date";
 import { formatMoney } from "@/shared/format/money";
-import { DashHeader, Panel, PanelTitle, StatCard } from "@/shared/ui/dash";
+import { DashHeader, DateChip, Panel, PanelTitle, StatCard } from "@/shared/ui/dash";
 
 const SETUP: { to: string; label: string; icon: LucideIcon }[] = [
   { to: "/admin/catalog", label: "Салбар, хөтөлбөр, журам", icon: Settings },
@@ -46,19 +46,13 @@ export function AdminDashboardPage() {
     queryFn: () => api.get<PlacementRequestDto[]>("/placement-requests?status=NEW"),
   });
   const d = dash.data;
-  const now = new Date();
 
   return (
     <>
       <DashHeader
         title="Захирлын самбар"
-        subtitle="Өнөөдрийн ажил нь амжилт хүсье!"
-        aside={
-          <span className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-border-warm bg-white/80 px-4 text-sm font-semibold text-mid shadow-soft">
-            <CalendarDays className="size-4 text-primary" />
-            {formatDate(now)}, {weekdayName(weekdayOf(now))}
-          </span>
-        }
+        subtitle="Өнөөдрийн ажилд нь амжилт хүсье!"
+        aside={<DateChip />}
       />
 
       <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -94,33 +88,30 @@ export function AdminDashboardPage() {
         />
       </div>
 
-      <section
-        className="mb-4 rounded-2xl bg-gradient-to-br from-primary to-primary-hover p-4 text-primary-foreground shadow-lg sm:p-5"
-        aria-labelledby="setup-title"
-      >
-        <h2 id="setup-title" className="mb-3 font-display text-xl font-bold">
+      <Panel className="mb-4" aria-labelledby="setup-title">
+        <h2 id="setup-title" className="mb-3 font-display text-xl font-bold text-foreground-strong">
           Тохиргооны сонголтууд
         </h2>
-        <ul className="grid gap-2">
+        <ul className="grid gap-2.5">
           {SETUP.map((s) => (
             <li key={s.to + s.label}>
               <Link
                 to={s.to}
-                className="flex min-h-12 items-center gap-3 rounded-xl border border-white/20 bg-white/10 px-3 text-sm font-semibold transition-colors hover:bg-white/20"
+                className="flex min-h-14 items-center gap-3.5 rounded-xl border border-primary/10 bg-primary/[0.045] px-3.5 text-sm font-semibold text-foreground-strong transition-colors hover:border-primary/30 hover:bg-primary/8"
               >
-                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white text-primary">
+                <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/8 text-primary">
                   <s.icon className="size-[18px]" />
                 </span>
                 <span className="flex-1">{s.label}</span>
-                <ChevronRight className="size-4 text-white/80" />
+                <ChevronRight className="size-4 text-foreground-strong" />
               </Link>
             </li>
           ))}
         </ul>
-      </section>
+      </Panel>
 
       <Panel aria-labelledby="actions-title">
-        <PanelTitle icon={Sparkles}>
+        <PanelTitle icon={Zap}>
           <span id="actions-title">Шуурхай үйлдлүүд</span>
         </PanelTitle>
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
