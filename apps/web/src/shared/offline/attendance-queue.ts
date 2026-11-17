@@ -12,7 +12,7 @@ export interface QueuedAttendance {
   // Дарааллыг үүсгэсэн хэрэглэгч: зөвхөн тэр хэрэглэгч өөрийн token-оор илгээнэ.
   userId: string;
   key: string;
-  entries: { contractId: string; present: boolean }[];
+  entries: { contractId: string; present: boolean; actualFrom?: string; actualTo?: string }[];
   reason?: string;
   createdAt: string;
   // rejected: сервер хүсэлтийг татгалзсан (жишээ нь 24 цаг өнгөрсөн), хэрэглэгч шийднэ.

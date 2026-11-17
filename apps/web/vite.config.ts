@@ -37,7 +37,7 @@ export default defineConfig({
       workbox: {
         importScripts: ["push-sw.js"],
         navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/api\//],
+        navigateFallbackDenylist: [/^\/api\//, /^\/uploads\//],
         globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
         runtimeCaching: [
           {
@@ -63,6 +63,11 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
+        target: process.env.VITE_API_TARGET ?? "http://localhost:3000",
+        changeOrigin: true,
+      },
+      // ФШ-78: багш, салбарын оруулсан зураг API серверээс.
+      "/uploads": {
         target: process.env.VITE_API_TARGET ?? "http://localhost:3000",
         changeOrigin: true,
       },

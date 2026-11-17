@@ -15,6 +15,8 @@ import { api, isNetworkError } from "@/shared/api-client/client";
 import { enqueueAttendance } from "@/shared/offline/attendance-queue";
 import { useQueue } from "@/shared/offline/sync";
 import { formatDate, formatTime } from "@/shared/format/date";
+import { academicHoursOf, formatHours, toMinutes } from "@/shared/format/hours";
+import { TimeSelect24 } from "@/shared/ui/time-select";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
 import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
@@ -32,9 +34,16 @@ interface SaveResult {
     attendanceId: string;
     contractId: string;
     status: AttendanceStatus;
-    remainingVisits: number;
+    remainingHours: number;
+    packageHours: number;
     leavesLeft: number;
   }[];
+}
+
+// D-70: бодит цаг ("HH:MM"). Хоосон бол хичээлийн төлөвлөсөн цаг.
+interface ActualTime {
+  from: string;
+  to: string;
 }
 
 interface MakeupCandidates {
@@ -43,7 +52,7 @@ interface MakeupCandidates {
     contractId: string;
     studentName: string;
     programName: string;
-    remainingVisits: number;
+    remainingHours: number;
     leavesLeft: number;
     makeupsAvailable: number;
   }[];
@@ -102,7 +111,7 @@ function RowInfo({ row }: { row: AttendanceRowDto }) {
       <p className="truncate font-bold text-foreground-strong">{row.studentName}</p>
       <p className="truncate text-xs text-muted">{row.programName}</p>
       <p className="mt-0.5 text-sm text-mid">
-        Багц <strong data-testid="row-balance">{row.remainingVisits}/{row.totalVisits}</strong> · Чөлөө{" "}
+        Багц <strong data-testid="row-balance">{formatHours(row.remainingHours)}/{formatHours(row.totalHours)} цаг</strong> · Чөлөө{" "}
         <strong>{row.leavesLeft}</strong>
         {row.paymentStatus
           ? ` · ${TEACHER_PAYMENT_FLAG_LABELS[row.paymentStatus as keyof typeof TEACHER_PAYMENT_FLAG_LABELS] ?? ""}`
@@ -111,27 +120,106 @@ function RowInfo({ row }: { row: AttendanceRowDto }) {
       <div className="mt-1 flex flex-wrap gap-1.5">
         {row.leaveRequested ? <StatusChip tone="warning">Чөлөө хүссэн</StatusChip> : null}
         {row.isMakeup ? <StatusChip tone="info">Нөхөлт</StatusChip> : null}
+        {row.attendanceId && row.packageHours !== null && row.packageHours > 0 ? (
+          <span data-testid="row-hours">
+            <StatusChip tone="neutral">
+              {row.actualFrom && row.actualTo ? `${row.actualFrom}-${row.actualTo} · ` : ""}
+              {formatHours(row.packageHours)} академик цаг
+            </StatusChip>
+          </span>
+        ) : null}
       </div>
     </div>
   );
 }
 
+// D-70: сурагч төлөвлөснөөс их, бага сууж болно. "Цаг өөрчлөгдсөн" гэж тэмдэглээд хэдээс хэдэн цагийн хооронд
+// суусныг бичнэ (24 цагийн систем). Багцаас орсон цагаараа (минут / 40) хасагдаж, цалин бодит цагаар бодогдоно.
+function ActualTimeControl({
+  name,
+  plannedFrom,
+  plannedTo,
+  academicHourMinutes,
+  value,
+  onChange,
+}: {
+  name: string;
+  plannedFrom: string;
+  plannedTo: string;
+  academicHourMinutes: number;
+  value: ActualTime | null;
+  onChange: (value: ActualTime | null) => void;
+}) {
+  const minutes = value ? toMinutes(value.to) - toMinutes(value.from) : 0;
+  const valid = value !== null && minutes > 0;
+  return (
+    <div className="w-full rounded-xl bg-background-soft p-3" data-testid="actual-time">
+      <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm font-semibold text-mid">
+        <input
+          type="checkbox"
+          className="size-5 accent-primary"
+          checked={value !== null}
+          aria-label={`${name}: цаг өөрчлөгдсөн`}
+          onChange={(e) => onChange(e.target.checked ? { from: plannedFrom, to: plannedTo } : null)}
+        />
+        Цаг нэмэгдсэн / өөрчлөгдсөн
+      </label>
+      {value ? (
+        <div className="mt-2 grid gap-2">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted">Эхэлсэн</span>
+              <TimeSelect24 id={`from-${name}`} label={`${name}: эхэлсэн цаг`} value={value.from} onChange={(from) => onChange({ ...value, from })} />
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted">Дууссан</span>
+              <TimeSelect24 id={`to-${name}`} label={`${name}: дууссан цаг`} value={value.to} onChange={(to) => onChange({ ...value, to })} />
+            </div>
+          </div>
+          {valid ? (
+            <p className="text-sm font-semibold text-foreground-strong" data-testid="actual-preview">
+              {minutes} минут = {formatHours(academicHoursOf(minutes, academicHourMinutes))} академик цаг (багцаас хасагдана)
+            </p>
+          ) : (
+            <p role="alert" className="text-sm font-semibold text-danger">
+              Дуусах цаг эхлэх цагаас хойш байх ёстой.
+            </p>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+const hmOf = (iso: string) => formatTime(iso);
+
 function EditModal({
   row,
+  sheet,
   needsReason,
   onClose,
 }: {
   row: AttendanceRowDto;
+  sheet: AttendanceSheetDto;
   needsReason: boolean;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
   const [present, setPresent] = React.useState(row.present ?? true);
+  const initialTime: ActualTime | null = row.actualFrom && row.actualTo ? { from: row.actualFrom, to: row.actualTo } : null;
+  const [time, setTime] = React.useState<ActualTime | null>(initialTime);
   const [reason, setReason] = React.useState("");
   const [confirm, setConfirm] = React.useState(false);
+  const timeChanged = (time?.from ?? null) !== (initialTime?.from ?? null) || (time?.to ?? null) !== (initialTime?.to ?? null);
+  const timeInvalid = present && time !== null && toMinutes(time.to) <= toMinutes(time.from);
   const patch = useMutation({
     mutationFn: () =>
-      api.patch(`/attendance/${row.attendanceId}`, { present, reason: reason.trim() || undefined }),
+      api.patch(`/attendance/${row.attendanceId}`, {
+        present,
+        reason: reason.trim() || undefined,
+        // Цаг өөрчлөгдсөн бол хоёуланг нь, төлөвлөсөн рүү буцаах бол хоёуланг нь null.
+        ...(timeChanged ? { actualFrom: present && time ? time.from : null, actualTo: present && time ? time.to : null } : {}),
+      }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: [SHEET_KEY] });
       await queryClient.invalidateQueries({ queryKey: ["ledger"] });
@@ -143,6 +231,16 @@ function EditModal({
       <Modal open title={`Ирц засах: ${row.studentName}`} onClose={onClose}>
         <div className="grid gap-4">
           <PresenceToggle value={present} onChange={setPresent} name={row.studentName} />
+          {present ? (
+            <ActualTimeControl
+              name={row.studentName}
+              plannedFrom={hmOf(sheet.lesson.startsAt)}
+              plannedTo={hmOf(sheet.lesson.endsAt)}
+              academicHourMinutes={sheet.academicHourMinutes}
+              value={time}
+              onChange={setTime}
+            />
+          ) : null}
           <p className="text-xs text-muted">
             Төлөв, багц, чөлөө, цалинг сервер дахин тооцно. Засвар зөвхөн энэ мөрөнд нөлөөлнө.
           </p>
@@ -152,7 +250,12 @@ function EditModal({
           <FormError message={errorMessage(patch.error)} />
           <Button
             className="w-fit"
-            disabled={patch.isPending || (needsReason && !reason.trim()) || present === row.present}
+            disabled={
+              patch.isPending ||
+              (needsReason && !reason.trim()) ||
+              timeInvalid ||
+              (present === row.present && !timeChanged)
+            }
             onClick={() => setConfirm(true)}
           >
             Засах
@@ -228,7 +331,7 @@ function MakeupModal({
                 <div className="min-w-0 text-sm">
                   <strong className="block truncate">{c.studentName}</strong>
                   <span className="text-muted">
-                    Багц {c.remainingVisits} · нөхөх чөлөө {c.makeupsAvailable}
+                    Багц {formatHours(c.remainingHours)} цаг · нөхөх чөлөө {c.makeupsAvailable}
                   </span>
                 </div>
                 <Button
@@ -260,6 +363,7 @@ export function AttendancePage() {
   const queryClient = useQueryClient();
   const sheet = useSheet(lessonId);
   const [marks, setMarks] = React.useState<Record<string, boolean>>({});
+  const [times, setTimes] = React.useState<Record<string, ActualTime | null>>({});
   const [reason, setReason] = React.useState("");
   const [editing, setEditing] = React.useState<AttendanceRowDto | null>(null);
   const [makeupOpen, setMakeupOpen] = React.useState(false);
@@ -274,7 +378,9 @@ export function AttendancePage() {
     // ФБШ-15: сүлжээгүй үед TanStack Query хүсэлтийг түр зогсоодог. Ирцийг дараалалд хийхийн тулд
     // функц заавал ажиллах ёстой.
     networkMode: "always",
-    mutationFn: async (entries: { contractId: string; present: boolean }[]): Promise<SaveResult> => {
+    mutationFn: async (
+      entries: { contractId: string; present: boolean; actualFrom?: string; actualTo?: string }[],
+    ): Promise<SaveResult> => {
       const body = { entries, reason: reason.trim() || undefined };
       try {
         return await api.put<SaveResult>(`/lessons/${lessonId}/attendance`, body, keyRef.current);
@@ -294,6 +400,7 @@ export function AttendancePage() {
       }
       keyRef.current = crypto.randomUUID();
       setMarks({});
+      setTimes({});
       await queryClient.invalidateQueries({ queryKey: [SHEET_KEY] });
       await queryClient.invalidateQueries({ queryKey: ["attendance-day"] });
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
@@ -317,6 +424,12 @@ export function AttendancePage() {
   // ФШ-27: анхдагч "Ирсэн"; ФШ-30: чөлөө хүссэн сурагч урьдчилан "Ирээгүй".
   const effective = (row: AttendanceRowDto) => marks[row.contractId] ?? !row.leaveRequested;
   const unsaved = data.rows.filter((r) => r.attendanceId === null);
+  // D-70: цаг өөрчлөгдсөн сурагч бүрийн цаг зөв (дуусах нь эхлэхээс хойш) байх ёстой.
+  const timeFor = (row: AttendanceRowDto) => (effective(row) ? (times[row.contractId] ?? null) : null);
+  const anyTimeInvalid = unsaved.some((r) => {
+    const t = timeFor(r);
+    return t !== null && toMinutes(t.to) <= toMinutes(t.from);
+  });
   const backTo = isAdmin ? "/admin/attendance" : "/teacher";
 
   return (
@@ -393,6 +506,16 @@ export function AttendancePage() {
                   onChange={(present) => setMarks((prev) => ({ ...prev, [row.contractId]: present }))}
                 />
               )}
+              {!row.attendanceId && effective(row) && canWrite ? (
+                <ActualTimeControl
+                  name={row.studentName}
+                  plannedFrom={hmOf(data.lesson.startsAt)}
+                  plannedTo={hmOf(data.lesson.endsAt)}
+                  academicHourMinutes={data.academicHourMinutes}
+                  value={times[row.contractId] ?? null}
+                  onChange={(value) => setTimes((prev) => ({ ...prev, [row.contractId]: value }))}
+                />
+              ) : null}
             </Card>
           </li>
         ))}
@@ -422,10 +545,23 @@ export function AttendancePage() {
             <Button
               className="flex-1 sm:flex-none sm:min-w-40"
               disabled={
-                unsaved.length === 0 || save.isPending || Boolean(queued) || (needsReason && !reason.trim())
+                unsaved.length === 0 ||
+                save.isPending ||
+                Boolean(queued) ||
+                anyTimeInvalid ||
+                (needsReason && !reason.trim())
               }
               onClick={() =>
-                save.mutate(unsaved.map((r) => ({ contractId: r.contractId, present: effective(r) })))
+                save.mutate(
+                  unsaved.map((r) => {
+                    const t = timeFor(r);
+                    return {
+                      contractId: r.contractId,
+                      present: effective(r),
+                      ...(t ? { actualFrom: t.from, actualTo: t.to } : {}),
+                    };
+                  }),
+                )
               }
             >
               Хадгалах
@@ -435,7 +571,7 @@ export function AttendancePage() {
       ) : null}
 
       {editing ? (
-        <EditModal row={editing} needsReason={needsReason} onClose={() => setEditing(null)} />
+        <EditModal row={editing} sheet={data} needsReason={needsReason} onClose={() => setEditing(null)} />
       ) : null}
       {noteRow ? (
         <NoteModal

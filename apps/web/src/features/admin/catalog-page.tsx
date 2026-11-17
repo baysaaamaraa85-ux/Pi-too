@@ -12,9 +12,86 @@ import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Field, FormError } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
+import { PhotoUpload } from "@/shared/ui/photo-upload";
 
 function errorText(error: unknown) {
   return error instanceof ApiError ? error.problem.detail : error ? "Алдаа гарлаа." : null;
+}
+
+// ФШ-78: салбарын нийтийн сайтад харагдах дэлгэрэнгүй (тайлбар, утас, зураг).
+function BranchRow({ branch }: { branch: BranchDto }) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = React.useState(false);
+  const [description, setDescription] = React.useState(branch.description ?? "");
+  const [phones, setPhones] = React.useState(branch.phones.join(", "));
+  const [saved, setSaved] = React.useState(false);
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["branches"] });
+  const save = useMutation({
+    mutationFn: () =>
+      api.patch(`/branches/${branch.id}`, {
+        description: description.trim() === "" ? null : description.trim(),
+        phones: phones
+          .split(",")
+          .map((x) => x.trim())
+          .filter(Boolean),
+      }),
+    onSuccess: async () => {
+      setSaved(true);
+      await queryClient.invalidateQueries({ queryKey: ["public"] });
+      await refresh();
+    },
+  });
+  return (
+    <li className="py-2.5" data-testid="branch-row">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 break-words">
+          <p className="text-sm font-semibold text-foreground-strong">{branch.name}</p>
+          <p className="text-xs text-muted">{branch.address}</p>
+        </div>
+        <Button type="button" variant="secondary" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+          {open ? "Хаах" : "Нийтийн сайтад харагдах"}
+        </Button>
+      </div>
+      {open ? (
+        <div className="mt-3 grid gap-3.5 rounded-xl bg-background-soft p-4">
+          <PhotoUpload
+            shape="wide"
+            uploadPath={`/branches/${branch.id}/photo`}
+            currentUrl={branch.photoUrl}
+            name={branch.name}
+            label="Салбарын зураг оруулах"
+            onUploaded={refresh}
+          />
+          <Field label="Тайлбар" htmlFor={`b-desc-${branch.id}`} hint="Байршил, орох хаалга, ойр орчмын тэмдэгт газар">
+            <textarea
+              id={`b-desc-${branch.id}`}
+              rows={3}
+              maxLength={1000}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full rounded-xl border border-border bg-surface p-3 text-sm focus:border-primary focus:outline-none"
+            />
+          </Field>
+          <Field label="Холбоо барих утас" htmlFor={`b-phones-${branch.id}`} hint="Таслалаар тусгаарлана: 99112233, 88112233">
+            <Input id={`b-phones-${branch.id}`} value={phones} onChange={(e) => setPhones(e.target.value)} />
+          </Field>
+          <FormError message={errorText(save.error)} />
+          {saved && !save.isPending ? <p className="text-sm font-semibold text-success">Хадгалагдлаа.</p> : null}
+          <Button
+            type="button"
+            className="w-fit"
+            disabled={save.isPending}
+            onClick={() => {
+              setSaved(false);
+              save.mutate();
+            }}
+          >
+            Хадгалах
+          </Button>
+        </div>
+      ) : null}
+    </li>
+  );
 }
 
 function Branches() {
@@ -41,10 +118,7 @@ function Branches() {
       <CardContent>
         <ul className="mb-5 divide-y divide-border-warm">
           {branches.data?.map((b) => (
-            <li key={b.id} className="py-2.5">
-              <p className="text-sm font-semibold text-foreground-strong">{b.name}</p>
-              <p className="text-xs text-muted">{b.address}</p>
-            </li>
+            <BranchRow key={b.id} branch={b} />
           ))}
         </ul>
         <form

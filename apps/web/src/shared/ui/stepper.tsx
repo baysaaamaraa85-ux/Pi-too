@@ -34,7 +34,7 @@ export function Stepper({ steps, current }: { steps: string[]; current: number }
             </span>
             <span
               className={cn(
-                "mt-2 text-center text-[0.7rem] font-semibold text-muted sm:text-xs",
+                "mt-2 text-center text-xs font-semibold text-muted",
                 (done || active) && "text-primary",
               )}
             >

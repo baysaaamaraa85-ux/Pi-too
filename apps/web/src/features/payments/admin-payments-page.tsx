@@ -13,7 +13,7 @@ import { useSearchParams } from "react-router";
 import { PageHeader } from "@/app/app-shell";
 import { errorMessage, useBranches } from "@/features/admin/list-kit";
 import { api } from "@/shared/api-client/client";
-import { formatDate } from "@/shared/format/date";
+import { formatDate, localDateKey } from "@/shared/format/date";
 import { formatMoney } from "@/shared/format/money";
 import { Button } from "@/shared/ui/button";
 import { DataTable, Pager, type Column } from "@/shared/ui/data-table";
@@ -51,7 +51,7 @@ export function RecordPaymentModal({
 }) {
   const invalidate = useInvalidatePayments();
   const [amount, setAmount] = React.useState(defaultAmount ? String(Number(defaultAmount)) : "");
-  const [paidAt, setPaidAt] = React.useState(new Date().toISOString().slice(0, 10));
+  const [paidAt, setPaidAt] = React.useState(localDateKey(new Date()));
   const [channel, setChannel] = React.useState<PaymentChannel>("BANK_TRANSFER");
   const [reference, setReference] = React.useState("");
   const keyRef = React.useRef(crypto.randomUUID());

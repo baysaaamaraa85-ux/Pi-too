@@ -7,7 +7,7 @@ import {
   Bell,
   FileText,
   Settings,
-  Sparkles,
+  ListChecks,
   UserPlus,
   Users,
   Wallet,
@@ -23,9 +23,9 @@ import { DashHeader, DateChip, Panel, PanelTitle, StatCard } from "@/shared/ui/d
 
 const SETUP: { to: string; label: string; icon: LucideIcon }[] = [
   { to: "/admin/catalog", label: "Салбар, хөтөлбөр, журам", icon: Settings },
+  { to: "/admin/payroll/protocol", label: "Цалингийн протокол: цагийн үнэлгээг тулгах", icon: Wallet },
   { to: "/admin/teachers", label: "Багш, сурагч, эцэг эх", icon: Users },
-  { to: "/admin/enroll", label: "Шинэ сурагч бүртгэх", icon: UserPlus },
-  { to: "/admin/setup", label: "Анхны тохиргооны алхмууд", icon: Sparkles },
+  { to: "/admin/setup", label: "Анхны тохиргооны алхмууд", icon: ListChecks },
 ];
 
 const ACTIONS: { to: string; label: string; icon: LucideIcon }[] = [
@@ -51,7 +51,7 @@ export function AdminDashboardPage() {
     <>
       <DashHeader
         title="Захирлын самбар"
-        subtitle="Өнөөдрийн ажилд нь амжилт хүсье!"
+        subtitle="Анхаарах зүйлс ба шуурхай үйлдлүүд"
         aside={<DateChip />}
       />
 
@@ -89,15 +89,15 @@ export function AdminDashboardPage() {
       </div>
 
       <Panel className="mb-4" aria-labelledby="setup-title">
-        <h2 id="setup-title" className="mb-3 font-display text-xl font-bold text-foreground-strong">
+        <h2 id="setup-title" className="mb-3 font-display text-lg font-bold text-foreground-strong">
           Тохиргооны сонголтууд
         </h2>
-        <ul className="grid gap-2.5">
+        <ul className="grid gap-2 sm:grid-cols-2">
           {SETUP.map((s) => (
             <li key={s.to + s.label}>
               <Link
                 to={s.to}
-                className="flex min-h-14 items-center gap-3.5 rounded-xl border border-primary/10 bg-primary/[0.045] px-3.5 text-sm font-semibold text-foreground-strong transition-colors hover:border-primary/30 hover:bg-primary/8"
+                className="flex min-h-14 items-center gap-3.5 rounded-xl border border-border-warm bg-background-soft/60 px-3.5 text-sm font-semibold text-foreground-strong transition-colors hover:border-primary/30 hover:bg-primary/5"
               >
                 <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/8 text-primary">
                   <s.icon className="size-[18px]" />
@@ -119,7 +119,7 @@ export function AdminDashboardPage() {
             <li key={a.label}>
               <Link
                 to={a.to}
-                className="flex min-h-[5.5rem] flex-col items-center justify-center gap-2 rounded-xl p-2 text-center text-[0.78rem] font-semibold text-mid transition-colors hover:bg-primary/6 hover:text-primary"
+                className="flex min-h-[5.5rem] flex-col items-center justify-center gap-2 rounded-xl p-2 text-center text-[0.8125rem] font-semibold text-mid transition-colors hover:bg-primary/6 hover:text-primary"
               >
                 <span className="grid size-11 place-items-center rounded-xl bg-primary/8 text-primary">
                   <a.icon className="size-5" />

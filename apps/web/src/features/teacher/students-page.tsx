@@ -1,6 +1,5 @@
 import {
   CONTRACT_STATUS_LABELS,
-  TEACHER_PAYMENT_FLAG_LABELS,
   type ContractStatus,
   type Paginated,
   type TeacherPaymentFlag,
@@ -12,7 +11,7 @@ import { PageHeader } from "@/app/app-shell";
 import { errorMessage } from "@/features/admin/list-kit";
 import { api } from "@/shared/api-client/client";
 import type { AvailableClassDto } from "@/shared/api-client/types";
-import { weekdayName } from "@/shared/format/date";
+import { weekdayName, localDateKey } from "@/shared/format/date";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
 import { Pager } from "@/shared/ui/data-table";
@@ -21,6 +20,10 @@ import { Input } from "@/shared/ui/input";
 import { Modal } from "@/shared/ui/modal";
 import { StatusChip } from "@/shared/ui/status-chip";
 import { cn } from "@/shared/ui/utils";
+import { useAuth } from "@/features/auth/auth-context";
+import { StudentTransferModal } from "./student-transfer-modal";
+import { CategoryManager, StudentCategorySelect } from "./categories-ui";
+import { formatHours } from "@/shared/format/hours";
 
 interface ContractRow {
   id: string;
@@ -28,18 +31,19 @@ interface ContractRow {
   studentName: string;
   programName: string;
   status: ContractStatus;
-  totalVisits: number;
-  remainingVisits: number;
+  totalHours: number;
+  remainingHours: number;
   leavesLeft: number;
   freeReviewsLeft: number;
   meetingsCount: number;
   paymentFlag: TeacherPaymentFlag;
   planItems: { position: number; topic: string; doneAt: string | null }[];
   activePause: { startedOn: string; holdSeat: boolean; reason: string } | null;
-  classes: { id: string; branchName: string; weekday: number; startTime: string; teacherName: string }[];
+  classes: { id: string; branchId: string; branchName: string; weekday: number; startTime: string; teacherId: string; teacherName: string }[];
 }
 
-const todayKey = () => new Date().toISOString().slice(0, 10);
+// Улаанбаатарын өнөөдөр (UTC биш): шөнийн 00:00-08:00-д UTC огноо өчигдөр байдаг.
+const todayKey = () => localDateKey(new Date());
 
 function useInvalidateContracts() {
   const queryClient = useQueryClient();
@@ -132,7 +136,7 @@ function ResumeModal({ contract, onClose }: { contract: ContractRow; onClose: ()
     <Modal
       open
       title="Сурагчийг үргэлжлүүлэх"
-      description={`${contract.studentName}: багцын үлдэгдэл ${contract.remainingVisits}, чөлөө ${contract.leavesLeft} хэвээр.`}
+      description={`${contract.studentName}: багцын үлдэгдэл ${formatHours(contract.remainingHours)} цаг, чөлөө ${contract.leavesLeft} хэвээр.`}
       onClose={onClose}
     >
       <div className="grid gap-3.5">
@@ -243,6 +247,9 @@ export function TeacherStudentsPage() {
   const [urlParams] = useSearchParams();
   const [search, setSearch] = React.useState(urlParams.get("q") ?? "");
   const [page, setPage] = React.useState(1);
+  const { user } = useAuth();
+  // transfer: null бол хаалттай, "search" бол хайлттай цонх, ContractRow бол тухайн сурагч бэлэн.
+  const [transfer, setTransfer] = React.useState<ContractRow | "search" | null>(null);
   const [modal, setModal] = React.useState<{
     kind: "pause" | "resume" | "plan";
     contract: ContractRow;
@@ -259,16 +266,19 @@ export function TeacherStudentsPage() {
     <>
       <PageHeader
         title="Миний сурагчид"
-        subtitle="Багц, чөлөө, хувийн төлөвлөгөө"
+        subtitle="Багц, чөлөө, төлбөрийн байдал"
         action={
-          <Link
-            to="/teacher/enroll"
-            className="inline-flex h-11 items-center rounded-2xl bg-primary px-6 text-sm font-bold text-primary-foreground hover:bg-primary-hover"
-          >
-            Сурагч бүртгэх
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" className="rounded-xl" onClick={() => setTransfer("search")}>
+              Сурагч шилжүүлэх
+            </Button>
+            <Button asChild className="rounded-xl">
+              <Link to="/teacher/enroll">Сурагч бүртгэх</Link>
+            </Button>
+          </div>
         }
       />
+      <CategoryManager />
       <Input
         aria-label="Сурагчийн нэрээр хайх"
         placeholder="Сурагчийн нэрээр хайх"
@@ -285,55 +295,64 @@ export function TeacherStudentsPage() {
           Сурагч олдсонгүй.
         </p>
       ) : null}
-      <ul className="grid gap-3">
+      <ul className="grid gap-3 xl:grid-cols-2">
         {contracts.data?.items.map((c) => (
           <li key={c.id}>
-            <Card className="p-5" data-testid="student-card">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <h2 className="text-lg font-bold text-foreground-strong">{c.studentName}</h2>
-                  <p className="text-sm text-muted">{c.programName}</p>
+            <Card className="h-full p-4 shadow-soft" data-testid="student-card">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="truncate font-display text-lg font-bold leading-tight text-foreground-strong">{c.studentName}</h2>
+                  <p className="truncate text-sm text-muted">{c.programName}</p>
                 </div>
-                <StatusChip tone={c.status === "ACTIVE" ? "success" : "neutral"}>
-                  {CONTRACT_STATUS_LABELS[c.status]}
-                </StatusChip>
+                <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+                  {c.status !== "ACTIVE" ? <StatusChip tone="neutral">{CONTRACT_STATUS_LABELS[c.status]}</StatusChip> : null}
+                  <StatusChip tone={c.paymentFlag === "DEBT" ? "warning" : "success"}>
+                    {c.paymentFlag === "DEBT" ? "Үлдэгдэлтэй" : "Төлсөн"}
+                  </StatusChip>
+                </div>
               </div>
-              <p className="mt-2 text-sm text-mid">
-                Багц <strong>{c.remainingVisits}/{c.totalVisits}</strong> · Чөлөө{" "}
+
+              <p className="mt-2.5 text-sm text-mid">
+                Багц <strong>{formatHours(c.remainingHours)}/{formatHours(c.totalHours)} цаг</strong> · Чөлөө{" "}
                 <strong>{c.leavesLeft}</strong>
               </p>
-              {c.classes.map((cls) => (
-                <p key={cls.id} className="text-sm text-muted">
-                  {cls.branchName}, {weekdayName(cls.weekday)} {cls.startTime}
-                </p>
-              ))}
+              {c.classes.length > 0 ? (
+                <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Хичээлийн цаг">
+                  {c.classes.map((cls) => (
+                    <li key={cls.id} className="rounded-lg bg-background-soft px-2.5 py-1 text-[0.8125rem] font-medium text-mid">
+                      {weekdayName(cls.weekday)} {cls.startTime}
+                      {cls.teacherId !== user?.id ? <span className="text-muted"> · {cls.teacherName}</span> : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
               {c.activePause ? (
-                <p className="mt-1 text-sm text-warning">
+                <p className="mt-2 text-[0.8125rem] text-warning">
                   {c.activePause.startedOn}-аас түр зогссон
-                  {c.activePause.holdSeat ? " (суудал хадгалсан)" : " (суудал чөлөөлсөн)"}:{" "}
-                  {c.activePause.reason}
+                  {c.activePause.holdSeat ? " (суудал хадгалсан)" : " (суудал чөлөөлсөн)"}: {c.activePause.reason}
                 </p>
               ) : null}
-              <p className="text-xs text-muted">
-                Эцэг эхтэй уулзсан: {c.meetingsCount} · Төлбөр:{" "}
-                <strong className={c.paymentFlag === "DEBT" ? "text-warning" : "text-success"}>
-                  {TEACHER_PAYMENT_FLAG_LABELS[c.paymentFlag]}
-                </strong>
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button asChild variant="secondary">
+              <StudentCategorySelect studentId={c.studentId} studentName={c.studentName} />
+
+              <div className="mt-3 flex flex-wrap gap-1.5 border-t border-border-warm pt-3">
+                <Button asChild variant="secondary" size="sm" className="rounded-lg">
                   <Link to={`/teacher/students/${c.studentId}`}>Явц, тэмдэглэл</Link>
                 </Button>
-                <Button variant="secondary" onClick={() => setModal({ kind: "plan", contract: c })}>
+                <Button variant="secondary" size="sm" className="rounded-lg" onClick={() => setModal({ kind: "plan", contract: c })}>
                   Төлөвлөгөө
                 </Button>
                 {c.status === "ACTIVE" ? (
-                  <Button variant="secondary" onClick={() => setModal({ kind: "pause", contract: c })}>
+                  <Button variant="secondary" size="sm" className="rounded-lg" onClick={() => setTransfer(c)}>
+                    Шилжүүлэх
+                  </Button>
+                ) : null}
+                {c.status === "ACTIVE" ? (
+                  <Button variant="secondary" size="sm" className="rounded-lg" onClick={() => setModal({ kind: "pause", contract: c })}>
                     Урт хугацааны чөлөө
                   </Button>
                 ) : null}
                 {c.status === "PAUSED" ? (
-                  <Button onClick={() => setModal({ kind: "resume", contract: c })}>
+                  <Button size="sm" className="rounded-lg" onClick={() => setModal({ kind: "resume", contract: c })}>
                     Үргэлжлүүлэх
                   </Button>
                 ) : null}
@@ -351,15 +370,25 @@ export function TeacherStudentsPage() {
         />
       ) : null}
 
-      {modal?.kind === "pause" ? (
-        <PauseModal contract={modal.contract} onClose={() => setModal(null)} />
+      {transfer !== null ? (
+        <StudentTransferModal
+          initial={
+            transfer === "search"
+              ? undefined
+              : {
+                  id: transfer.id,
+                  studentName: transfer.studentName,
+                  programName: transfer.programName,
+                  status: transfer.status,
+                  classes: transfer.classes,
+                }
+          }
+          onClose={() => setTransfer(null)}
+        />
       ) : null}
-      {modal?.kind === "resume" ? (
-        <ResumeModal contract={modal.contract} onClose={() => setModal(null)} />
-      ) : null}
-      {modal?.kind === "plan" ? (
-        <PlanModal contract={modal.contract} onClose={() => setModal(null)} />
-      ) : null}
+      {modal?.kind === "pause" ? <PauseModal contract={modal.contract} onClose={() => setModal(null)} /> : null}
+      {modal?.kind === "resume" ? <ResumeModal contract={modal.contract} onClose={() => setModal(null)} /> : null}
+      {modal?.kind === "plan" ? <PlanModal contract={modal.contract} onClose={() => setModal(null)} /> : null}
     </>
   );
 }

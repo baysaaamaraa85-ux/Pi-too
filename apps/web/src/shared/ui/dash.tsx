@@ -3,7 +3,6 @@ import * as React from "react";
 import { CalendarDays } from "lucide-react";
 import { Link } from "react-router";
 import { formatDate, weekdayName, weekdayOf } from "../format/date";
-import { CapAndBooks } from "./hero-art";
 import { cn } from "./utils";
 
 // Бүх dashboard-ын нийтлэг загвар: цагаан панел, нимгэн хүрээ, зөөлөн сүүдэр, serif гарчиг,
@@ -28,16 +27,14 @@ export function PanelTitle({
   children,
   action,
 }: {
-  icon: LucideIcon;
+  icon?: LucideIcon;
   children: React.ReactNode;
   action?: React.ReactNode;
 }) {
   return (
     <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-      <h2 className="flex items-center gap-2.5 font-display text-lg font-bold text-foreground-strong">
-        <span className="grid size-8 place-items-center rounded-xl bg-primary/8 text-primary">
-          <Icon className="size-4" />
-        </span>
+      <h2 className="flex items-center gap-2 font-display text-lg font-bold text-foreground-strong">
+        {Icon ? <Icon className="size-[18px] text-primary" aria-hidden="true" /> : null}
         {children}
       </h2>
       {action}
@@ -79,7 +76,7 @@ export function StatCard({
         <Icon className="size-5" />
       </span>
       <div className="min-w-0">
-        <p className="mb-1 text-[0.78rem] leading-snug text-muted">{label}</p>
+        <p className="mb-1 text-[0.8125rem] leading-snug text-muted">{label}</p>
         <p
           className="text-2xl font-extrabold leading-none tracking-tight text-foreground-strong tabular-nums"
           data-testid={valueTestId}
@@ -87,7 +84,7 @@ export function StatCard({
           {value}
         </p>
         {hint ? (
-          <p className={cn("mt-1 text-[0.78rem] font-semibold leading-tight", hintTone === "danger" ? "text-danger" : "text-muted")}>
+          <p className={cn("mt-1 text-[0.8125rem] font-semibold leading-tight", hintTone === "danger" ? "text-danger" : "text-muted")}>
             {hint}
           </p>
         ) : null}
@@ -110,22 +107,7 @@ export function StatCard({
   );
 }
 
-// Баннер: карт биш. Долгионтой дэвсгэр (shell) дээр мэндчилгээ, баруун талд малгай ба ном.
-export function Banner({ title, subtitle }: { title: React.ReactNode; subtitle?: React.ReactNode }) {
-  return (
-    <header className="relative mb-3 min-h-[7rem]">
-      <div className="relative z-10 max-w-[58%] pt-1 md:pt-0">
-        <h1 className="font-display text-[clamp(1.6rem,2.5vw,2.3rem)] font-black leading-tight text-foreground-strong">
-          {title}
-        </h1>
-        {subtitle ? <p className="mt-1 text-sm text-mid">{subtitle}</p> : null}
-      </div>
-      <CapAndBooks className="pointer-events-none absolute -top-1 right-0 z-10 h-24 w-auto sm:h-32 md:right-4 md:top-0 md:h-36 xl:h-40" />
-    </header>
-  );
-}
-
-// Малгайгүй гарчигтай толгой (админы самбар гэх мэт): гарчиг, тайлбар, баруун талд нэмэлт зүйл.
+// Бүх самбарын нэг толгой: гарчиг, тайлбар, баруун талд нэмэлт зүйл. Чимэглэл, эможи байхгүй.
 export function DashHeader({
   title,
   subtitle,

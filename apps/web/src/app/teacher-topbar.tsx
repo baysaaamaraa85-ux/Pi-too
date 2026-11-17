@@ -12,6 +12,13 @@ export function TeacherTopBar({ onLogout }: { onLogout: () => void }) {
       title: "Ирц бөглөөгүй хичээл",
       detail: `${formatDate(l.startsAt)} ${formatTime(l.startsAt)} · ${l.branchName}`,
     })),
+    // D-67: цагийн үнэлгээгээ оруулаагүй сурагч (цалин 0 ₮ бодогдоно).
+    ...(dash.data?.unratedStudents ?? []).map((u) => ({
+      key: `rate-${u.contractId}`,
+      to: `/teacher/students/${u.studentId}`,
+      title: "Цагийн үнэлгээ оруулаагүй",
+      detail: `${u.studentName} · ${u.programName}`,
+    })),
     ...(dash.data?.tasks ?? []).map((t) => ({
       key: `task-${t.id}`,
       to: `/teacher/students/${t.studentId}`,

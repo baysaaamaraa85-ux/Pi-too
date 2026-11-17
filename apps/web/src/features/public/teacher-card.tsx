@@ -1,5 +1,5 @@
 import { cn } from "@/shared/ui/utils";
-import type { TeacherCard as TeacherCardData } from "./content";
+import type { TeacherCardData } from "./public-api";
 
 function initial(name: string) {
   const match = /[А-ЯӨҮA-Z]/.exec(name);
@@ -21,7 +21,12 @@ export function TeacherCard({
         className,
       )}
     >
-      <div className="relative flex h-32 items-end justify-center overflow-hidden bg-border">
+      <div className="relative flex h-32 items-end justify-center overflow-hidden bg-gradient-to-br from-primary/12 via-[#f6dccd] to-accent/25">
+        {teacher.photo ? null : (
+          <span aria-hidden="true" className="absolute inset-0 grid place-items-center font-display text-7xl font-black text-primary/15">
+            {initial(teacher.name)}
+          </span>
+        )}
         {teacher.photo ? (
           <img
             src={teacher.photo}

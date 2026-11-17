@@ -95,6 +95,8 @@ async function refreshSession(): Promise<SessionUser | null> {
 interface RequestOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
+  // Файл (зураг) шууд илгээх: JSON биш, файлын өөрийн Content-Type-аар.
+  file?: File;
   idempotencyKey?: string;
 }
 
@@ -104,7 +106,7 @@ export function bootstrapSession(): Promise<SessionUser | null> {
 }
 
 async function request<T>(path: string, options: RequestOptions, isRetry = false): Promise<T> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = { "Content-Type": options.file?.type ?? "application/json" };
   const token = getAccessToken();
   if (token) headers.Authorization = `Bearer ${token}`;
   if (options.idempotencyKey) headers["Idempotency-Key"] = options.idempotencyKey;
@@ -113,7 +115,7 @@ async function request<T>(path: string, options: RequestOptions, isRetry = false
     method: options.method ?? "GET",
     headers,
     credentials: "include",
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    body: options.file ?? (options.body !== undefined ? JSON.stringify(options.body) : undefined),
   });
 
   // /auth/* (нэвтрэх, refresh) дээр 401 бол дахин refresh хийхгүй, шууд алдаа буцаана.
@@ -148,6 +150,8 @@ export const api = {
   put: <T>(path: string, body?: unknown, idempotencyKey?: string) =>
     request<T>(path, { method: "PUT", body, idempotencyKey }),
   patch: <T>(path: string, body?: unknown) => request<T>(path, { method: "PATCH", body }),
+  // ФШ-78: зураг оруулах (багш, салбар). Сервер JPG, PNG, WEBP зөвхөн 3 MB хүртэл хүлээн авна.
+  upload: <T>(path: string, file: File) => request<T>(path, { method: "PUT", file }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };
 

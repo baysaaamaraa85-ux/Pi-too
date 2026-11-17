@@ -14,6 +14,7 @@ import { Field, FormError, Select } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { Stepper } from "@/shared/ui/stepper";
 import { cn } from "@/shared/ui/utils";
+import { formatHours } from "@/shared/format/hours";
 
 const STEPS = ["Эцэг эх", "Сурагч", "Анги", "Баталгаажуулалт"];
 
@@ -21,7 +22,7 @@ interface EnrollResult {
   studentId: string;
   parentId: string;
   contractId: string;
-  remainingVisits: number;
+  remainingHours: number;
   leavesLeft: number;
   tempPassword?: string;
   studentTempPassword?: string;
@@ -148,7 +149,7 @@ export function EnrollWizardPage({ mode }: { mode: "admin" | "teacher" }) {
             <CardContent className="p-6" data-testid="enroll-done">
               <p className="font-bold text-success">Бүртгэл амжилттай.</p>
               <p className="mt-1 text-sm text-mid">
-                {state.studentName}: багцын үлдэгдэл {result.remainingVisits}, чөлөөний эрх{" "}
+                {state.studentName}: багцын үлдэгдэл {formatHours(result.remainingHours)} академик цаг, чөлөөний эрх{" "}
                 {result.leavesLeft}.
               </p>
             </CardContent>

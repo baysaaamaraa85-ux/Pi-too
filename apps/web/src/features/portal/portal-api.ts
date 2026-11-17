@@ -17,8 +17,8 @@ export interface PortalContract {
   id: string;
   programName: string;
   status: ContractStatus;
-  totalVisits: number;
-  remainingVisits: number;
+  totalHours: number;
+  remainingHours: number;
   leavesLeft: number;
   freeReviewsLeft: number;
   classes: PortalClass[];

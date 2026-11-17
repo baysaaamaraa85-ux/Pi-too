@@ -4,6 +4,7 @@ import { Link, useLocation } from "react-router";
 import { Eyebrow, SectionTitle } from "@/shared/ui/eyebrow";
 import { cn } from "@/shared/ui/utils";
 import { PROGRAM_SECTIONS } from "./content";
+import { TrackPrice } from "./track-price";
 
 const ICONS = { international: Globe, mongolian: BookOpen, "school-exams": School } as const;
 
@@ -47,7 +48,12 @@ export function ProgramsPage() {
           })}
         </ul>
 
-        <ul className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4" role="tabpanel">
+        <div className="mt-6 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <h2 className="font-display text-lg font-extrabold tracking-tight text-foreground">{section.teaserTitle}</h2>
+          <TrackPrice sectionId={section.id} />
+        </div>
+
+        <ul className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4" role="tabpanel">
           {section.items.map((item) => (
             <li
               key={item.title}

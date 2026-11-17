@@ -8,6 +8,8 @@ import { weekdayName } from "@/shared/format/date";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
 import { StatusChip } from "@/shared/ui/status-chip";
+import { ContractRateCard } from "@/features/payroll/rates-ui";
+import { formatHours } from "@/shared/format/hours";
 import {
   AssessmentModal,
   MeetingsPanel,
@@ -21,8 +23,8 @@ interface ContractRow {
   studentName: string;
   programName: string;
   status: ContractStatus;
-  totalVisits: number;
-  remainingVisits: number;
+  totalHours: number;
+  remainingHours: number;
   leavesLeft: number;
   freeReviewsLeft: number;
   meetingsCount: number;
@@ -62,7 +64,7 @@ export function TeacherStudentDetailPage() {
                 </StatusChip>
               </div>
               <p className="mt-1 text-sm text-mid">
-                Багц {c.remainingVisits}/{c.totalVisits} · Чөлөө {c.leavesLeft}
+                Багц {formatHours(c.remainingHours)}/{formatHours(c.totalHours)} цаг · Чөлөө {c.leavesLeft}
                 {c.freeReviewsLeft > 0 ? ` · Үнэгүй давтлага ${c.freeReviewsLeft}` : ""}
               </p>
               {c.classes.map((cls) => (
@@ -70,6 +72,7 @@ export function TeacherStudentDetailPage() {
                   {cls.branchName}, {weekdayName(cls.weekday)} {cls.startTime}
                 </p>
               ))}
+              <ContractRateCard contractId={c.id} />
               <Button className="mt-3" onClick={() => setAssessing(c.id)}>
                 Сорил, шалгалт бүртгэх
               </Button>

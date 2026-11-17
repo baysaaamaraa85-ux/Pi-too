@@ -18,6 +18,8 @@ import { OfflineBanner } from "@/shared/offline/sync";
 import { ShellBackdrop } from "@/shared/ui/hero-art";
 import { Logo } from "@/shared/ui/logo";
 import { cn } from "@/shared/ui/utils";
+import { formatHours } from "@/shared/format/hours";
+import { useOwnTeacherProfile } from "@/features/public/public-api";
 import { AppSidebar, type NavItem } from "./app-sidebar";
 import { AppTopBar, ReminderBell, type BellItem } from "./app-topbar";
 import { TeacherTopBar } from "./teacher-topbar";
@@ -78,17 +80,43 @@ function ParentBell() {
   const items: BellItem[] = [];
   for (const student of summary.data?.students ?? []) {
     for (const c of student.contracts) {
-      if (c.status === "ACTIVE" && c.remainingVisits <= 3) {
+      if (c.status === "ACTIVE" && c.remainingHours <= 9) {
         items.push({
           key: c.id,
           to: "/portal",
           title: "Багц дуусах дөхсөн",
-          detail: `${student.fullName}: ${c.programName}, үлдэгдэл ${c.remainingVisits}`,
+          detail: `${student.fullName}: ${c.programName}, үлдэгдэл ${formatHours(c.remainingHours)} цаг`,
         });
       }
     }
   }
   return <ReminderBell items={items} />;
+}
+
+// Багшийн хажуугийн цэс: өөрийн профайлын зураг, "Миний профайл" холбоос.
+function TeacherSidebar({
+  items,
+  user,
+  onLogout,
+}: {
+  items: NavItem[];
+  user: NonNullable<ReturnType<typeof useAuth>["user"]>;
+  onLogout: () => void;
+}) {
+  const profile = useOwnTeacherProfile(user.id);
+  return (
+    <AppSidebar
+      items={items}
+      ariaLabel="Багшийн цэс"
+      logoTo="/teacher"
+      logoLabel="Багш"
+      userName={user.displayName ?? ""}
+      roleLabel={ROLE_LABELS[user.role]}
+      onLogout={onLogout}
+      avatarUrl={profile?.photoUrl ?? null}
+      profileTo="/teacher/profile"
+    />
+  );
 }
 
 export function AppShell() {
@@ -101,18 +129,10 @@ export function AppShell() {
 
   return (
     <div className="luxury-bg app-zoom relative min-h-screen md:pl-64">
-      <ShellBackdrop watermark={!isTeacher} />
+      <ShellBackdrop />
 
       {isTeacher ? (
-        <AppSidebar
-          items={items}
-          ariaLabel="Багшийн цэс"
-          logoTo="/teacher"
-          logoLabel="Багш"
-          userName={user.displayName ?? ""}
-          roleLabel={ROLE_LABELS[user.role]}
-          onLogout={onLogout}
-        />
+        <TeacherSidebar items={items} user={user} onLogout={onLogout} />
       ) : (
         <PortalSidebar items={items} user={user} onLogout={onLogout} />
       )}
@@ -163,7 +183,7 @@ export function AppShell() {
               end={item.end}
               className={({ isActive }) =>
                 cn(
-                  "flex min-h-14 flex-col items-center justify-center gap-0.5 text-[0.68rem] font-semibold text-muted",
+                  "flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs font-semibold text-muted",
                   isActive && "text-primary",
                 )
               }

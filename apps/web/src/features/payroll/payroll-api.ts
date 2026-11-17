@@ -1,4 +1,10 @@
-import type { LedgerRowDto, LedgerSummaryDto, Paginated } from "@pitoo/contracts";
+import type {
+  LedgerRowDto,
+  LedgerSummaryDto,
+  MyStudentsPayrollDto,
+  Paginated,
+  StudentPayrollEntryDto,
+} from "@pitoo/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/shared/api-client/client";
 
@@ -55,5 +61,35 @@ export function usePayrollSummary(from?: string, to?: string) {
     queryKey: ["ledger", "summary", from, to],
     queryFn: () => api.get<TeacherBalanceRow[]>(`/payroll/summary?${params.toString()}`),
     refetchInterval: LEDGER_REFETCH_MS,
+  });
+}
+
+// D-68: багшийн цалин сурагч бүрээр, "орсон цаг" дээр дарахад хичээл бүрийн дэлгэрэнгүй.
+export interface PayrollPeriod {
+  from?: string;
+  to?: string;
+}
+
+function periodQuery(p: PayrollPeriod): string {
+  const params = new URLSearchParams();
+  if (p.from) params.set("from", p.from);
+  if (p.to) params.set("to", p.to);
+  const s = params.toString();
+  return s ? `?${s}` : "";
+}
+
+export function useMyStudentsPayroll(period: PayrollPeriod) {
+  return useQuery({
+    queryKey: ["my-students-payroll", period],
+    queryFn: () => api.get<MyStudentsPayrollDto>(`/payroll/my-students${periodQuery(period)}`),
+    refetchInterval: LEDGER_REFETCH_MS,
+  });
+}
+
+export function useStudentEntries(contractId: string | null, period: PayrollPeriod) {
+  return useQuery({
+    queryKey: ["my-students-payroll", "entries", contractId, period],
+    enabled: contractId !== null,
+    queryFn: () => api.get<StudentPayrollEntryDto[]>(`/payroll/my-students/${contractId}/entries${periodQuery(period)}`),
   });
 }

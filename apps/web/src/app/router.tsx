@@ -18,6 +18,7 @@ const AdminRequestsPage = lazy(() => import("@/features/admin/requests-page").th
 const AdminAttendancePage = lazy(() => import("@/features/attendance/admin-attendance-page").then((m) => ({ default: m.AdminAttendancePage })));
 const AttendancePage = lazy(() => import("@/features/attendance/attendance-page").then((m) => ({ default: m.AttendancePage })));
 const AdminPayrollPage = lazy(() => import("@/features/payroll/admin-payroll-page").then((m) => ({ default: m.AdminPayrollPage })));
+const AdminRateProtocolPage = lazy(() => import("@/features/payroll/rate-protocol-page").then((m) => ({ default: m.AdminRateProtocolPage })));
 const TeacherSalaryPage = lazy(() => import("@/features/payroll/teacher-salary-page").then((m) => ({ default: m.TeacherSalaryPage })));
 const AdminPaymentsPage = lazy(() => import("@/features/payments/admin-payments-page").then((m) => ({ default: m.AdminPaymentsPage })));
 const AdminAuditPage = lazy(() => import("@/features/audit/audit-page").then((m) => ({ default: m.AdminAuditPage })));
@@ -42,6 +43,9 @@ const TeacherSchedulePage = lazy(() => import("@/features/schedule/schedule-page
 const TeacherClassesPage = lazy(() => import("@/features/teacher/classes-page").then((m) => ({ default: m.TeacherClassesPage })));
 const TeacherStudentDetailPage = lazy(() => import("@/features/teacher/student-detail-page").then((m) => ({ default: m.TeacherStudentDetailPage })));
 const TeacherStudentsPage = lazy(() => import("@/features/teacher/students-page").then((m) => ({ default: m.TeacherStudentsPage })));
+const TeacherProfilePage = lazy(() => import("@/features/teacher/profile-page").then((m) => ({ default: m.TeacherProfilePage })));
+const AboutPage = lazy(() => import("@/features/public/about-page").then((m) => ({ default: m.AboutPage })));
+const BranchesPage = lazy(() => import("@/features/public/branches-page").then((m) => ({ default: m.BranchesPage })));
 const TeacherTodayPage = lazy(() => import("@/features/teacher/today-page").then((m) => ({ default: m.TeacherTodayPage })));
 
 function NotFound() {
@@ -65,6 +69,8 @@ const router = createBrowserRouter([
       { path: "/", element: <HomePage /> },
       { path: "/programs", element: <ProgramsPage /> },
       { path: "/teachers", element: <TeachersPage /> },
+      { path: "/about", element: <AboutPage /> },
+      { path: "/branches", element: <BranchesPage /> },
       { path: "/contact", element: <ContactPage /> },
     ],
   },
@@ -88,6 +94,7 @@ const router = createBrowserRouter([
           { path: "/teacher/students/:studentId", element: <TeacherStudentDetailPage /> },
           { path: "/teacher/attendance/:lessonId", element: <AttendancePage /> },
           { path: "/teacher/salary", element: <TeacherSalaryPage /> },
+          { path: "/teacher/profile", element: <TeacherProfilePage /> },
           { path: "/teacher/enroll", element: <EnrollWizardPage mode="teacher" /> },
         ],
       },
@@ -117,6 +124,7 @@ const router = createBrowserRouter([
           { path: "/admin/attendance", element: <AdminAttendancePage /> },
           { path: "/admin/attendance/:lessonId", element: <AttendancePage /> },
           { path: "/admin/payroll", element: <AdminPayrollPage /> },
+          { path: "/admin/payroll/protocol", element: <AdminRateProtocolPage /> },
           { path: "/admin/payments", element: <AdminPaymentsPage /> },
           { path: "/admin/notifications", element: <AdminNotificationsPage /> },
           { path: "/admin/reports", element: <AdminReportsPage /> },

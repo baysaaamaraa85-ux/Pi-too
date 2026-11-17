@@ -25,7 +25,9 @@ import { Modal } from "@/shared/ui/modal";
 import { RecordPaymentModal } from "@/features/payments/admin-payments-page";
 import { TransferModal } from "./transfer-modal";
 import { NotesPanel, ProgressSection } from "@/features/progress/progress-parts";
+import { DiscountForm } from "@/features/payroll/rates-ui";
 import { AttendanceStatusChip, StatusChip } from "@/shared/ui/status-chip";
+import { formatHours } from "@/shared/format/hours";
 import {
   useInvalidateDirectory,
   useStudent,
@@ -271,7 +273,7 @@ export function AdminStudentsPage() {
       cell: (s) =>
         s.contract ? (
           <span data-testid="package-balance">
-            {s.contract.remainingVisits}/{s.contract.totalVisits}
+            {formatHours(s.contract.remainingHours)}/{formatHours(s.contract.totalHours)} цаг
           </span>
         ) : (
           "-"
@@ -489,9 +491,16 @@ export function AdminStudentDetailPage() {
                         </StatusChip>
                       </div>
                       <p className="mt-1 text-mid">
-                        Багц {c.remainingVisits}/{c.totalVisits} · Чөлөө {c.leavesLeft} · Үнэ{" "}
+                        Багц {formatHours(c.remainingHours)}/{formatHours(c.totalHours)} цаг · Чөлөө {c.leavesLeft} · Үнэ{" "}
                         {formatMoney(c.price)} · Уулзалт {c.meetingsCount}
                       </p>
+                      <DiscountForm
+                        contractId={c.id}
+                        percent={c.discountPercent}
+                        listPrice={c.listPrice}
+                        price={c.price}
+                        onChanged={invalidate}
+                      />
                       {c.classes.map((cls) => (
                         <div key={cls.id} className="flex flex-wrap items-center justify-between gap-2 text-muted">
                           <p>{classText(cls)}</p>

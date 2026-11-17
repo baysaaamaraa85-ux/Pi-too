@@ -1,4 +1,4 @@
-import { ASSESSMENT_TYPE_LABELS } from "@pitoo/contracts";
+import type { TeacherProgressPointDto } from "@pitoo/contracts";
 import {
   CalendarDays,
   ChevronRight,
@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 import { Link } from "react-router";
 import { useAuth } from "@/features/auth/auth-context";
-import { useProgress } from "@/features/progress/progress-parts";
+import { assessmentTitle, useProgress } from "@/features/progress/progress-parts";
+import { ProgressPanel } from "@/features/progress/progress-trend";
 import { useLessons } from "@/features/schedule/lessons";
 import {
   addDaysToKey,
@@ -25,12 +26,13 @@ import { Panel } from "@/shared/ui/dash";
 import { cn } from "@/shared/ui/utils";
 import { usePortalSummary } from "./portal-api";
 import { ChildPicker, EmptyNote, PortalLoading, useSelectedChild } from "./portal-parts";
+import { formatHours } from "@/shared/format/hours";
 
 function Bar({ percent }: { percent: number }) {
   const value = Math.max(0, Math.min(100, percent));
   return (
     <div className="h-2 overflow-hidden rounded-full bg-primary/10" aria-hidden="true">
-      <div className="h-full rounded-full bg-gradient-to-r from-primary to-primary-hover" style={{ width: `${value}%` }} />
+      <div className="h-full rounded-full bg-primary" style={{ width: `${value}%` }} />
     </div>
   );
 }
@@ -63,7 +65,7 @@ function LinkCard({ to, icon, title, text }: { to: string; icon: LucideIcon; tit
       </span>
       <span className="min-w-0 flex-1">
         <span className="block font-display text-lg font-bold leading-snug text-foreground-strong">{title}</span>
-        <span className="block text-[0.82rem] leading-snug text-muted">{text}</span>
+        <span className="block text-[0.8125rem] leading-snug text-muted">{text}</span>
       </span>
       <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/8 text-primary">
         <ChevronRight className="size-4" />
@@ -93,6 +95,12 @@ export function PortalHomePage() {
   const assessments = progress.data?.assessments ?? [];
   const last = assessments[assessments.length - 1];
   const lastPercent = last ? Number(last.totalPercent) : null;
+  // Багшийн нүүртэй ижил график: сорил бүр нэг цэг (count 1), ижил өдрийн дүнг график дундажилна.
+  const trendPoints: TeacherProgressPointDto[] = assessments.map((a) => ({
+    date: a.takenOn,
+    averagePercent: a.totalPercent,
+    count: 1,
+  }));
   const firstName = (selected?.fullName ?? user?.displayName ?? "").trim().split(/\s+/)[0] ?? "";
 
   return (
@@ -136,7 +144,7 @@ export function PortalHomePage() {
               </div>
               <Link
                 to="/portal/schedule"
-                className="inline-flex min-h-11 w-fit items-center gap-2 rounded-full bg-gradient-to-r from-primary to-primary-hover px-5 text-sm font-bold text-primary-foreground shadow-md"
+                className="inline-flex min-h-11 w-fit items-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-primary-foreground hover:bg-primary-hover"
               >
                 Хуваарь харах <ChevronRight className="size-4" />
               </Link>
@@ -148,16 +156,16 @@ export function PortalHomePage() {
                   <IconTile icon={Package} compact />
                   <div className="min-w-0">
                     <p className="font-display text-3xl font-bold leading-none tabular-nums text-foreground-strong">
-                      {contract ? contract.remainingVisits : "-"}
+                      {contract ? formatHours(contract.remainingHours) : "-"}
                       {contract ? (
-                        <span className="ml-1 text-base font-semibold text-muted"> / {contract.totalVisits}</span>
+                        <span className="ml-1 text-base font-semibold text-muted"> / {formatHours(contract.totalHours)} цаг</span>
                       ) : null}
                     </p>
-                    <p className="mt-1.5 text-[0.8rem] leading-snug text-muted">Багцын үлдэгдэл</p>
+                    <p className="mt-1.5 text-[0.8125rem] leading-snug text-muted">Багцын үлдэгдэл</p>
                   </div>
                 </div>
-                {contract ? <Bar percent={(contract.remainingVisits / Math.max(1, contract.totalVisits)) * 100} /> : null}
-                <p className="truncate text-[0.8rem] text-muted">{contract?.programName ?? "Багц алга"}</p>
+                {contract ? <Bar percent={(contract.remainingHours / Math.max(1, contract.totalHours)) * 100} /> : null}
+                <p className="truncate text-[0.8125rem] text-muted">{contract?.programName ?? "Багц алга"}</p>
               </Panel>
 
               <Panel className="relative z-20 grid content-between gap-1 p-3.5 sm:gap-2 sm:p-5" data-testid="stat-leaves">
@@ -167,7 +175,7 @@ export function PortalHomePage() {
                     <p className="font-display text-3xl font-bold leading-none tabular-nums text-foreground-strong">
                       {contract ? contract.leavesLeft : "-"}
                     </p>
-                    <p className="mt-1.5 text-[0.8rem] leading-snug text-muted">Чөлөөний эрх</p>
+                    <p className="mt-1.5 text-[0.8125rem] leading-snug text-muted">Чөлөөний эрх</p>
                   </div>
                 </div>
                 <Link
@@ -177,7 +185,7 @@ export function PortalHomePage() {
                   {isParent ? "Ирцийн түүх" : "Чөлөө хүсэх"} <ChevronRight className="size-4" />
                 </Link>
                 {contract && contract.freeReviewsLeft > 0 ? (
-                  <p className="text-[0.78rem] text-muted">Үнэгүй давтлага: {contract.freeReviewsLeft}</p>
+                  <p className="text-[0.8125rem] text-muted">Үнэгүй давтлага: {contract.freeReviewsLeft}</p>
                 ) : null}
               </Panel>
 
@@ -188,18 +196,25 @@ export function PortalHomePage() {
                     <p className="font-display text-3xl font-bold leading-none tabular-nums text-foreground-strong">
                       {lastPercent === null ? "Алга" : `${Math.round(lastPercent)}%`}
                     </p>
-                    <p className="mt-1.5 text-[0.8rem] leading-snug text-muted">Сүүлийн сорил</p>
+                    <p className="mt-1.5 text-[0.8125rem] leading-snug text-muted">Сүүлийн сорил</p>
                   </div>
                 </div>
                 <div className={cn("min-w-[10rem] flex-1 grid gap-1.5", lastPercent === null && "hidden")}>
                   <Bar percent={lastPercent ?? 0} />
-                  <p className="text-[0.8rem] text-muted">
-                    {last ? `${ASSESSMENT_TYPE_LABELS[last.type]}, ${formatDate(last.takenOn)}` : ""}
+                  <p className="text-[0.8125rem] text-muted">
+                    {last ? `${assessmentTitle(last)}, ${formatDate(last.takenOn)}` : ""}
                   </p>
                 </div>
               </Panel>
             </div>
           </div>
+
+          <ProgressPanel
+            points={trendPoints}
+            title={isParent ? "Хүүхдийн ахиц (%)" : "Миний ахиц (%)"}
+            chartLabel={isParent ? "Хүүхдийн дундаж ахиц" : "Миний дундаж ахиц"}
+            className="mt-3 lg:mt-4"
+          />
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:gap-4 xl:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))]">
             <LinkCard

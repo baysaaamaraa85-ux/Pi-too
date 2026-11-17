@@ -1,5 +1,5 @@
 import type { TransferResultDto } from "@pitoo/contracts";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import { api } from "@/shared/api-client/client";
 import type { AvailableClassDto } from "@/shared/api-client/types";
@@ -25,6 +25,7 @@ export function TransferModal({
   onClose: () => void;
 }) {
   const invalidate = useInvalidateDirectory();
+  const queryClient = useQueryClient();
   const tomorrow = addDaysToKey(localDateKey(new Date()), 1);
   const [toClassId, setToClassId] = React.useState("");
   const [effectiveFrom, setEffectiveFrom] = React.useState(tomorrow);
@@ -46,6 +47,10 @@ export function TransferModal({
       }),
     onSuccess: async () => {
       await invalidate();
+      // Багшийн хуудсууд: сурагчид, хуваарь, ангийн жагсаалт.
+      for (const key of ["contracts", "week-classes", "class-roster", "available-classes", "classes", "lessons"]) {
+        await queryClient.invalidateQueries({ queryKey: [key] });
+      }
       onClose();
     },
   });

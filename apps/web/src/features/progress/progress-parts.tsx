@@ -10,7 +10,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import { errorMessage } from "@/features/admin/list-kit";
 import { api } from "@/shared/api-client/client";
-import { formatDate } from "@/shared/format/date";
+import { formatDate, localDateKey } from "@/shared/format/date";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Field, FormError, Select } from "@/shared/ui/field";
@@ -24,6 +24,12 @@ export function useProgress(studentId: string) {
     enabled: Boolean(studentId),
     queryFn: () => api.get<ProgressDto>(`/students/${studentId}/progress`),
   });
+}
+
+// Сорилыг "Сорил" гэж биш сэдвийн нэрээр харуулна. Сэдэв бүртгээгүй бол төрлийн нэр (Сорил, Шалгалт).
+export function assessmentTitle(a: Pick<AssessmentDto, "type" | "topics">): string {
+  const names = a.topics.map((t) => t.topic.trim()).filter(Boolean);
+  return names.length > 0 ? names.join(", ") : ASSESSMENT_TYPE_LABELS[a.type];
 }
 
 // ФШ-41: шугаман график. Утга өнгөөр биш цэг бүрийн хувь бичвэрээр, доор нь хүснэгт.
@@ -69,7 +75,7 @@ export function ProgressChart({ assessments }: { assessments: AssessmentDto[] })
         <thead className="text-left text-xs uppercase tracking-wider text-muted">
           <tr>
             <th className="py-1">Огноо</th>
-            <th>Төрөл</th>
+            <th>Сэдэв</th>
             <th className="text-right">Дүн</th>
           </tr>
         </thead>
@@ -77,7 +83,7 @@ export function ProgressChart({ assessments }: { assessments: AssessmentDto[] })
           {assessments.map((a) => (
             <tr key={a.id}>
               <td className="py-1.5">{formatDate(a.takenOn)}</td>
-              <td>{ASSESSMENT_TYPE_LABELS[a.type]}</td>
+              <td>{assessmentTitle(a)}</td>
               <td className="text-right font-semibold">{Number(a.totalPercent)}%</td>
             </tr>
           ))}
@@ -139,7 +145,7 @@ export function AssessmentModal({
 }) {
   const queryClient = useQueryClient();
   const [type, setType] = React.useState<"QUIZ" | "BATCH_EXAM">("QUIZ");
-  const [takenOn, setTakenOn] = React.useState(new Date().toISOString().slice(0, 10));
+  const [takenOn, setTakenOn] = React.useState(localDateKey(new Date()));
   const [total, setTotal] = React.useState("");
   const [topics, setTopics] = React.useState<TopicRow[]>([]);
   const [result, setResult] = React.useState<{
@@ -342,7 +348,7 @@ export function MeetingsPanel({ contractId }: { contractId: string }) {
     queryFn: () => api.get<MeetingDto[]>(`/contracts/${contractId}/meetings`),
   });
   const [open, setOpen] = React.useState(false);
-  const [metOn, setMetOn] = React.useState(new Date().toISOString().slice(0, 10));
+  const [metOn, setMetOn] = React.useState(localDateKey(new Date()));
   const [summary, setSummary] = React.useState("");
   const add = useMutation({
     mutationFn: () => api.post(`/contracts/${contractId}/meetings`, { metOn, summary }),

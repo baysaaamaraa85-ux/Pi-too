@@ -1,6 +1,7 @@
-import { ChevronDown, KeyRound, LogOut, type LucideIcon } from "lucide-react";
+import { ChevronDown, KeyRound, LogOut, UserRound, type LucideIcon } from "lucide-react";
 import * as React from "react";
 import { NavLink } from "react-router";
+import { Avatar } from "@/shared/ui/avatar";
 import { cn } from "@/shared/ui/utils";
 
 export interface NavItem {
@@ -32,7 +33,7 @@ export function SidebarNav({
             cn(
               "flex min-h-11 items-center gap-3 rounded-xl px-3.5 text-sm font-semibold text-mid transition-all hover:bg-primary/6 hover:text-primary",
               isActive &&
-                "bg-gradient-to-r from-primary to-primary-hover text-primary-foreground shadow-md hover:text-primary-foreground",
+                "bg-primary text-primary-foreground hover:text-primary-foreground",
             )
           }
         >
@@ -50,11 +51,16 @@ export function UserCard({
   roleLabel,
   onLogout,
   menu = true,
+  avatarUrl,
+  profileTo,
 }: {
   name: string;
   roleLabel: string;
   onLogout: () => void;
   menu?: boolean;
+  // Багшийн профайлын зураг, профайл руу очих холбоос (бусад үүрэгт байхгүй).
+  avatarUrl?: string | null;
+  profileTo?: string;
 }) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
@@ -67,14 +73,17 @@ export function UserCard({
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
   const initial = name.trim().charAt(0).toUpperCase() || roleLabel.charAt(0);
-  const avatar = (
-    <span
-      aria-hidden="true"
-      className="grid size-11 shrink-0 place-items-center rounded-full bg-gradient-to-br from-primary to-primary-hover font-display text-lg font-bold text-primary-foreground ring-2 ring-white"
-    >
-      {initial}
-    </span>
-  );
+  const avatar =
+    avatarUrl !== undefined ? (
+      <Avatar url={avatarUrl} name={name || roleLabel} />
+    ) : (
+      <span
+        aria-hidden="true"
+        className="grid size-11 shrink-0 place-items-center rounded-full bg-primary font-display text-lg font-bold text-primary-foreground"
+      >
+        {initial}
+      </span>
+    );
   const text = (
     <span className="min-w-0 flex-1">
       <span className="block truncate text-sm font-bold text-foreground-strong" data-testid="sidebar-name">
@@ -96,6 +105,15 @@ export function UserCard({
     <div className="relative" ref={ref}>
       {open ? (
         <div className="absolute bottom-full left-0 right-0 mb-2 grid gap-1 rounded-2xl border border-border-warm bg-white p-2 shadow-lg">
+          {profileTo ? (
+            <NavLink
+              to={profileTo}
+              className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-mid hover:bg-background-soft"
+            >
+              <UserRound className="size-4" />
+              Миний профайл
+            </NavLink>
+          ) : null}
           <NavLink
             to="/change-password"
             className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-mid hover:bg-background-soft"
@@ -131,7 +149,7 @@ export function UserCard({
 function Brand({ to, sub }: { to: string; sub: string }) {
   return (
     <NavLink to={to} className="flex min-h-12 items-center gap-3 no-underline">
-      <span className="grid size-11 place-items-center rounded-2xl bg-gradient-to-br from-primary to-primary-hover font-display text-xl font-black text-primary-foreground shadow-md">
+      <span className="grid size-11 place-items-center rounded-2xl bg-primary font-display text-xl font-black text-primary-foreground">
         π
       </span>
       <span className="leading-tight">
@@ -152,6 +170,8 @@ export function AppSidebar({
   roleLabel,
   onLogout,
   passwordLink = false,
+  avatarUrl,
+  profileTo,
 }: {
   items: NavItem[];
   ariaLabel: string;
@@ -162,6 +182,8 @@ export function AppSidebar({
   onLogout: () => void;
   // true бол карт цэсгүй, түүний дээр "Нууц үг солих" холбоос (сурагч, эцэг эх).
   passwordLink?: boolean;
+  avatarUrl?: string | null;
+  profileTo?: string;
 }) {
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-border-warm bg-white/85 backdrop-blur-md md:flex">
@@ -181,7 +203,14 @@ export function AppSidebar({
             Нууц үг солих
           </NavLink>
         ) : null}
-        <UserCard name={userName} roleLabel={roleLabel} onLogout={onLogout} menu={!passwordLink} />
+        <UserCard
+          name={userName}
+          roleLabel={roleLabel}
+          onLogout={onLogout}
+          menu={!passwordLink}
+          avatarUrl={avatarUrl}
+          profileTo={profileTo}
+        />
       </div>
     </aside>
   );

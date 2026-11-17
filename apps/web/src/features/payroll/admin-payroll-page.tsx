@@ -1,7 +1,7 @@
 import { LEDGER_TYPE_LABELS, type LedgerType } from "@pitoo/contracts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { PageHeader } from "@/app/app-shell";
 import { errorMessage, useBranches } from "@/features/admin/list-kit";
 import { ApiError, api, downloadFile } from "@/shared/api-client/client";
@@ -144,6 +144,9 @@ export function AdminPayrollPage() {
         subtitle="Олсон цалин, олгосон мөнгө, үлдэгдэл"
         action={
           <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" asChild>
+              <Link to="/admin/payroll/protocol">Цалингийн протокол</Link>
+            </Button>
             <Button variant="secondary" onClick={() => void exportFile("xlsx")}>
               Excel
             </Button>

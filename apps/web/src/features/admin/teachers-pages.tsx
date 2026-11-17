@@ -7,12 +7,12 @@ import { Link, useNavigate, useParams } from "react-router";
 import type { z } from "zod";
 import { PageHeader } from "@/app/app-shell";
 import { api } from "@/shared/api-client/client";
-import { formatMoney } from "@/shared/format/money";
 import { weekdayName } from "@/shared/format/date";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { DataTable, Pager, type Column } from "@/shared/ui/data-table";
 import { Field, FormError } from "@/shared/ui/field";
+import { PhotoUpload } from "@/shared/ui/photo-upload";
 import { Input } from "@/shared/ui/input";
 import { Modal } from "@/shared/ui/modal";
 import { StatusChip } from "@/shared/ui/status-chip";
@@ -21,6 +21,7 @@ import {
   useTeacher,
   useTeachers,
   type Credentials,
+  type TeacherDetail,
   type TeacherRow,
 } from "./directory-api";
 import {
@@ -127,11 +128,6 @@ export function AdminTeachersPage() {
     },
     { key: "classes", header: "Анги", cell: (t) => t.activeClasses },
     {
-      key: "rate",
-      header: "Цагийн үнэлгээ",
-      cell: (t) => (t.currentRate ? formatMoney(t.currentRate) : "Тогтоогоогүй"),
-    },
-    {
       key: "status",
       header: "Төлөв",
       cell: (t) => (
@@ -175,49 +171,58 @@ export function AdminTeachersPage() {
 
 type EditValues = z.input<typeof updateTeacherSchema>;
 
-function RateForm({ teacherId }: { teacherId: string }) {
+// ФШ-78: нийтийн сайтын "Багш нар" хэсэгт харагдах мэргэшил, зураг.
+function PublicProfileCard({ teacher }: { teacher: TeacherDetail }) {
   const invalidate = useInvalidateDirectory();
-  const [rate, setRate] = React.useState("");
-  const [from, setFrom] = React.useState("");
+  const [specialties, setSpecialties] = React.useState(teacher.specialties.join(", "));
+  const [saved, setSaved] = React.useState(false);
   const save = useMutation({
     mutationFn: () =>
-      api.post(`/teachers/${teacherId}/rates`, {
-        hourlyRate: rate.includes(".") ? rate : `${rate}.00`,
-        effectiveFrom: from,
+      api.patch(`/teachers/${teacher.id}`, {
+        specialties: specialties
+          .split(",")
+          .map((x) => x.trim())
+          .filter(Boolean),
       }),
     onSuccess: async () => {
-      setRate("");
-      setFrom("");
+      setSaved(true);
       await invalidate();
     },
   });
   return (
-    <form
-      className="mt-4 grid gap-2.5 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
-      onSubmit={(e) => {
-        e.preventDefault();
-        save.mutate();
-      }}
-    >
-      <Field label="Цагийн үнэлгээ (₮)" htmlFor="rate-amount">
-        <Input
-          id="rate-amount"
-          inputMode="decimal"
-          placeholder="5000"
-          value={rate}
-          onChange={(e) => setRate(e.target.value)}
-        />
-      </Field>
-      <Field label="Хүчинтэй болох огноо" htmlFor="rate-from">
-        <Input id="rate-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-      </Field>
-      <Button type="submit" disabled={!rate || !from || save.isPending}>
-        Үнэлгээ нэмэх
-      </Button>
-      <div className="sm:col-span-3">
-        <FormError message={errorMessage(save.error)} />
-      </div>
-    </form>
+    <Card>
+      <CardHeader>
+        <CardTitle>Нийтийн сайтад харагдах</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="mb-4" data-testid="teacher-photo">
+          <PhotoUpload
+            uploadPath={`/teachers/${teacher.id}/photo`}
+            currentUrl={teacher.photoUrl}
+            name={teacher.fullName}
+            onUploaded={invalidate}
+          />
+        </div>
+        <form
+          noValidate
+          className="grid gap-3.5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setSaved(false);
+            save.mutate();
+          }}
+        >
+          <Field label="Мэргэшил" htmlFor="pp-specialties" hint="Таслалаар тусгаарлана: AS & A Level, IGCSE">
+            <Input id="pp-specialties" value={specialties} onChange={(e) => setSpecialties(e.target.value)} />
+          </Field>
+          <FormError message={errorMessage(save.error)} />
+          {saved ? <p className="text-sm font-semibold text-success">Хадгалагдлаа.</p> : null}
+          <Button type="submit" disabled={save.isPending} className="w-fit">
+            Хадгалах
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -304,28 +309,9 @@ export function AdminTeacherDetailPage() {
             </div>
           </CardContent>
         </Card>
+        <PublicProfileCard teacher={t} />
 
         <div className="grid content-start gap-5">
-          <Card>
-            <CardHeader>
-              <CardTitle>Цагийн үнэлгээ</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {t.rates.length === 0 ? (
-                <p className="text-sm text-muted">Үнэлгээ тогтоогоогүй байна.</p>
-              ) : (
-                <ul className="divide-y divide-border-warm text-sm">
-                  {t.rates.map((r) => (
-                    <li key={r.id} className="flex justify-between py-2">
-                      <span>{formatMoney(r.hourlyRate)} / цаг</span>
-                      <span className="text-muted">{r.effectiveFrom}-аас</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <RateForm teacherId={t.id} />
-            </CardContent>
-          </Card>
           <Card>
             <CardHeader>
               <CardTitle>Ангиуд</CardTitle>

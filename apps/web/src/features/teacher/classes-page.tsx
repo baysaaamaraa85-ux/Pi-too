@@ -10,10 +10,10 @@ import { ApiError, api } from "@/shared/api-client/client";
 import { weekdayName, WEEKDAY_NAMES } from "@/shared/format/date";
 import type { ClassDto } from "@/shared/api-client/types";
 import { Button } from "@/shared/ui/button";
-import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Field, FormError, Select } from "@/shared/ui/field";
-import { Input } from "@/shared/ui/input";
+import { TimeSelect24 } from "@/shared/ui/time-select";
+import { ClassDeleteModal } from "./class-delete-modal";
 import { useTeacherClasses } from "./today-page";
 
 const formSchema = createClassSchema.omit({ teacherId: true }).extend({
@@ -43,14 +43,6 @@ export function TeacherClassesPage() {
   });
 
   const [classToDelete, setClassToDelete] = React.useState<ClassDto | null>(null);
-  const remove = useMutation({
-    mutationFn: (id: string) => api.delete(`/classes/${id}`),
-    onSuccess: () => {
-      setClassToDelete(null);
-      void queryClient.invalidateQueries({ queryKey: ["classes"] });
-      void queryClient.invalidateQueries({ queryKey: ["lessons"] });
-    },
-  });
   const serverError =
     create.error instanceof ApiError ? create.error.problem.detail : create.error ? "Алдаа гарлаа." : null;
 
@@ -87,8 +79,13 @@ export function TeacherClassesPage() {
                 ))}
               </Select>
             </Field>
-            <Field label="Эхлэх цаг" htmlFor="startTime" error={errors.startTime?.message}>
-              <Input id="startTime" type="time" {...form.register("startTime")} />
+            <Field label="Эхлэх цаг (24 цагаар)" htmlFor="startTime" error={errors.startTime?.message}>
+              <TimeSelect24
+                id="startTime"
+                label="Эхлэх цаг"
+                value={form.watch("startTime")}
+                onChange={(v) => form.setValue("startTime", v, { shouldValidate: true })}
+              />
             </Field>
             <div className="sm:col-span-3">
               <FormError message={serverError} />
@@ -120,10 +117,7 @@ export function TeacherClassesPage() {
               variant="secondary"
               size="sm"
               className="mt-4"
-              onClick={() => {
-                remove.reset();
-                setClassToDelete(cls);
-              }}
+              onClick={() => setClassToDelete(cls)}
             >
               Анги устгах
             </Button>
@@ -131,19 +125,7 @@ export function TeacherClassesPage() {
         ))}
       </div>
 
-      <ConfirmDialog
-        open={classToDelete !== null}
-        title="Анги устгах уу?"
-        description={`${
-          remove.error instanceof ApiError ? remove.error.problem.detail + " " : ""
-        }${
-          classToDelete ? `${weekdayName(classToDelete.weekday)} ${classToDelete.startTime} ангийг устгавал ирэх хичээлүүд хуваариас арилна. ` : ""
-        }Өнгөрсөн хичээл, ирцийн түүх хадгалагдана.`}
-        confirmLabel="Устгах"
-        busy={remove.isPending}
-        onConfirm={() => classToDelete && remove.mutate(classToDelete.id)}
-        onClose={() => setClassToDelete(null)}
-      />
+      {classToDelete ? <ClassDeleteModal cls={classToDelete} onClose={() => setClassToDelete(null)} /> : null}
     </>
   );
 }

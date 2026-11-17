@@ -15,6 +15,9 @@ export interface BranchDto {
   id: string;
   name: string;
   address: string;
+  description: string | null;
+  phones: string[];
+  photoUrl: string | null;
 }
 
 export interface ProgramDto {

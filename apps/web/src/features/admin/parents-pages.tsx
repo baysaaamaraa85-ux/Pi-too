@@ -14,6 +14,7 @@ import { Field, FormError } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { Modal } from "@/shared/ui/modal";
 import { StatusChip } from "@/shared/ui/status-chip";
+import { formatHours } from "@/shared/format/hours";
 import {
   useInvalidateDirectory,
   useParent,
@@ -271,7 +272,7 @@ export function AdminParentDetailPage() {
                       ) : (
                         child.contracts.map((c) => (
                           <li key={c.id}>
-                            {c.programName}: {c.remainingVisits}/{c.totalVisits} ирэлт ·{" "}
+                            {c.programName}: {formatHours(c.remainingHours)}/{formatHours(c.totalHours)} цаг ·{" "}
                             {CONTRACT_STATUS_LABELS[c.status]}
                           </li>
                         ))

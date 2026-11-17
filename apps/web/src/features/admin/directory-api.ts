@@ -16,9 +16,11 @@ export interface ContractSummary {
   id: string;
   programName: string;
   price: string;
+  discountPercent: string;
+  listPrice: string | null;
   status: ContractStatus;
-  totalVisits: number;
-  remainingVisits: number;
+  totalHours: number;
+  remainingHours: number;
   leavesLeft: number;
   freeReviewsLeft: number;
   meetingsCount: number;
@@ -36,7 +38,6 @@ export interface TeacherRow {
   email: string | null;
   isActive: boolean;
   mustChangePassword: boolean;
-  currentRate: string | null;
   activeClasses: number;
   branches: { id: string; name: string }[];
 }
@@ -48,8 +49,10 @@ export interface TeacherDetail {
   email: string | null;
   isActive: boolean;
   mustChangePassword: boolean;
+  // Нийтийн сайтад харагдах мэргэшил, зураг (ФШ-78).
+  specialties: string[];
+  photoUrl: string | null;
   balance: string;
-  rates: { id: string; hourlyRate: string; effectiveFrom: string }[];
   classes: {
     id: string;
     branchName: string;

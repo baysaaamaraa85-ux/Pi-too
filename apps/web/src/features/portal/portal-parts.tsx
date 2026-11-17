@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import { StatusChip } from "@/shared/ui/status-chip";
 import { cn } from "@/shared/ui/utils";
 import { useRequestLeave, type PortalContract, type PortalStudent } from "./portal-api";
+import { formatHours } from "@/shared/format/hours";
 
 // Хэд хэдэн хүүхэдтэй эцэг эх "?child=" параметрээр хүүхдээ сонгоно (хуудас шинэчлэгдэхэд хэвээр).
 export function useSelectedChild(students: PortalStudent[] | undefined) {
@@ -112,10 +113,10 @@ export function ContractSummary({ contract }: { contract: PortalContract }) {
             Багцын үлдэгдэл
           </dt>
           <dd className="mt-1 text-2xl font-bold text-foreground-strong">
-            {contract.remainingVisits}
-            <span className="text-base font-semibold text-muted"> / {contract.totalVisits}</span>
+            {formatHours(contract.remainingHours)}
+            <span className="text-base font-semibold text-muted"> / {formatHours(contract.totalHours)} цаг</span>
           </dd>
-          <Meter value={contract.remainingVisits} max={contract.totalVisits} />
+          <Meter value={contract.remainingHours} max={contract.totalHours} />
         </div>
         <div>
           <dt className="text-xs font-bold uppercase tracking-[0.14em] text-muted">
