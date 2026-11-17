@@ -29,7 +29,7 @@
 | ФШ-07 | Хэрэгжсэн | /branches, `/admin/catalog`, `catalog.service.test.ts` | | |
 | ФШ-08 | Хэрэгжсэн | /programs, ADR-013 тест | | |
 | ФШ-09 | Хэрэгжсэн | /settings (аудиттай), `settings` хүснэгт | Админы Тохиргооны хуудсанд шинэ түлхүүрүүдийн засвар (давтлагын босго, 60% сул сэдэв) | 6 |
-| ФШ-10 | Хэрэгжсэн | POST /teachers/{id}/rates, багшийн дэлгэрэнгүйд маягт, `payroll.ledger.test.ts` (14 ба 15-ны хил) |  |  |
+| ФШ-10 | Өөрчлөгдсөн (D-67) | Админ багшид ерөнхий үнэлгээ тогтоодог байсан. Одоо багш хүүхэд (гэрээ) тус бүр дээрээ `PUT /contracts/{id}/rate` (нэг утга, хэзээ ч засна, бүх хичээлд үйлчилнэ, D-68; `payroll.rates.test.ts`, `payroll.students.test.ts`). Админ хөтөлбөр бүрийн протокол (жишиг) тавьж тулгана | Шаардлага (01-requirements ФШ-10) хуучин текстээрээ үлдсэн, D-67-аар солигдсон | Шаардлагын баримтыг шинэчлэх эсэхийг шийдэх |
 | ФШ-11 | Хэрэгжсэн | GET /setup/status (дараалал, түгжээг сервер тооцно), `/admin/setup`, `directory.service.test.ts` | | |
 
 ### М3. Элсэлт, гэрээ, түр зогсолт
@@ -47,7 +47,7 @@
 | ФШ-73 | Хэрэгжсэн | Түр зогсоосон гэрээ ирцийн жагсаалтад гарахгүй, PUT 409, `attendance.record.test.ts` |  |  |
 | ФШ-74 | Хэрэгжсэн | `pauseContract` (holdSeat=false бол бүртгэл хаана), `enrollment.rules.test.ts` | | |
 | ФШ-75 | Хэрэгжсэн | POST /contracts/{id}/resume, `/teacher/students` "Үргэлжлүүлэх", тест, e2e | | |
-| ФШ-78 | Хэрэгжсэн | /public/branches, `/programs`, `/teachers`, `/contact` | | |
+| ФШ-78 | Хэрэгжсэн | `/public/teachers`, `/public/programs`, `/public/branches`, `/public/overview` (бүгд DB-ээс, утас гарахгүй), нүүр, `/programs`, `/teachers`, `/contact`, админы "Нийтийн сайтад харагдах" карт, `directory.public.test.ts`, `e2e/13-public.spec.ts`; D-66: `/about`, `/branches` тусдаа хуудас, багш болон салбарын зураг upload (`directory.photo.test.ts`), хөтөлбөрийн ангиллын үнэ | | |
 | ФШ-79 | Хэрэгжсэн | POST /placement-requests (rate-limit), `/admin/requests`, тест | | |
 
 ### М4. Хуваарь ба анги
@@ -110,12 +110,12 @@
 
 | Код | Төлөв | Хаана байгаа | Юу дутуу | Шат |
 | --- | --- | --- | --- | --- |
-| ФШ-53 | Хэрэгжсэн | `recordAttendanceEarningInTx`, ирцийн мөр бүрт нэг EARNING (ADR-017), `attendance.record.test.ts` (5 000 x 4 x 2 = 40 000) |  |  |
+| ФШ-53 | Хэрэгжсэн (D-67-оор өөрчлөгдсөн) | `recordAttendanceEarningInTx`, ирцийн мөр бүрт нэг EARNING (ADR-017). Үнэлгээ нь тухайн хүүхдийн (гэрээний) үнэлгээ, ах дүүгийн хөнгөлөлтийн хувиар буурна. `attendance.record.test.ts` (5 000 x 4 x 2 = 40 000), `payroll.rates.test.ts` (40 000 -> 36 000) |  |  |
 | ФШ-54 | Хэрэгжсэн | `effectsOf(...).counted` ирцийн төлвөөр, төлбөрөөс хамааралгүй (`attendance.rules.test.ts`) |  |  |
 | ФШ-55 | Хэрэгжсэн | POST /payouts (advisory lock, Idempotency-Key, 409 баталгаажуулалт), `/admin/payroll`, `payroll.ledger.test.ts`, e2e |  |  |
 | ФШ-56 | Хэрэгжсэн | GET /ledger (сурагч, салбар, төрөл, огнооны шүүлт), `/admin/payroll` (30 с refetch), `payroll.ledger.test.ts`, e2e |  |  |
 | ФШ-57 | Хэрэгжсэн | Тасралтгүй үлдэгдэл SUM (-50 000 + 80 000 = 30 000), `payroll.ledger.test.ts` |  |  |
-| ФШ-58 | Хэрэгжсэн | `/teacher/salary` (хичээлээр бүлэглэсэн), GET /ledger эзэмшлийн шалгалт, `payroll.ledger.test.ts`, e2e |  |  |
+| ФШ-58 | Хэрэгжсэн (D-68-аар өөрчлөгдсөн) | `/teacher/salary` сурагч бүрээр, "орсон цаг" дээр дарахад хичээл бүрийн popup (`GET /payroll/my-students`, `/entries`), төлөгдөөгүй хүүхдийн эцэг эхэд мэдэгдэл (`POST /contracts/{id}/payment-reminder`), `payroll.students.test.ts`, e2e `06-payroll` |  |  |
 | ФШ-59 | Хэрэгжсэн | GET /reports/payroll?format=xlsx|pdf (exceljs, pdfkit), нийлбэр тэнцүү, `payroll.ledger.test.ts` |  |  |
 
 ### М9. Мэдэгдэл

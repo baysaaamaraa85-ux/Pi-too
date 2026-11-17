@@ -49,13 +49,13 @@ test("ФБШ-15: сүлжээг салгаж ирц хадгалаад, холб
   // 3. Сервер дээр сурагч бүрт яг нэг ирц, багц нэг л удаа хасагдсан.
   const sheetAfter = await request.get(`/api/v1/lessons/${lessonId}/attendance`, { headers: bearer(teacher.token) });
   const rows = ((await sheetAfter.json()) as {
-    rows: { attendanceId: string | null; contractId: string; remainingVisits: number; status: string }[];
+    rows: { attendanceId: string | null; contractId: string; remainingHours: number; status: string }[];
   }).rows;
   expect(rows).toHaveLength(2);
   for (const row of rows) {
     expect(row.attendanceId).not.toBeNull();
     expect(row.status).toBe("PRESENT");
-    expect(row.remainingVisits).toBe(24);
+    expect(row.remainingHours).toBe(72);
   }
   expect(rows.map((r) => r.contractId).sort()).toEqual([...contractIds].sort());
 });

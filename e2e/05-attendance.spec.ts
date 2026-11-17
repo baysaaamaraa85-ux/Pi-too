@@ -44,7 +44,7 @@ test("багш өнөөдрийн жагсаалтаас ирцийг 2 товш
 
   for (const s of enrolled) {
     const row = page.getByTestId("attendance-row").filter({ hasText: s.name });
-    await expect(row.getByTestId("row-balance")).toHaveText("24/25");
+    await expect(row.getByTestId("row-balance")).toHaveText("72/75 цаг");
     await expect(row.getByTestId("row-status")).toHaveText("Ирсэн");
   }
 });
@@ -64,9 +64,9 @@ test("ФШ-28, 30: чөлөө хүссэн сурагч урьдчилан Ир�
 
   await page.getByRole("button", { name: "Хадгалах" }).click();
   await expect(absent.getByTestId("row-status")).toHaveText("Чөлөөтэй");
-  await expect(absent.getByTestId("row-balance")).toHaveText("25/25");
+  await expect(absent.getByTestId("row-balance")).toHaveText("75/75 цаг");
   const present = page.getByTestId("attendance-row").filter({ hasText: enrolled[1]!.name });
-  await expect(present.getByTestId("row-balance")).toHaveText("24/25");
+  await expect(present.getByTestId("row-balance")).toHaveText("72/75 цаг");
 });
 
 test("ФШ-33, 34, 35: ирц засахад төлөв, багц шинэчлэгдэж, админ түүхийг харна", async ({
@@ -87,7 +87,7 @@ test("ФШ-33, 34, 35: ирц засахад төлөв, багц шинэчлэ
   await page.getByRole("alertdialog").or(page.getByRole("dialog").last()).getByRole("button", { name: "Засах", exact: true }).last().click();
 
   await expect(row.getByTestId("row-status")).toHaveText("Чөлөөтэй");
-  await expect(row.getByTestId("row-balance")).toHaveText("25/25");
+  await expect(row.getByTestId("row-balance")).toHaveText("75/75 цаг");
 });
 
 test("ФШ-33: 25 цагийн дараа багшид хаалттай, админ шалтгаантай бүртгэнэ", async ({ page, request }) => {
@@ -148,4 +148,58 @@ test.describe("ФБШ-10: утасны дэлгэц", () => {
       expect(box?.height ?? 0, name).toBeGreaterThanOrEqual(44);
     }
   });
+});
+
+// D-70: багц академик цагаар. Сурагч төлөвлөснөөс их, бага сууж болно: багш "цаг нэмэгдсэн" гэж тэмдэглээд
+// хэдээс хэдэн цагийн хооронд суусныг бичнэ, багцаас орсон цагаараа (минут / 40), цалин бодит цагаар хасагдана.
+// Хичээл 100 минутын өмнө эхэлсэн: хоногийн төгсгөлд цаг өдөр шилжихээс сэргийлж сунгалтыг (минут) цагт тохируулна.
+test("D-70: цаг нэмэгдсэн ирц: орсон цагаараа (минут / 40) багцаас хасагдаж, цалин бодит цагаар бодогдоно", async ({ page, request }) => {
+  const { teacher, lessonId, enrolled } = await setup(request, 100);
+  await loginTeacher(page, teacher);
+  await page.goto(`/teacher/attendance/${lessonId}`);
+
+  const name = enrolled[0]!.name;
+  const row = page.getByTestId("attendance-row").filter({ hasText: name });
+  await expect(row.getByTestId("row-balance")).toHaveText("75/75 цаг");
+
+  await row.getByLabel(`${name}: цаг өөрчлөгдсөн`).check();
+  const startH = Number(await row.getByLabel(`${name}: эхэлсэн цаг: цаг`).inputValue());
+  const startM = Number(await row.getByLabel(`${name}: эхэлсэн цаг: минут`).inputValue());
+  // Төлөвлөсөн 120 минутаас их (160) эсвэл бага (80, 40) сунгалтаас хоногт багтах хамгийн томыг сонгоно.
+  // Минутын сонголт 5-ын үржвэр тул дуусах цагийг 5 минутад дээш тоймилно.
+  const start = startH * 60 + startM;
+  const end5 = (ext: number) => Math.ceil((start + ext) / 5) * 5;
+  const ext = [160, 80, 40].find((m) => end5(m) <= 23 * 60 + 55);
+  test.skip(ext === undefined, "Хичээл хоногийн төгсгөлд эхэлсэн тул цаг өдөр шилжинэ");
+  const end = end5(ext!);
+  const minutes = end - start;
+  await row.getByLabel(`${name}: дууссан цаг: цаг`).selectOption(String(Math.floor(end / 60)).padStart(2, "0"));
+  await row.getByLabel(`${name}: дууссан цаг: минут`).selectOption(String(end % 60).padStart(2, "0"));
+  const academic = Math.round((minutes / 40) * 100) / 100;
+  const fmt = (n: number) => String(Number(n.toFixed(2)));
+  await expect(row.getByTestId("actual-preview")).toContainText(`${minutes} минут = ${fmt(academic)} академик цаг`);
+
+  await page.getByRole("button", { name: "Хадгалах" }).click();
+  await expect(row.getByTestId("row-status")).toHaveText("Ирсэн");
+  await expect(row.getByTestId("row-balance")).toHaveText(`${fmt(75 - academic)}/75 цаг`);
+  await expect(row.getByTestId("row-hours")).toContainText(`${fmt(academic)} академик цаг`);
+
+  // Багшийн цалин: бодит минутаар (цалингийн цаг = минут / 60).
+  await page.getByRole("navigation", { name: "Багшийн цэс" }).getByRole("link", { name: "Цалин" }).click();
+  const card = page.getByTestId("salary-student").filter({ hasText: name });
+  await expect(card.getByTestId("salary-academic")).toContainText(fmt(academic));
+  await expect(card.getByTestId("salary-hours")).toHaveText(fmt(minutes / 60));
+});
+
+test("D-70: дуусах цаг эхлэхээс өмнө бол Хадгалах идэвхгүй, алдаа харагдана", async ({ page, request }) => {
+  const { teacher, lessonId, enrolled } = await setup(request, 100);
+  await loginTeacher(page, teacher);
+  await page.goto(`/teacher/attendance/${lessonId}`);
+  const name = enrolled[0]!.name;
+  const row = page.getByTestId("attendance-row").filter({ hasText: name });
+  await row.getByLabel(`${name}: цаг өөрчлөгдсөн`).check();
+  await row.getByLabel(`${name}: дууссан цаг: цаг`).selectOption("00");
+  await row.getByLabel(`${name}: дууссан цаг: минут`).selectOption("00");
+  await expect(row.getByRole("alert")).toContainText("Дуусах цаг эхлэх цагаас хойш");
+  await expect(page.getByRole("button", { name: "Хадгалах" })).toBeDisabled();
 });

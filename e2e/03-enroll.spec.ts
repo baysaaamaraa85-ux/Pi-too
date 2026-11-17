@@ -47,7 +47,7 @@ test("багш сурагч бүртгэхэд админы жагсаалтад
   await expect(page.getByTestId("class-options")).toHaveCount(0);
   await page.getByRole("button", { name: "Бүртгэх", exact: true }).click();
 
-  await expect(page.getByTestId("enroll-done")).toContainText("багцын үлдэгдэл 25");
+  await expect(page.getByTestId("enroll-done")).toContainText("багцын үлдэгдэл 75 академик цаг");
   await expect(page.getByTestId("enroll-done")).toContainText("чөлөөний эрх 3");
   const parent = await readCredentials(page);
 
@@ -62,7 +62,7 @@ test("багш сурагч бүртгэхэд админы жагсаалтад
   await page.getByLabel("Нэр, эцэг эхийн утасаар хайх").fill(parentPhone);
   const row = page.getByRole("row").filter({ hasText: studentName });
   await expect(row).toBeVisible();
-  await expect(row.getByTestId("package-balance")).toHaveText("25/25");
+  await expect(row.getByTestId("package-balance")).toHaveText("75/75 цаг");
   await expect(row).toContainText("10:00");
   await expect(row).toContainText(`Багш ${teacher.phone}`);
 
@@ -123,6 +123,7 @@ test("ФШ-72, 75: багш сурагчийг урт хугацааны чөл�
 
   await card.getByRole("button", { name: "Үргэлжлүүлэх" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Үргэлжлүүлэх" }).click();
-  await expect(card).toContainText("Идэвхтэй");
-  await expect(card).toContainText("25/25");
+  // Идэвхтэй гэрээнд төлөвийн тэмдэг гарахгүй (D-73), зөвхөн түр зогссон үед гарна.
+  await expect(card).not.toContainText("Түр зогсоосон");
+  await expect(card).toContainText("75/75");
 });

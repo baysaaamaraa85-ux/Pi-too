@@ -57,12 +57,6 @@ export async function createTeacherWithClasses(
   ).json()) as { id: string }[];
   const branchId = branches[0]!.id;
 
-  const rate = await request.post(`/api/v1/teachers/${temp.id}/rates`, {
-    headers: bearer(admin.token),
-    data: { hourlyRate: "5000.00", effectiveFrom: "2026-01-01" },
-  });
-  expect(rate.status()).toBe(201);
-
   const teacher = await apiLogin(request, phone, password);
   const classIds: string[] = [];
   for (const weekday of weekdays) {
@@ -84,12 +78,28 @@ export async function firstProgramId(request: APIRequestContext): Promise<string
   return programs[0]!.id;
 }
 
-// Багшийн нэрийн өмнөөс сурагч бүртгэнэ (API).
+// D-67, D-68: багш хүүхэд бүр дээрээ цагийн цалингаа гараар оруулна (хэзээ ч засна, бүх хичээлд үйлчилнэ).
+export async function setRateViaApi(
+  request: APIRequestContext,
+  teacherToken: string,
+  contractId: string,
+  hourlyRate = "5000.00",
+) {
+  const res = await request.put(`/api/v1/contracts/${contractId}/rate`, {
+    headers: bearer(teacherToken),
+    data: { hourlyRate },
+  });
+  expect(res.status()).toBe(200);
+  return (await res.json()) as { adjusted: number };
+}
+
+// Багшийн нэрийн өмнөөс сурагч бүртгэнэ (API). rate: false биш бол багш хүүхдэд 5 000 ₮-ийн үнэлгээ оруулна
+// (өмнөх тестүүдийн 5 000 x 2 цаг = 10 000 ₮ тооцоо хэвээр байхын тулд).
 export async function enrollViaApi(
   request: APIRequestContext,
   token: string,
   classIds: string[],
-  extra: { studentName?: string; parentPhone?: string; studentPhone?: string } = {},
+  extra: { studentName?: string; parentPhone?: string; studentPhone?: string; rate?: string | false } = {},
 ) {
   const now = new Date().toISOString();
   const res = await request.post("/api/v1/enrollments", {
@@ -106,6 +116,10 @@ export async function enrollViaApi(
       consentAt: now,
     },
   });
+  if (res.status() === 201 && extra.rate !== false) {
+    const { contractId } = (await res.json()) as { contractId: string };
+    await setRateViaApi(request, token, contractId, extra.rate ?? "5000.00");
+  }
   return res;
 }
 

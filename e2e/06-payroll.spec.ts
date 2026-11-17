@@ -112,7 +112,7 @@ test("ФБШ-31: үлдэгдлээс их олголтод баталгаажу
   await expect(page.getByRole("row").filter({ hasText: "Олголт" })).toBeVisible();
 });
 
-test("ФШ-58: багш өөрийн цалинг хичээлээр, сурагчийн нэр, дүнтэй харна", async ({ page, request }) => {
+test("ФШ-58, D-68: багш цалингаа сурагч бүрээр харна: цаг, цагийн цалин, авах цалин, төлбөрийн төлөв", async ({ page, request }) => {
   const { teacher, lessonId, enrolled } = await setup(request, 2);
   await saveViaApi(request, teacher.token, lessonId, enrolled.map((e) => ({ contractId: e.contractId, present: true })));
 
@@ -121,8 +121,52 @@ test("ФШ-58: багш өөрийн цалинг хичээлээр, сураг
   await page.getByRole("navigation", { name: "Багшийн цэс" }).getByRole("link", { name: "Цалин" }).click();
 
   await expect(page.getByTestId("card-earned")).toContainText("20 000 ₮");
-  await expect(page.getByTestId("group-total")).toHaveText("20 000 ₮");
-  for (const s of enrolled) await expect(page.getByText(s.name)).toBeVisible();
+  // Өдрөөр биш, сурагч бүрээр: хоёр сурагч, тус бүр нэг карт.
+  await expect(page.getByTestId("salary-student")).toHaveCount(2);
+  for (const s of enrolled) {
+    const card = page.getByTestId("salary-student").filter({ hasText: s.name });
+    await expect(card.getByTestId("salary-expected")).toContainText("75");
+    await expect(card.getByTestId("salary-academic")).toContainText("3");
+    await expect(card.getByTestId("salary-hours")).toHaveText("2");
+    await expect(card.getByTestId("salary-rate")).toContainText("5 000 ₮");
+    await expect(card.getByTestId("salary-earned")).toContainText("10 000 ₮");
+    await expect(card.getByTestId("salary-payment")).toHaveText("Төлөгдөөгүй");
+  }
+
+  // "Орсон цаг" дээр дарахад хичээл бүрийн оролт popup-д гарна.
+  const first = page.getByTestId("salary-student").filter({ hasText: enrolled[0]!.name });
+  await first.getByTestId("salary-hours").click();
+  await expect(page.getByTestId("entry-row")).toHaveCount(1);
+  // D-73: зөвхөн огноо, цаг, цалин (хугацаа, төлөв, томьёо давхардуулахгүй).
+  await expect(page.getByTestId("entry-row")).toContainText("2 цаг");
+  await expect(page.getByTestId("entry-row")).not.toContainText("120 мин");
+  await expect(page.getByTestId("entry-amount")).toHaveText("10 000 ₮");
+  await page.keyboard.press("Escape");
+
+  // Цагийн цалинг засахад (хүүхдийн хуудаснаас) авах цалин шинэчлэгдэнэ.
+  await first.getByRole("link", { name: "Цагийн цалинг засах" }).click();
+  await page.locator('input[id^="rate-"]').fill("7500");
+  await page.getByTestId("contract-rate").getByRole("button", { name: "Хадгалах" }).click();
+  await expect(page.getByTestId("contract-rate-saved")).toBeVisible();
+  await page.getByRole("navigation", { name: "Багшийн цэс" }).getByRole("link", { name: "Цалин" }).click();
+  await expect(page.getByTestId("salary-student").filter({ hasText: enrolled[0]!.name }).getByTestId("salary-earned")).toContainText("15 000 ₮");
+  await logout(page);
+});
+
+test("D-68: багш төлөгдөөгүй хүүхдийн эцэг эхэд мэдэгдэл илгээнэ, өдөрт нэг удаа", async ({ page, request }) => {
+  const { teacher, enrolled } = await setup(request, 1);
+  await login(page, teacher.phone, teacher.password);
+  await expect(page).toHaveURL(/\/teacher$/);
+  await page.getByRole("navigation", { name: "Багшийн цэс" }).getByRole("link", { name: "Цалин" }).click();
+
+  const card = page.getByTestId("salary-student").filter({ hasText: enrolled[0]!.name });
+  await card.getByRole("button", { name: "Эцэг эхэд мэдэгдэл илгээх" }).click();
+  await expect(card.getByTestId("reminder-sent")).toBeVisible();
+  await expect(card.getByText("Сүүлд илгээсэн")).toBeVisible();
+
+  // Дахин илгээхийг сервер татгалзана.
+  await card.getByRole("button", { name: "Эцэг эхэд мэдэгдэл илгээх" }).click();
+  await expect(card.getByRole("alert")).toContainText("өнөөдөр");
   await logout(page);
 });
 

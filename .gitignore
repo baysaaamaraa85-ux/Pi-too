@@ -13,6 +13,9 @@ coverage
 **/.windsurf/
 **/skills-lock.json
 
+# Хэрэглэгчийн оруулсан зураг (багш, салбар)
+apps/api/uploads
+
 # Playwright
 test-results
 playwright-report

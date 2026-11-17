@@ -28,7 +28,9 @@ test("ФШ-19, 25: багш анги үүсгэж, давхцсан цагт с�
   const create = async () => {
     await page.getByLabel("Салбар", { exact: true }).selectOption({ index: 1 });
     await page.getByLabel("Гараг", { exact: true }).selectOption("3");
-    await page.getByLabel("Эхлэх цаг", { exact: true }).fill("10:00");
+    // 24 цагийн сонголт (AM/PM-гүй): цаг, минутыг тусад нь.
+    await page.getByLabel("Эхлэх цаг: цаг").selectOption("10");
+    await page.getByLabel("Эхлэх цаг: минут").selectOption("00");
     await page.getByRole("button", { name: "Анги үүсгэх" }).click();
   };
   await create();
@@ -40,7 +42,8 @@ test("ФШ-19, 25: багш анги үүсгэж, давхцсан цагт с�
   await expect(page.getByText("Лхагва · 10:00")).toHaveCount(1);
 
   await page.getByRole("button", { name: "Анги устгах" }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Устгах" }).click();
+  await expect(page.getByTestId("class-empty")).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Анги устгах" }).click();
   await expect(page.getByText("Лхагва · 10:00")).toHaveCount(0);
 });
 
@@ -48,6 +51,8 @@ test("ФШ-24: багш хуваариас хичээлээ цуцалж, цуц
   const teacher = await createTeacherWithClasses(request, weekdaysExceptToday(2));
   await loginTeacher(page, teacher);
   await nav(page).getByRole("link", { name: "Хуваарь" }).click();
+  // Үндсэн харагдац нь долоо хоногоор (D-69). Хичээл цуцлах нь "Ирэх хичээлүүд" табд.
+  await page.getByRole("tab", { name: "Ирэх хичээлүүд" }).click();
 
   const first = page.getByRole("button", { name: "Цуцлах", exact: true }).first();
   await expect(first).toBeVisible();
@@ -107,13 +112,14 @@ test("ФБШ-10: багшийн бүх хуудсанд хүрэх товч, т�
     `/teacher/attendance/${lessonId}`,
     "/teacher/salary",
     "/teacher/enroll",
+    "/teacher/profile",
   ];
   for (const path of paths) {
     await page.goto(path);
     await page.waitForLoadState("networkidle");
     const small = await page.evaluate(() => {
       const els = document.querySelectorAll<HTMLElement>(
-        "main button, main select, main input:not([type=checkbox]):not([type=radio]), header button, header a, nav a",
+        "main button, main select, main input:not([type=checkbox]):not([type=radio]):not([type=file]), header button, header a, nav a",
       );
       const bad: string[] = [];
       for (const el of els) {
