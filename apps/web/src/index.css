@@ -72,6 +72,22 @@ body {
   animation: tcard-scroll 32s linear infinite;
 }
 
+/* Цувирдаг цэс нээгдэх: 150ms, 6px (хурдан, зөөлөн). Төвлөрүүлэх -translate-x нь тусдаа `translate` property тул энд зөвхөн босоо */
+@keyframes dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@utility animate-dropdown {
+  animation: dropdown-in 150ms ease-out both;
+}
+
 @utility animate-fade-up {
   animation: fade-up 0.5s ease both;
 }
@@ -99,4 +115,15 @@ html {
 /* Serif гарчиг, тоо: бүх дэлгэцэнд ижил (lining) цифр */
 .font-display {
   font-variant-numeric: lining-nums;
+}
+
+/*
+ * Нийтийн сайтын (PublicLayout) гарчиг, тооны фонт: Source Serif 4 (самбаруудтай ижил). Монгол Ү, ү, Ө, ө, ₮ бүрэн, ү нь шулуун сүүл,
+ * тэгш хөлтэй (Times-тэй адил). Өмнө нь Bodoni Moda (кирилл үсэггүй, Times-тэй холилдсон), дараа нь Playfair Display (ү нь дэгээ шиг
+ * муруй, ₮ тэмдэггүй) байсан бөгөөд хэрэглэгч сонин гэж үзсэн.
+ * Бүх гарчиг нэг жинтэй (700), нарийн зайтай: компонент бүрийн font-black, tracking-[-0.04em] нь Bodoni-д зориулсан тул энд цэгцэлнэ.
+ */
+.classic-type .font-display {
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
