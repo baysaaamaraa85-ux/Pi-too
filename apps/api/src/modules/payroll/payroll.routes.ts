@@ -12,3 +12,12 @@ payrollRouter.get("/ledger", authorize("ADMIN", "TEACHER"), controller.listLedge
 payrollRouter.get("/payroll/summary", authorize("ADMIN"), controller.payrollSummary);
 payrollRouter.post("/payouts", authorize("ADMIN"), controller.createPayout);
 payrollRouter.get("/reports/payroll", authorize("ADMIN"), controller.exportReport);
+
+// D-67: багш хүүхэд тус бүр дээрээ цагийн үнэлгээгээ оруулна (өөрийн ангийн сурагч), захирал протоколоор тулгана.
+payrollRouter.get("/payroll/my-rates", authorize("TEACHER"), controller.listMyRates);
+payrollRouter.put("/contracts/:id/rate", authorize("TEACHER"), controller.setContractRate);
+payrollRouter.get("/payroll/rate-protocol", authorize("ADMIN"), controller.getRateProtocol);
+
+// D-68: багшийн цалин сурагч бүрээр ба "орсон цаг" дээр дарахад хичээл бүрийн дэлгэрэнгүй.
+payrollRouter.get("/payroll/my-students", authorize("TEACHER"), controller.listMyStudents);
+payrollRouter.get("/payroll/my-students/:id/entries", authorize("TEACHER"), controller.listStudentEntries);

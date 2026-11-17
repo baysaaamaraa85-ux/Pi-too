@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authenticate } from "../../shared/rbac/authenticate.js";
 import { authorize } from "../../shared/rbac/authorize.js";
+import { imageBody } from "../../shared/uploads/image-upload.js";
 import * as controller from "./directory.controller.js";
 
 export const directoryRouter = Router();
@@ -14,6 +15,9 @@ directoryRouter.get("/teachers", authorize("ADMIN"), controller.listTeachers);
 directoryRouter.post("/teachers", authorize("ADMIN"), controller.createTeacher);
 directoryRouter.get("/teachers/:id", authorize("ADMIN"), controller.getTeacher);
 directoryRouter.patch("/teachers/:id", authorize("ADMIN"), controller.updateTeacher);
+directoryRouter.patch("/teachers/:id/specialties", authorize("ADMIN", "TEACHER"), controller.updateTeacherSpecialties);
+// Багшийн зураг: админ хэнийх ч, багш зөвхөн өөрийнхийг (service-д эзэмшил шалгана).
+directoryRouter.put("/teachers/:id/photo", authorize("ADMIN", "TEACHER"), imageBody, controller.uploadTeacherPhoto);
 
 directoryRouter.get("/parents", authorize("ADMIN", "TEACHER"), controller.listParents);
 directoryRouter.post("/parents", authorize("ADMIN"), controller.createParent);

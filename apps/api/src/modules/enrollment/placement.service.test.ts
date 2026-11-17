@@ -75,10 +75,11 @@ describe("Нийтийн сайтын түвшин тогтоох цагийн �
 });
 
 describe("Нийтийн салбарын жагсаалт", () => {
-  it("нэвтрэлтгүй зөвхөн id, нэрийг буцаана", async () => {
+  // ФШ-78 (D-65, D-66): нийтийн сайт салбарын нэр, хаяг, тайлбар, утас, зургийг харуулна. Бусад талбар (үүсгэсэн огноо гэх мэт) гарахгүй.
+  it("нэвтрэлтгүй зөвхөн нийтийн талбаруудыг буцаана", async () => {
     const res = await request(app).get("/api/v1/public/branches");
     expect(res.status).toBe(200);
     expect(res.body.length).toBeGreaterThan(0);
-    expect(Object.keys(res.body[0]).sort()).toEqual(["id", "name"]);
+    expect(Object.keys(res.body[0]).sort()).toEqual(["address", "description", "id", "name", "phones", "photoUrl"]);
   });
 });

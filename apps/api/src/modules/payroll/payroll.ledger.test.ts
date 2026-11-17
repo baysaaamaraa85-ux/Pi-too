@@ -71,8 +71,8 @@ async function lessonWithAttendance(teacherId: string, startsAt: Date, opts: { a
       studentId: student.id,
       programId: program.id,
       price: "500000.00",
-      totalVisits: 25,
-      remainingVisits: 25,
+      totalHours: 75,
+      remainingHours: 75,
       leavesLeft: 3,
       rulesAckAt: new Date(),
     },
@@ -98,20 +98,23 @@ function payout(token: string, body: object, key = randomUUID()) {
 }
 
 describe("М8 Цалингийн журнал (ФШ-53...59)", () => {
-  it("ФШ-10: үнэлгээ сарын 15-нд өөрчлөгдвөл 14-нд хуучин, 15-нд шинэ үнэлгээгээр тооцогдоно", async () => {
+  it("ФШ-10, D-67: хүүхдийн үнэлгээ сарын 15-нд өөрчлөгдвөл 14-нд хуучин, 15-нд шинэ үнэлгээгээр тооцогдоно", async () => {
     const teacher = await loginUser(Role.TEACHER);
-    await prisma.teacherRate.createMany({
-      data: [
-        { teacherId: teacher.userId, hourlyRate: "5000.00", effectiveFrom: new Date("2026-01-01") },
-        { teacherId: teacher.userId, hourlyRate: "6000.00", effectiveFrom: new Date("2026-03-15") },
-      ],
-    });
     const before = await lessonWithAttendance(teacher.userId, new Date("2026-03-14T10:00:00+08:00"));
     const onDay = await lessonWithAttendance(teacher.userId, new Date("2026-03-15T10:00:00+08:00"));
+    for (const l of [before, onDay]) {
+      await prisma.contractRate.createMany({
+        data: [
+          { contractId: l.contract.id, teacherId: teacher.userId, hourlyRate: "5000.00", effectiveFrom: new Date("2026-01-01"), createdBy: teacher.userId },
+          { contractId: l.contract.id, teacherId: teacher.userId, hourlyRate: "6000.00", effectiveFrom: new Date("2026-03-15"), createdBy: teacher.userId },
+        ],
+      });
+    }
     const record = (l: Awaited<ReturnType<typeof lessonWithAttendance>>) =>
       prisma.$transaction((tx) =>
         recordAttendanceEarningInTx(tx, {
           attendanceId: l.attendance!.id,
+          contractId: l.contract.id,
           lessonId: l.lesson.id,
           teacherId: teacher.userId,
           lessonDate: new Date(Date.UTC(2026, 2, l.lesson.startsAt.getUTCDate())),

@@ -20,9 +20,6 @@ async function loginUser(role: Role, fullName = "Тест") {
   });
   if (role === Role.TEACHER) {
     await prisma.teacher.create({ data: { userId: user.id, fullName: `${fullName} ${phone}` } });
-    await prisma.teacherRate.create({
-      data: { teacherId: user.id, hourlyRate: "5000.00", effectiveFrom: new Date("2026-01-01") },
-    });
   }
   if (role === Role.PARENT) await prisma.parent.create({ data: { userId: user.id, fullName, phone } });
   const res = await request(app)
@@ -56,8 +53,8 @@ async function fixture(opts: { price?: string; branchId?: string } = {}) {
       studentId: student.id,
       programId: await getProgramId(),
       price: opts.price ?? "600000.00",
-      totalVisits: 25,
-      remainingVisits: 25,
+      totalHours: 75,
+      remainingHours: 75,
       leavesLeft: 3,
       rulesAckAt: new Date(),
     },

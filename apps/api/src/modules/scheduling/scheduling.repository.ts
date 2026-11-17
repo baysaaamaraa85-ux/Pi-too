@@ -215,3 +215,33 @@ export function cancelRemainingFutureLessons(tx: Tx, classId: string, now: Date)
 export function closeEnrollment(tx: Tx, enrollmentId: string, toDate: Date) {
   return tx.enrollment.update({ where: { id: enrollmentId }, data: { toDate } });
 }
+
+// D-69: идэвхтэй ангиуд бүртгэлтэй сурагчийн тоотой (долоо хоногийн хуваарь).
+export function listClassesWithCounts(tx: Tx, filters: { teacherId?: string }) {
+  return tx.class.findMany({
+    where: { isActive: true, teacherId: filters.teacherId },
+    include: { branch: true, _count: { select: { enrollments: { where: { toDate: null } } } } },
+    orderBy: [{ weekday: "asc" }, { startTime: "asc" }],
+  });
+}
+
+// Ангийн одоогийн сурагчид (идэвхтэй бүртгэл).
+export function listActiveRoster(tx: Tx, classId: string) {
+  return tx.enrollment.findMany({
+    where: { classId, toDate: null },
+    include: {
+      contract: {
+        include: {
+          student: true,
+          program: true,
+          enrollments: { where: { toDate: null }, select: { classId: true } },
+        },
+      },
+    },
+    orderBy: { contract: { student: { fullName: "asc" } } },
+  });
+}
+
+export function findClassWithBranch(tx: Tx, id: string) {
+  return tx.class.findUnique({ where: { id }, include: { branch: true } });
+}

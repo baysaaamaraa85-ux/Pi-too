@@ -12,7 +12,7 @@ import { DomainError } from "../../shared/errors/domain-error.js";
 import { runIdempotent } from "../../shared/idempotency/run-idempotent.js";
 import { balancesFor, teacherFlag } from "../../shared/payments/payment-status.js";
 import { enqueue } from "../../shared/outbox/enqueue.js";
-import { getAttendanceDefaults } from "../catalog/catalog.service.js";
+import { getAttendanceDefaults, getContractDefaults } from "../catalog/catalog.service.js";
 import { notifyParentsInTx } from "../enrollment/enrollment.service.js";
 import {
   recordAttendanceEarningInTx,
@@ -20,12 +20,15 @@ import {
 } from "../payroll/payroll.service.js";
 import { todayInUlaanbaatar } from "../scheduling/scheduling.service.js";
 import {
+  academicHours,
   applyDelta,
-  crossedToThree,
+  crossedToThreshold,
   decideStatus,
   effectsOf,
+  forwardOf,
   inverseOf,
-  meetingVisitReached,
+  meetingHoursReached,
+  packageDeduction,
 } from "./attendance.rules.js";
 import * as repo from "./attendance.repository.js";
 
@@ -102,12 +105,45 @@ interface RowResult {
   attendanceId: string;
   contractId: string;
   status: AttendanceStatus;
-  remainingVisits: number;
+  remainingHours: number;
+  packageHours: number;
   leavesLeft: number;
 }
 
-function durationMin(lesson: LessonCtx): number {
+function durationMin(lesson: { startsAt: Date; endsAt: Date }): number {
   return Math.round((lesson.endsAt.getTime() - lesson.startsAt.getTime()) / 60_000);
+}
+
+// D-70: сурагч төлөвлөснөөс их, бага сууж болно. Багш "цаг нэмэгдсэн" гэж тэмдэглээд хэдээс хэдэн цагийн хооронд
+// суусныг (Улаанбаатарын цагаар, "HH:MM") бичнэ. Хичээлийн өдрөөр бодит эхлэх, дуусах мөчийг тооцно.
+export interface ActualTime {
+  from: string;
+  to: string;
+}
+interface ActualWindow {
+  startsAt: Date;
+  endsAt: Date;
+}
+
+function actualWindow(lesson: { startsAt: Date }, time: ActualTime | undefined): ActualWindow | null {
+  if (!time) return null;
+  const day = lessonDay(lesson.startsAt).toISOString().slice(0, 10);
+  const startsAt = new Date(`${day}T${time.from}:00+08:00`);
+  const endsAt = new Date(`${day}T${time.to}:00+08:00`);
+  if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime()) || endsAt.getTime() <= startsAt.getTime()) {
+    rejected(422, "invalid-actual-time", "Цаг буруу байна", "Дуусах цаг эхлэх цагаас хойш байх ёстой (24 цагийн систем).");
+  }
+  return { startsAt, endsAt };
+}
+
+function minutesOf(lesson: { startsAt: Date; endsAt: Date }, actual: ActualWindow | null): number {
+  return actual ? durationMin(actual) : durationMin(lesson);
+}
+
+// Улаанбаатарын "HH:MM".
+function localHm(d: Date): string {
+  const local = new Date(d.getTime() + 8 * HOUR_MS);
+  return `${String(local.getUTCHours()).padStart(2, "0")}:${String(local.getUTCMinutes()).padStart(2, "0")}`;
 }
 
 // Тоолуурын шилжилт: Дууссан, багц дуусах, уулзалтын сануулга (ФШ-36, 37, 43).
@@ -115,10 +151,12 @@ async function afterCounterChange(
   tx: Tx,
   params: {
     lesson: LessonCtx;
-    contract: { id: string; studentId: string; status: ContractStatus; totalVisits: number };
+    contract: { id: string; studentId: string; status: ContractStatus; totalHours: number };
     studentName: string;
     beforeRemaining: number;
     afterRemaining: number;
+    // ФШ-36: багц дуусах мэдэгдлийн босго (3 ирэлт x нэг ирэлтийн академик цаг).
+    thresholdHours: number;
   },
 ): Promise<ContractStatus> {
   const { lesson, contract, beforeRemaining, afterRemaining } = params;
@@ -140,9 +178,9 @@ async function afterCounterChange(
     status = ContractStatus.ACTIVE;
   }
 
-  // ФШ-36: үлдэгдэл 4-өөс 3 болоход эцэг эх, багшид нэг л мэдэгдэл.
-  if (crossedToThree(beforeRemaining, afterRemaining)) {
-    const payload = { studentName: params.studentName, remainingVisits: afterRemaining };
+  // ФШ-36: багцын үлдэгдэл босгоос (9 цаг) доош орох үед эцэг эх, багшид нэг л мэдэгдэл.
+  if (crossedToThreshold(beforeRemaining, afterRemaining, params.thresholdHours)) {
+    const payload = { studentName: params.studentName, remainingHours: afterRemaining };
     await notifyParentsInTx(tx, contract.studentId, "package_ending", payload);
     await enqueue(tx, {
       recipientId: lesson.teacherId,
@@ -153,7 +191,7 @@ async function afterCounterChange(
   }
 
   // ФШ-43: 13 ба 25 дахь ирэлтэд эцэг эхтэй уулзах сануулга.
-  if (meetingVisitReached(contract.totalVisits, beforeRemaining, afterRemaining)) {
+  if (meetingHoursReached(contract.totalHours, beforeRemaining, afterRemaining)) {
     if (!(await repo.findOpenTeacherTask(tx, contract.id, "MEETING"))) {
       await repo.createTeacherTask(tx, {
         teacherId: lesson.teacherId,
@@ -175,6 +213,7 @@ async function createRow(
   present: boolean,
   isMakeup: boolean,
   reason?: string,
+  time?: ActualTime,
 ): Promise<RowResult | null> {
   const contract = await repo.findContractWithStudent(tx, contractId);
   if (!contract) {
@@ -190,13 +229,19 @@ async function createRow(
   });
   if (status === null) return null;
 
+  // D-70: багцаас хасагдах цаг = бодит орсон минут / 40 (төлөвлөсөн хичээл 120 минут = 3 академик цаг).
+  const defaults = await getContractDefaults(tx);
+  const actual = actualWindow(lesson, time);
+  const minutes = minutesOf(lesson, actual);
   const effects = effectsOf(status);
+  const remaining = contract.remainingHours.toNumber();
+  const deducted = packageDeduction(effects, academicHours(minutes, defaults.academicHourMinutes), remaining);
   const before = {
-    remainingVisits: contract.remainingVisits,
+    remainingHours: remaining,
     leavesLeft: contract.leavesLeft,
     freeReviewsLeft: contract.freeReviewsLeft,
   };
-  const after = applyDelta(before, effects);
+  const after = applyDelta(before, forwardOf(effects, deducted));
 
   const row = await repo.createAttendance(tx, {
     lessonId: lesson.id,
@@ -204,25 +249,31 @@ async function createRow(
     marked: present,
     status,
     isMakeup,
+    actualStartsAt: actual?.startsAt,
+    actualEndsAt: actual?.endsAt,
+    packageHours: deducted,
     updatedBy: actor.id,
   });
 
   const newStatus = await afterCounterChange(tx, {
     lesson,
-    contract,
+    contract: { ...contract, totalHours: contract.totalHours.toNumber() },
     studentName: contract.student.fullName,
-    beforeRemaining: before.remainingVisits,
-    afterRemaining: after.remainingVisits,
+    beforeRemaining: before.remainingHours,
+    afterRemaining: after.remainingHours,
+    thresholdHours: 3 * defaults.academicHoursPerVisit,
   });
   await repo.updateContractCounters(tx, contractId, { ...after, status: newStatus });
 
   if (effects.counted) {
+    // Цалин бодит орсон минутаар (D-70).
     await recordAttendanceEarningInTx(tx, {
       attendanceId: row.id,
+      contractId,
       lessonId: lesson.id,
       teacherId: lesson.teacherId,
       lessonDate: lessonDay(lesson.startsAt),
-      durationMin: durationMin(lesson),
+      durationMin: minutes,
       createdBy: actor.id,
     });
   }
@@ -232,7 +283,7 @@ async function createRow(
     studentName: contract.student.fullName,
     lessonStartsAt: lesson.startsAt.toISOString(),
     status,
-    remainingVisits: after.remainingVisits,
+    remainingHours: after.remainingHours,
     leavesLeft: after.leavesLeft,
   });
 
@@ -240,7 +291,15 @@ async function createRow(
     entity: "attendance",
     entityId: row.id,
     action: "CREATE",
-    after: { status, present, isMakeup, remainingVisits: after.remainingVisits, leavesLeft: after.leavesLeft },
+    after: {
+      status,
+      present,
+      isMakeup,
+      remainingHours: after.remainingHours,
+      packageHours: deducted,
+      minutes,
+      leavesLeft: after.leavesLeft,
+    },
     reason,
     actorId: actor.id,
   });
@@ -249,7 +308,8 @@ async function createRow(
     attendanceId: row.id,
     contractId,
     status,
-    remainingVisits: after.remainingVisits,
+    remainingHours: after.remainingHours,
+    packageHours: deducted,
     leavesLeft: after.leavesLeft,
   };
 }
@@ -262,7 +322,7 @@ function sortedUnique(ids: string[]) {
 export function saveAttendance(
   actor: Actor,
   lessonId: string,
-  input: { entries: { contractId: string; present: boolean }[]; reason?: string },
+  input: { entries: { contractId: string; present: boolean; actualFrom?: string; actualTo?: string }[]; reason?: string },
   idempotencyKey: string,
 ) {
   return runIdempotent(idempotencyKey, actor.id, async (tx) => {
@@ -302,7 +362,11 @@ export function saveAttendance(
 
     const results: RowResult[] = [];
     for (const entry of input.entries) {
-      const result = await createRow(tx, actor, lesson, entry.contractId, entry.present, false, input.reason);
+      const time = entry.actualFrom && entry.actualTo ? { from: entry.actualFrom, to: entry.actualTo } : undefined;
+      if (time && !entry.present) {
+        rejected(422, "actual-time-needs-present", "Цаг буруу байна", "Бодит цагийг зөвхөн ирсэн сурагчид бичнэ.");
+      }
+      const result = await createRow(tx, actor, lesson, entry.contractId, entry.present, false, input.reason, time);
       if (result) results.push(result);
     }
     return {
@@ -310,7 +374,8 @@ export function saveAttendance(
         attendanceId: r.attendanceId,
         contractId: r.contractId,
         status: r.status,
-        remainingVisits: r.remainingVisits,
+        remainingHours: r.remainingHours,
+        packageHours: r.packageHours,
         leavesLeft: r.leavesLeft,
       })),
     };
@@ -321,7 +386,7 @@ export function saveAttendance(
 export function addMakeup(
   actor: Actor,
   lessonId: string,
-  input: { contractId: string; reason?: string },
+  input: { contractId: string; reason?: string; actualFrom?: string; actualTo?: string },
   idempotencyKey: string,
 ) {
   return runIdempotent(idempotencyKey, actor.id, async (tx) => {
@@ -359,7 +424,8 @@ export function addMakeup(
       rejected(409, "no-makeup-available", "Нөхөх чөлөө байхгүй", "Энэ сурагчид нөхөгдөөгүй чөлөөтэй хичээл байхгүй байна.");
     }
 
-    const result = await createRow(tx, actor, lesson, input.contractId, true, true, input.reason);
+    const time = input.actualFrom && input.actualTo ? { from: input.actualFrom, to: input.actualTo } : undefined;
+    const result = await createRow(tx, actor, lesson, input.contractId, true, true, input.reason, time);
     if (!result) rejected(409, "makeup-failed", "Нөхөлт бүртгэгдсэнгүй", "Нөхөлтийг бүртгэх боломжгүй байна.");
     return { ...result };
   });
@@ -371,7 +437,7 @@ export function addMakeup(
 export function patchAttendance(
   actor: Actor,
   attendanceId: string,
-  input: { present: boolean; reason?: string },
+  input: { present: boolean; reason?: string; actualFrom?: string | null; actualTo?: string | null },
 ) {
   return prisma.$transaction(async (tx) => {
     const found = await repo.findAttendanceById(tx, attendanceId);
@@ -393,17 +459,20 @@ export function patchAttendance(
       );
     }
 
+    const defaults = await getContractDefaults(tx);
     const counters0 = {
-      remainingVisits: contract.remainingVisits,
+      remainingHours: contract.remainingHours.toNumber(),
       leavesLeft: contract.leavesLeft,
       freeReviewsLeft: contract.freeReviewsLeft,
     };
     const oldEffects = effectsOf(oldStatus);
-    const counters1 = applyDelta(counters0, inverseOf(oldEffects));
+    // D-70: хуучин ирцээр багцаас хасагдсан цагийг (package_hours) яг буцааж нэмнэ.
+    const oldDeducted = row.packageHours.toNumber();
+    const counters1 = applyDelta(counters0, inverseOf(oldEffects, oldDeducted));
 
     // Чөлөөний эрхийг засвар хийх мөчийн үлдэгдлээр шалгана (3.8.2).
     const effectiveStatus =
-      contract.status === ContractStatus.COMPLETED && counters1.remainingVisits > 0
+      contract.status === ContractStatus.COMPLETED && counters1.remainingHours > 0
         ? ContractStatus.ACTIVE
         : contract.status;
     const newStatus = decideStatus({
@@ -417,30 +486,56 @@ export function patchAttendance(
       rejected(409, "attendance-edit-invalid", "Засах боломжгүй", "Энэ ирцийг ийм утгаар засах боломжгүй.");
     }
     const newEffects = effectsOf(newStatus);
-    const counters2 = applyDelta(counters1, newEffects);
+
+    // D-70: бодит цагийг засах: хоёуланг нь өгвөл шинэчилнэ, хоёулаа null бол төлөвлөсөн цаг руу буцна, өгөөгүй бол хэвээр.
+    let actual: ActualWindow | null =
+      row.actualStartsAt && row.actualEndsAt ? { startsAt: row.actualStartsAt, endsAt: row.actualEndsAt } : null;
+    if (input.actualFrom === null && input.actualTo === null) {
+      actual = null;
+    } else if (typeof input.actualFrom === "string" && typeof input.actualTo === "string") {
+      if (!input.present) {
+        rejected(422, "actual-time-needs-present", "Цаг буруу байна", "Бодит цагийг зөвхөн ирсэн сурагчид бичнэ.");
+      }
+      actual = actualWindow(lesson, { from: input.actualFrom, to: input.actualTo });
+    } else if (input.actualFrom !== undefined || input.actualTo !== undefined) {
+      rejected(422, "invalid-actual-time", "Цаг буруу байна", "Эхлэх, дуусах цагийг хоёуланг нь бичнэ үү.");
+    }
+    if (!input.present) actual = null;
+    const minutes = minutesOf(lesson, actual);
+    const newDeducted = packageDeduction(
+      newEffects,
+      academicHours(minutes, defaults.academicHourMinutes),
+      counters1.remainingHours,
+    );
+    const counters2 = applyDelta(counters1, forwardOf(newEffects, newDeducted));
 
     await repo.updateAttendance(tx, attendanceId, {
       marked: input.present,
       status: newStatus,
+      actualStartsAt: actual?.startsAt ?? null,
+      actualEndsAt: actual?.endsAt ?? null,
+      packageHours: newDeducted,
       updatedBy: actor.id,
     });
 
     const finalStatus = await afterCounterChange(tx, {
       lesson,
-      contract,
+      contract: { ...contract, totalHours: contract.totalHours.toNumber() },
       studentName: contract.student.fullName,
-      beforeRemaining: counters0.remainingVisits,
-      afterRemaining: counters2.remainingVisits,
+      beforeRemaining: counters0.remainingHours,
+      afterRemaining: counters2.remainingHours,
+      thresholdHours: 3 * defaults.academicHoursPerVisit,
     });
     await repo.updateContractCounters(tx, contract.id, { ...counters2, status: finalStatus });
 
     // ФШ-34, ADR-017: EARNING мөр хэвээр, зөрүүг ADJUSTMENT мөрөөр.
     await settleAttendanceEarningInTx(tx, {
       attendanceId,
+      contractId: contract.id,
       lessonId: lesson.id,
       teacherId: lesson.teacherId,
       lessonDate: lessonDay(lesson.startsAt),
-      durationMin: durationMin(lesson),
+      durationMin: minutes,
       counted: newEffects.counted,
       note: `Ирц засав: ${oldStatus} -> ${newStatus}`,
       createdBy: actor.id,
@@ -450,7 +545,7 @@ export function patchAttendance(
       studentName: contract.student.fullName,
       lessonStartsAt: lesson.startsAt.toISOString(),
       status: newStatus,
-      remainingVisits: counters2.remainingVisits,
+      remainingHours: counters2.remainingHours,
       leavesLeft: counters2.leavesLeft,
     });
 
@@ -459,8 +554,8 @@ export function patchAttendance(
       entity: "attendance",
       entityId: attendanceId,
       action: "UPDATE",
-      before: { status: oldStatus, present: row.marked, remainingVisits: counters0.remainingVisits, leavesLeft: counters0.leavesLeft },
-      after: { status: newStatus, present: input.present, remainingVisits: counters2.remainingVisits, leavesLeft: counters2.leavesLeft },
+      before: { status: oldStatus, present: row.marked, remainingHours: counters0.remainingHours, packageHours: oldDeducted, leavesLeft: counters0.leavesLeft },
+      after: { status: newStatus, present: input.present, remainingHours: counters2.remainingHours, packageHours: newDeducted, minutes, leavesLeft: counters2.leavesLeft },
       reason: input.reason,
       actorId: actor.id,
     });
@@ -469,7 +564,8 @@ export function patchAttendance(
       attendanceId,
       contractId: contract.id,
       status: newStatus,
-      remainingVisits: counters2.remainingVisits,
+      remainingHours: counters2.remainingHours,
+      packageHours: newDeducted,
       leavesLeft: counters2.leavesLeft,
     };
   });
@@ -501,15 +597,18 @@ export async function getAttendanceSheet(actor: Actor, lessonId: string): Promis
         studentId: contract.studentId,
         studentName: contract.student.fullName,
         programName: contract.program.name,
-        remainingVisits: contract.remainingVisits,
+        remainingHours: contract.remainingHours.toNumber(),
         leavesLeft: contract.leavesLeft,
-        totalVisits: contract.totalVisits,
+        totalHours: contract.totalHours.toNumber(),
         paymentStatus: balances.has(contract.id) ? teacherFlag(balances.get(contract.id)!) : null,
         leaveRequested: leaves.has(contract.id),
         isMakeup: att?.isMakeup ?? isMakeupHint,
         attendanceId: att?.id ?? null,
         status: att?.status ?? null,
         present: att ? att.marked : null,
+        actualFrom: att?.actualStartsAt ? localHm(att.actualStartsAt) : null,
+        actualTo: att?.actualEndsAt ? localHm(att.actualEndsAt) : null,
+        packageHours: att ? att.packageHours.toNumber() : null,
       });
     };
     for (const e of roster) add(e.contract, false);
@@ -527,6 +626,7 @@ export async function getAttendanceSheet(actor: Actor, lessonId: string): Promis
         capacity: lesson.class.capacity,
       },
       editableUntil: win.editableUntil.toISOString(),
+      academicHourMinutes: (await getContractDefaults(tx)).academicHourMinutes,
       windowOpen: win.windowOpen,
       started: win.started,
       rows,
@@ -555,7 +655,7 @@ export async function listMakeupCandidates(actor: Actor, lessonId: string) {
         contractId: e.contractId,
         studentName: e.contract.student.fullName,
         programName: e.contract.program.name,
-        remainingVisits: e.contract.remainingVisits,
+        remainingHours: e.contract.remainingHours.toNumber(),
         leavesLeft: e.contract.leavesLeft,
         makeupsAvailable: excused - makeups,
       });

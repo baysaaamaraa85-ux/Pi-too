@@ -22,9 +22,6 @@ async function loginUser(role: Role) {
   });
   if (role === Role.TEACHER) {
     await prisma.teacher.create({ data: { userId: user.id, fullName: `Багш ${phone}` } });
-    await prisma.teacherRate.create({
-      data: { teacherId: user.id, hourlyRate: "5000.00", effectiveFrom: new Date("2026-01-01") },
-    });
   }
   if (role === Role.PARENT) await prisma.parent.create({ data: { userId: user.id, fullName: "Эцэг", phone } });
   const res = await request(app).post("/api/v1/auth/login").send({ identifier: phone, password: "Correct123!" });
@@ -53,8 +50,8 @@ async function makeContract(classId: string, opts: { status?: ContractStatus } =
       studentId: student.id,
       programId: await getProgramId(),
       price: "500000.00",
-      totalVisits: 25,
-      remainingVisits: 25,
+      totalHours: 75,
+      remainingHours: 75,
       leavesLeft: 3,
       status: opts.status ?? ContractStatus.ACTIVE,
       rulesAckAt: new Date(),
@@ -102,7 +99,7 @@ describe("М12 Салбар, багш шилжилт (ФШ-71)", () => {
     const before = await prisma.contract.findUniqueOrThrow({ where: { id: w.contract.id } });
     const ledgerBefore = await prisma.ledgerEntry.findMany({ where: { teacherId: w.oldTeacher.userId }, orderBy: { id: "asc" } });
     const assessmentsBefore = await prisma.assessment.count({ where: { studentId: w.student.id } });
-    expect(before.remainingVisits).toBe(24);
+    expect(before.remainingHours.toNumber()).toBe(72);
     expect(ledgerBefore.length).toBeGreaterThan(0);
 
     const res = await transfer(w.admin.token, w.contract.id, {
@@ -112,11 +109,11 @@ describe("М12 Салбар, багш шилжилт (ФШ-71)", () => {
       reason: "Гэр бүл нүүсэн",
     });
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ remainingVisits: 24, leavesLeft: 3, fromClassId: w.oldClass.id, toClassId: w.newClass.id });
+    expect(res.body).toMatchObject({ remainingHours: 72, leavesLeft: 3, fromClassId: w.oldClass.id, toClassId: w.newClass.id });
 
     const after = await prisma.contract.findUniqueOrThrow({ where: { id: w.contract.id } });
-    expect([after.remainingVisits, after.leavesLeft, after.freeReviewsLeft, after.status]).toEqual([
-      before.remainingVisits,
+    expect([after.remainingHours.toNumber(), after.leavesLeft, after.freeReviewsLeft, after.status]).toEqual([
+      before.remainingHours.toNumber(),
       before.leavesLeft,
       before.freeReviewsLeft,
       before.status,
@@ -206,13 +203,57 @@ describe("М12 Салбар, багш шилжилт (ФШ-71)", () => {
     expect((await transfer(w.admin.token, randomUUID(), body({}))).status).toBe(404);
   });
 
-  it("Эрхийн матриц: багш, эцэг эх шилжилт хийхэд 403; нэвтрээгүй бол 401", async () => {
+  it("Эрхийн матриц: өөр багш, эцэг эх шилжилт хийхэд 403; нэвтрээгүй бол 401 (D-69: ангийн өөрийн багш зөөж болно)", async () => {
     const w = await world();
     const parent = await loginUser(Role.PARENT);
+    const stranger = await loginUser(Role.TEACHER);
     const body = { fromClassId: w.oldClass.id, toClassId: w.newClass.id, effectiveFrom: tomorrowKey(), reason: "х" };
-    expect((await transfer(w.oldTeacher.token, w.contract.id, body)).status).toBe(403);
+    expect((await transfer(stranger.token, w.contract.id, body)).status).toBe(403);
     expect((await transfer(parent.token, w.contract.id, body)).status).toBe(403);
     expect((await request(app).post(`/api/v1/contracts/${w.contract.id}/transfer`).send(body)).status).toBe(401);
     expect(await prisma.enrollment.count({ where: { contractId: w.contract.id } })).toBe(1);
+  });
+  it("D-73, ФШ-71: хоёр ангийг нэг дор шилжүүлнэ; нэг нь дүүрсэн бол бүгд буцна (хагас шилжилт үгүй)", async () => {
+    const w = await world();
+    const second = await makeClass(w.oldTeacher.userId, w.oldBranch.id, 4);
+    await prisma.enrollment.create({ data: { contractId: w.contract.id, classId: second.id, fromDate: new Date("2026-01-01") } });
+    const target2 = await makeClass(w.newTeacher.userId, w.newBranch.id, 5);
+    const full = await makeClass(w.newTeacher.userId, w.newBranch.id, 6, 1);
+    await makeContract(full.id);
+    const many = (token: string, body: object) =>
+      request(app).post(`/api/v1/contracts/${w.contract.id}/transfer-many`).set("Authorization", `Bearer ${token}`).send(body);
+    const base = { effectiveFrom: tomorrowKey(), reason: "Багш солив" };
+
+    // Хоёр дахь нь дүүрсэн анги: эхний шилжилт ч буцна.
+    const bad = await many(w.oldTeacher.token, {
+      ...base,
+      moves: [
+        { fromClassId: w.oldClass.id, toClassId: w.newClass.id },
+        { fromClassId: second.id, toClassId: full.id },
+      ],
+    });
+    expect(bad.status).toBe(409);
+    expect(await prisma.enrollment.count({ where: { contractId: w.contract.id, toDate: null } })).toBe(2);
+    expect(await prisma.auditLog.count({ where: { entity: "contract", entityId: w.contract.id, action: "TRANSFER" } })).toBe(0);
+
+    const ok = await many(w.oldTeacher.token, {
+      ...base,
+      moves: [
+        { fromClassId: w.oldClass.id, toClassId: w.newClass.id },
+        { fromClassId: second.id, toClassId: target2.id },
+      ],
+    });
+    expect(ok.status).toBe(200);
+    const open = await prisma.enrollment.findMany({
+      where: { contractId: w.contract.id, class: { teacherId: w.newTeacher.userId }, fromDate: { gt: new Date("2026-01-02") } },
+    });
+    expect(open.map((e) => e.classId).sort()).toEqual([w.newClass.id, target2.id].sort());
+
+    // Ижил ангиас хоёр удаа, өөр багшийн сурагч, хоосон жагсаалт.
+    const dup = await many(w.admin.token, { ...base, moves: [{ fromClassId: w.newClass.id, toClassId: w.oldClass.id }, { fromClassId: w.newClass.id, toClassId: second.id }] });
+    expect(dup.status).toBe(422);
+    expect((await many(w.admin.token, { ...base, moves: [] })).status).toBe(422);
+    const stranger = await loginUser(Role.TEACHER);
+    expect((await many(stranger.token, { ...base, moves: [{ fromClassId: w.newClass.id, toClassId: w.oldClass.id }] })).status).toBe(403);
   });
 });

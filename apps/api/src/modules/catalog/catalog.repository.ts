@@ -29,11 +29,19 @@ export function findBranchById(tx: Tx, id: string) {
   return tx.branch.findUnique({ where: { id } });
 }
 
-export function createBranch(tx: Tx, data: { name: string; address: string }) {
+export interface BranchData {
+  name?: string;
+  address?: string;
+  description?: string | null;
+  phones?: string[];
+  photoUrl?: string | null;
+}
+
+export function createBranch(tx: Tx, data: BranchData & { name: string; address: string }) {
   return tx.branch.create({ data });
 }
 
-export function updateBranch(tx: Tx, id: string, data: { name?: string; address?: string }) {
+export function updateBranch(tx: Tx, id: string, data: BranchData) {
   return tx.branch.update({ where: { id }, data });
 }
 
@@ -52,18 +60,9 @@ export function createProgram(tx: Tx, data: { name: string; currentPrice: string
 export function updateProgram(
   tx: Tx,
   id: string,
-  data: { name?: string; currentPrice?: string },
+  data: { name?: string; currentPrice?: string; protocolHourlyRate?: string | null },
 ) {
   return tx.program.update({ where: { id }, data });
 }
 
-export function findTeacherByUserId(tx: Tx, teacherId: string) {
-  return tx.teacher.findUnique({ where: { userId: teacherId } });
-}
 
-export function createTeacherRate(
-  tx: Tx,
-  params: { teacherId: string; hourlyRate: string; effectiveFrom: Date },
-) {
-  return tx.teacherRate.create({ data: params });
-}

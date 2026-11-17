@@ -55,10 +55,10 @@ async function main() {
     where: { name: { in: ["Бага анги", "Дунд анги"] }, contracts: { none: {} } },
   });
 
-  // ФШ-10: 2 багш, үнэлгээтэй.
+  // 2 багш. Цагийн үнэлгээг багш хүүхэд тус бүр дээрээ өөрөө оруулна (D-67), тиймээс энд үнэлгээ үүсгэхгүй.
   const teacherPasswordHash = await bcrypt.hash("Teacher123!", 10);
 
-  async function ensureTeacher(phone: string, fullName: string, hourlyRate: string) {
+  async function ensureTeacher(phone: string, fullName: string) {
     const user = await prisma.user.upsert({
       where: { phone },
       update: {},
@@ -74,23 +74,11 @@ async function main() {
       update: {},
       create: { userId: user.id, fullName },
     });
-    const existingRate = await prisma.teacherRate.findFirst({
-      where: { teacherId: teacher.userId },
-    });
-    if (!existingRate) {
-      await prisma.teacherRate.create({
-        data: {
-          teacherId: teacher.userId,
-          hourlyRate,
-          effectiveFrom: new Date(),
-        },
-      });
-    }
     return teacher;
   }
 
-  await ensureTeacher("99112233", "Б.Солонго", "15000.00");
-  await ensureTeacher("99223344", "Д.Эрдэнэ", "16000.00");
+  await ensureTeacher("99112233", "Б.Солонго");
+  await ensureTeacher("99223344", "Д.Эрдэнэ");
 
   // ФШ-09, ФБШ-29: журмын утгууд. Код дотор биш, эндээс уншина.
   await prisma.settings.upsert({

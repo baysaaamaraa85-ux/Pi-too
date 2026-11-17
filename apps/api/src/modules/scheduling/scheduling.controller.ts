@@ -73,3 +73,14 @@ export async function rescheduleLesson(req: Request, res: Response) {
     .status(200)
     .json(await service.rescheduleLesson(id, req.user!, new Date(startsAt), new Date(endsAt)));
 }
+
+// D-69
+export async function listWeekClasses(req: Request, res: Response) {
+  const teacherId = typeof req.query.teacherId === "string" ? req.query.teacherId : undefined;
+  res.status(200).json(await service.listWeekClasses(req.user!, teacherId));
+}
+
+export async function listClassRoster(req: Request, res: Response) {
+  const { id } = idParamSchema.parse(req.params);
+  res.status(200).json(await service.listClassRoster(req.user!, id));
+}

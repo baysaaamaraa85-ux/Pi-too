@@ -20,9 +20,6 @@ async function loginUser(role: Role) {
   });
   if (role === Role.TEACHER) {
     await prisma.teacher.create({ data: { userId: user.id, fullName: `Багш ${phone}` } });
-    await prisma.teacherRate.create({
-      data: { teacherId: user.id, hourlyRate: "5000.00", effectiveFrom: new Date("2026-01-01") },
-    });
   }
   if (role === Role.PARENT) {
     await prisma.parent.create({ data: { userId: user.id, fullName: "Эцэг", phone } });
@@ -59,8 +56,8 @@ async function makeContract(
       studentId,
       programId: await getProgramId(),
       price: "500000.00",
-      totalVisits: 25,
-      remainingVisits: opts.remaining ?? 25,
+      totalHours: 75,
+      remainingHours: (opts.remaining ?? 25) * 3,
       leavesLeft: 3,
       status: opts.status ?? ContractStatus.ACTIVE,
       rulesAckAt: new Date(),
@@ -203,10 +200,8 @@ describe("М11 Багшийн самбар (ФШ-70, 43)", () => {
     expect(dash.body.stats).toEqual({ students: 2, lessonsThisMonth: 1, attendancePercent: "50.0" });
     const last = (dash.body.progress as { date: string; averagePercent: string; count: number }[]).at(-1)!;
     expect(last).toEqual({ date: today, averagePercent: "70.0", count: 2 });
-    // Категори: багшийн идэвхтэй сурагчид хөтөлбөрөөр (идэвхгүй гэрээ тооцогдохгүй).
-    expect(dash.body.categories).toEqual([
-      { programId: expect.any(String), name: expect.any(String), students: 2 },
-    ]);
+    // Категори (D-69): багш ангилаагүй бол идэвхтэй сурагчид "Ангилаагүй" гэж (идэвхгүй гэрээ тооцогдохгүй).
+    expect(dash.body.categories).toEqual([{ categoryId: null, name: "Ангилаагүй", students: 2 }]);
 
     // Өөр багшид эдгээр тоо огт нөлөөлөхгүй.
     const empty = await get(other.token, "/dashboard");
@@ -401,7 +396,8 @@ describe("Аудитын бүртгэл", () => {
     const byActor = await get(admin.token, `/audit-log?actor=${phone}&limit=100`);
     expect((byActor.body.items as { entityId: string }[]).some((i) => i.entityId === marker)).toBe(true);
 
-    const today = new Date().toISOString().slice(0, 10);
+    // Улаанбаатарын огноо (UTC+8).
+    const today = new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10);
     const inRange = await get(admin.token, `/audit-log?entity=other-entity&from=${today}&to=${today}&limit=100`);
     expect((inRange.body.items as { entityId: string }[]).some((i) => i.entityId === marker)).toBe(true);
     const pastOnly = await get(admin.token, "/audit-log?entity=other-entity&from=2020-01-01&to=2020-01-02&limit=100");

@@ -174,14 +174,14 @@ describe("М9 Outbox илгээх worker (ФШ-60...63, ФБШ-06, ADR-006)", ()
     expect(login.status).toBe(200);
   });
 
-  it("загварууд монгол бичвэртэй: ирцийн төлөв, үлдсэн ирэлт, чөлөө", () => {
+  it("загварууд монгол бичвэртэй: ирцийн төлөв, үлдсэн багц (академик цаг), чөлөө", () => {
     const r = renderNotification(
       "attendance_recorded",
-      { studentName: "Хулан", status: "EXCUSED", remainingVisits: 12, leavesLeft: 2, lessonStartsAt: "2026-11-02T02:00:00.000Z" },
+      { studentName: "Хулан", status: "EXCUSED", remainingHours: 36, leavesLeft: 2, lessonStartsAt: "2026-11-02T02:00:00.000Z" },
       ORIGIN,
     );
     expect(r.body).toContain("Хулан: Чөлөөтэй (2026.11.02 10:00)");
-    expect(r.body).toContain("Үлдсэн ирэлт 12, чөлөө 2");
+    expect(r.body).toContain("Үлдсэн багц 36 академик цаг, чөлөө 2");
   });
 });
 

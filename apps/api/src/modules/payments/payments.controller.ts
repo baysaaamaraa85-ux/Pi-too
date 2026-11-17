@@ -82,3 +82,9 @@ export async function rejectClaim(req: Request, res: Response) {
   const { reason } = rejectClaimSchema.parse(req.body);
   res.status(200).json(await service.rejectClaim(req.user!, id, reason));
 }
+
+// D-68: төлөгдөөгүй хүүхдийн эцэг эхэд мэдэгдэл, нэхэмжлэл.
+export async function sendPaymentReminder(req: Request, res: Response) {
+  const { id } = idParamSchema.parse(req.params);
+  res.status(200).json(await service.sendPaymentReminder(req.user!, id));
+}

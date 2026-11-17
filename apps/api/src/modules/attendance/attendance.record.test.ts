@@ -26,14 +26,15 @@ async function loginUser(role: Role) {
   return { token: res.body.accessToken as string, userId: user.id };
 }
 
-async function loginTeacher(withRate = true) {
-  const t = await loginUser(Role.TEACHER);
-  if (withRate) {
-    await prisma.teacherRate.create({
-      data: { teacherId: t.userId, hourlyRate: "5000.00", effectiveFrom: new Date("2026-01-01") },
-    });
-  }
-  return t;
+async function loginTeacher() {
+  return loginUser(Role.TEACHER);
+}
+
+// D-67: багш хүүхэд (гэрээ) тус бүр дээрээ цагийн үнэлгээгээ оруулсан байна.
+async function giveRate(teacherId: string, contractId: string, hourlyRate = "5000.00") {
+  await prisma.contractRate.create({
+    data: { teacherId, contractId, hourlyRate, effectiveFrom: new Date("2026-01-01"), createdBy: teacherId },
+  });
 }
 
 let branchId: string | null = null;
@@ -78,6 +79,8 @@ async function makeContract(
     reviews?: number;
     name?: string;
     withParent?: boolean;
+    // D-67: анхдагчаар багш энэ хүүхдэд 5 000 ₮-ийн үнэлгээ оруулсан байна.
+    rate?: boolean;
   } = {},
 ) {
   const student = await prisma.student.create({
@@ -88,8 +91,8 @@ async function makeContract(
       studentId: student.id,
       programId: await getProgramId(),
       price: "500000.00",
-      totalVisits: 25,
-      remainingVisits: opts.remaining ?? 25,
+      totalHours: 75,
+      remainingHours: (opts.remaining ?? 25) * 3,
       leavesLeft: opts.leaves ?? 3,
       freeReviewsLeft: opts.reviews ?? 0,
       status: opts.status ?? ContractStatus.ACTIVE,
@@ -100,6 +103,10 @@ async function makeContract(
     await prisma.enrollment.create({
       data: { contractId: contract.id, classId, fromDate: new Date("2026-01-01") },
     });
+    if (opts.rate ?? true) {
+      const cls = await prisma.class.findUniqueOrThrow({ where: { id: classId } });
+      await giveRate(cls.teacherId, contract.id);
+    }
   }
   let parentId: string | null = null;
   if (opts.withParent) {
@@ -117,11 +124,13 @@ async function makeContract(
 }
 
 async function fixture(n: number, opts: { endedHoursAgo?: number; withRate?: boolean } = {}) {
-  const teacher = await loginTeacher(opts.withRate ?? true);
+  const teacher = await loginTeacher();
   const cls = await makeClass(teacher.userId);
   const lesson = await makeLesson(cls.id, teacher.userId, opts.endedHoursAgo ?? 1);
   const contracts = [];
-  for (let i = 0; i < n; i++) contracts.push(await makeContract(cls.id, { withParent: true }));
+  for (let i = 0; i < n; i++) {
+    contracts.push(await makeContract(cls.id, { withParent: true, rate: opts.withRate ?? true }));
+  }
   return { teacher, cls, lesson, contracts };
 }
 
@@ -157,7 +166,7 @@ describe("М5 Ирц бүртгэх (ФШ-26...37)", () => {
     expect(res.body.entries).toHaveLength(4);
     for (const entry of res.body.entries) {
       expect(entry.status).toBe("PRESENT");
-      expect(entry.remainingVisits).toBe(24);
+      expect(entry.remainingHours).toBe(72);
     }
     const ledger = await ledgerFor(f.lesson.id);
     expect(ledger).toHaveLength(4);
@@ -174,7 +183,7 @@ describe("М5 Ирц бүртгэх (ФШ-26...37)", () => {
     expect(res.body.entries[0].status).toBe("EXCUSED");
     const after = await reload(c.contract.id);
     expect(after.leavesLeft).toBe(0);
-    expect(after.remainingVisits).toBe(10);
+    expect(after.remainingHours.toNumber()).toBe(30);
     expect(await ledgerFor(f.lesson.id)).toHaveLength(0);
   });
 
@@ -184,7 +193,7 @@ describe("М5 Ирц бүртгэх (ФШ-26...37)", () => {
     const res = await put(f.teacher.token, f.lesson.id, [{ contractId: c.contract.id, present: false }]);
     expect(res.body.entries[0].status).toBe("OVER_LIMIT");
     const after = await reload(c.contract.id);
-    expect(after.remainingVisits).toBe(9);
+    expect(after.remainingHours.toNumber()).toBe(27);
     expect(after.leavesLeft).toBe(0);
     const ledger = await ledgerFor(f.lesson.id);
     expect(ledger).toHaveLength(1);
@@ -261,7 +270,7 @@ describe("М5 Ирц бүртгэх (ФШ-26...37)", () => {
     await put(f.teacher.token, f.lesson.id, [{ contractId: c.contract.id, present: true }]);
     const after = await reload(c.contract.id);
     expect(after.status).toBe("COMPLETED");
-    expect(after.remainingVisits).toBe(0);
+    expect(after.remainingHours.toNumber()).toBe(0);
     const tasks = await prisma.teacherTask.findMany({ where: { contractId: c.contract.id } });
     // 25 дахь (сүүлийн) ирэлт: шалгалтын ажил (ФШ-37) ба уулзалтын сануулга (ФШ-43).
     expect(tasks.map((t) => t.type).sort()).toEqual(["EXAM", "MEETING"]);
@@ -282,7 +291,7 @@ describe("М5 Ирц бүртгэх (ФШ-26...37)", () => {
     expect(res.body.entries[0].status).toBe("FREE_REVIEW");
     const after = await reload(c.contract.id);
     expect(after.freeReviewsLeft).toBe(2);
-    expect(after.remainingVisits).toBe(0);
+    expect(after.remainingHours.toNumber()).toBe(0);
     expect(await ledgerFor(f.lesson.id)).toHaveLength(0);
   });
 
@@ -296,7 +305,7 @@ describe("М5 Ирц бүртгэх (ФШ-26...37)", () => {
     expect(sheet.body.rows).toHaveLength(0);
     const res = await put(f.teacher.token, f.lesson.id, [{ contractId: c.contract.id, present: true }]);
     expect(res.status).toBe(409);
-    expect((await reload(c.contract.id)).remainingVisits).toBe(12);
+    expect((await reload(c.contract.id)).remainingHours.toNumber()).toBe(36);
   });
 
   it("ФБШ-15: ижил Idempotency-Key-ээр давтан илгээхэд багц нэг л удаа хасагдана", async () => {
@@ -308,7 +317,7 @@ describe("М5 Ирц бүртгэх (ФШ-26...37)", () => {
     expect(first.status).toBe(200);
     expect(second.status).toBe(200);
     expect(second.body).toEqual(first.body);
-    expect((await reload(f.contracts[0]!.contract.id)).remainingVisits).toBe(24);
+    expect((await reload(f.contracts[0]!.contract.id)).remainingHours.toNumber()).toBe(72);
     expect(await prisma.attendance.count({ where: { lessonId: f.lesson.id } })).toBe(1);
   });
 
@@ -340,25 +349,63 @@ describe("М5 Ирц бүртгэх (ФШ-26...37)", () => {
     ]);
     expect(a.status).toBe(200);
     expect(b.status).toBe(200);
-    expect((await reload(c.contract.id)).remainingVisits).toBe(8);
+    expect((await reload(c.contract.id)).remainingHours.toNumber()).toBe(24);
   });
 
   it("ЧХ-2, ФШ-32: цалин бичихэд алдаа гарвал ирц, багц, чөлөөний өөрчлөлт бүгд буцна (зөрүү 0)", async () => {
-    // Үнэлгээгүй багш: цалингийн мөр бичигдэхгүй, транзакц дундаа унана.
+    // Цалингийн мөр бичигдэхгүй байхаар (NUMERIC(12,2) халих үнэлгээ) транзакц дундаа унана.
+    const f = await fixture(2, { withRate: false });
+    for (const c of f.contracts) await giveRate(f.teacher.userId, c.contract.id, "9000000000.00");
+    const res = await put(
+      f.teacher.token,
+      f.lesson.id,
+      f.contracts.map((c) => ({ contractId: c.contract.id, present: true })),
+    );
+    expect(res.status).toBe(500);
+    expect(await prisma.attendance.count({ where: { lessonId: f.lesson.id } })).toBe(0);
+    for (const c of f.contracts) {
+      expect((await reload(c.contract.id)).remainingHours.toNumber()).toBe(75);
+    }
+    expect(await ledgerFor(f.lesson.id)).toHaveLength(0);
+    expect(await prisma.notificationOutbox.count({ where: { recipientId: f.contracts[0]!.parentId! } })).toBe(0);
+  });
+
+  it("D-67: багш хүүхдэд цагийн үнэлгээгээ оруулаагүй бол ирц бүртгэгдэж, цалин 0 ₮ (rate_used хоосон) мөр бичигдэнэ", async () => {
     const f = await fixture(2, { withRate: false });
     const res = await put(
       f.teacher.token,
       f.lesson.id,
       f.contracts.map((c) => ({ contractId: c.contract.id, present: true })),
     );
-    expect(res.status).toBe(409);
-    expect(res.body.type).toContain("teacher-rate-not-configured");
-    expect(await prisma.attendance.count({ where: { lessonId: f.lesson.id } })).toBe(0);
+    expect(res.status).toBe(200);
+    expect(await prisma.attendance.count({ where: { lessonId: f.lesson.id } })).toBe(2);
     for (const c of f.contracts) {
-      expect((await reload(c.contract.id)).remainingVisits).toBe(25);
+      expect((await reload(c.contract.id)).remainingHours.toNumber()).toBe(72);
     }
-    expect(await ledgerFor(f.lesson.id)).toHaveLength(0);
-    expect(await prisma.notificationOutbox.count({ where: { recipientId: f.contracts[0]!.parentId! } })).toBe(0);
+    const ledger = await ledgerFor(f.lesson.id);
+    expect(ledger).toHaveLength(2);
+    expect(ledger.every((l) => Number(l.amount) === 0 && l.rateUsed === null)).toBe(true);
+  });
+
+  it("D-67: хүүхэд бүрийн үнэлгээ өөр өөр: 5 000 ба 8 000 x 2 цаг = 10 000 + 16 000", async () => {
+    const f = await fixture(0);
+    const a = await makeContract(f.cls.id, { withParent: true, rate: false });
+    const b = await makeContract(f.cls.id, { withParent: true, rate: false });
+    await giveRate(f.teacher.userId, a.contract.id, "5000.00");
+    await giveRate(f.teacher.userId, b.contract.id, "8000.00");
+    const res = await put(f.teacher.token, f.lesson.id, [
+      { contractId: a.contract.id, present: true },
+      { contractId: b.contract.id, present: true },
+    ]);
+    expect(res.status).toBe(200);
+    const ledger = await ledgerFor(f.lesson.id);
+    const byAttendance = new Map(
+      (await prisma.attendance.findMany({ where: { lessonId: f.lesson.id } })).map((r) => [r.id, r.contractId]),
+    );
+    const amountOf = (contractId: string) =>
+      Number(ledger.find((l) => byAttendance.get(l.attendanceId!) === contractId)!.amount);
+    expect(amountOf(a.contract.id)).toBe(10000);
+    expect(amountOf(b.contract.id)).toBe(16000);
   });
 });
 
@@ -378,7 +425,7 @@ describe("М5 Ирц засах (ФШ-33, 34, 35, Хүснэгт 3.15)", () => {
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("EXCUSED");
     const after = await reload(c.contract.id);
-    expect(after.remainingVisits).toBe(10);
+    expect(after.remainingHours.toNumber()).toBe(30);
     expect(after.leavesLeft).toBe(2);
     const ledger = await ledgerFor(f.lesson.id);
     expect(ledger.map((l) => [l.type, Number(l.amount)])).toEqual([
@@ -392,7 +439,7 @@ describe("М5 Ирц засах (ФШ-33, 34, 35, Хүснэгт 3.15)", () => {
     const res = await patch(f.teacher.token, attendanceId, { present: false });
     expect(res.body.status).toBe("OVER_LIMIT");
     const after = await reload(c.contract.id);
-    expect(after.remainingVisits).toBe(9);
+    expect(after.remainingHours.toNumber()).toBe(27);
     expect(after.leavesLeft).toBe(0);
     expect(await ledgerFor(f.lesson.id)).toHaveLength(1);
   });
@@ -402,7 +449,7 @@ describe("М5 Ирц засах (ФШ-33, 34, 35, Хүснэгт 3.15)", () => {
     const res = await patch(f.teacher.token, attendanceId, { present: true });
     expect(res.body.status).toBe("PRESENT");
     const after = await reload(c.contract.id);
-    expect(after.remainingVisits).toBe(9);
+    expect(after.remainingHours.toNumber()).toBe(27);
     expect(after.leavesLeft).toBe(2);
     const ledger = await ledgerFor(f.lesson.id);
     expect(ledger.map((l) => [l.type, Number(l.amount)])).toEqual([["ADJUSTMENT", 10000]]);
@@ -413,7 +460,7 @@ describe("М5 Ирц засах (ФШ-33, 34, 35, Хүснэгт 3.15)", () => {
     const res = await patch(f.teacher.token, attendanceId, { present: true });
     expect(res.body.status).toBe("PRESENT");
     const after = await reload(c.contract.id);
-    expect(after.remainingVisits).toBe(9);
+    expect(after.remainingHours.toNumber()).toBe(27);
     expect(await ledgerFor(f.lesson.id)).toHaveLength(1);
   });
 
@@ -423,7 +470,7 @@ describe("М5 Ирц засах (ФШ-33, 34, 35, Хүснэгт 3.15)", () => {
     await patch(f.teacher.token, attendanceId, { present: false });
     const after = await reload(c.contract.id);
     expect(after.status).toBe("ACTIVE");
-    expect(after.remainingVisits).toBe(1);
+    expect(after.remainingHours.toNumber()).toBe(3);
   });
 
   it("ФШ-34: олголтын дараа засахад олголтын мөр өөрчлөгдөхгүй, зөвхөн ADJUSTMENT нэмэгдэнэ; -50 000 + 80 000 = 30 000", async () => {
@@ -514,7 +561,7 @@ describe("М5 Нөхөлт (ФШ-31)", () => {
     expect(makeups[2]?.res.body.type).toContain("no-makeup-available");
 
     const after = await reload(student.contract.id);
-    expect(after.remainingVisits).toBe(18);
+    expect(after.remainingHours.toNumber()).toBe(54);
     expect(after.leavesLeft).toBe(1);
     const ledger = await ledgerFor(makeups[0]!.lessonId);
     expect(ledger.map((l) => Number(l.amount))).toEqual([10000]);
@@ -596,6 +643,6 @@ describe("М5 Эрх (BOLA, ФБШ-20)", () => {
     expect(res.body.windowOpen).toBe(true);
     const flagged = res.body.rows.filter((r: { leaveRequested: boolean }) => r.leaveRequested);
     expect(flagged).toHaveLength(1);
-    expect(res.body.rows[0]).toMatchObject({ remainingVisits: 25, leavesLeft: 3, present: null, paymentStatus: "DEBT" });
+    expect(res.body.rows[0]).toMatchObject({ remainingHours: 75, leavesLeft: 3, present: null, paymentStatus: "DEBT" });
   });
 });

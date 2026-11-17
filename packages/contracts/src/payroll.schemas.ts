@@ -77,3 +77,122 @@ export interface LedgerSummaryDto {
   // ФШ-57: тасралтгүй үлдэгдэл = нийт олсон - нийт олгосон (бүх хугацаагаар).
   balance: string;
 }
+
+// D-67, D-68 (ФШ-10, 53 шинэчлэл): багш хүүхэд (гэрээ) тус бүр дээрээ өөрийн цагийн цалинг гараар оруулна.
+// Хэзээ ч засаж болно, засвар тухайн хүүхдийн бүх хичээлийн (өмнөх ба дараах) цалинд үйлчилнэ: зөрүүг
+// ADJUSTMENT мөрөөр бичнэ (ADR-010).
+export const setContractRateSchema = z.object({
+  hourlyRate: moneySchema,
+});
+export type SetContractRateInput = z.infer<typeof setContractRateSchema>;
+
+// D-67: ах дүүгийн хөнгөлөлтийн хувь, "10.00" хэлбэр (0.00-100.00).
+export const discountPercentSchema = z
+  .string()
+  .regex(/^\d{1,3}\.\d{2}$/, 'Хувийг "10.00" хэлбэрээр бичнэ')
+  .refine((v) => Number(v) <= 100, "Хувь 100-аас их байж болохгүй");
+export const setContractDiscountSchema = z.object({
+  percent: discountPercentSchema,
+});
+export type SetContractDiscountInput = z.infer<typeof setContractDiscountSchema>;
+
+// Багшийн өөрийн сурагч бүрийн үнэлгээ (хөтөлбөрийн протоколыг багшид харуулахгүй).
+export interface TeacherContractRateDto {
+  contractId: string;
+  studentId: string;
+  studentName: string;
+  programName: string;
+  // Багшийн оруулсан одоогийн үнэлгээ, оруулаагүй бол null.
+  hourlyRate: string | null;
+  // Ах дүүгийн хөнгөлөлт: цалин энэ хувиар буурна.
+  discountPercent: string;
+  // Хөнгөлөлт хэрэглэсний дараах бодит цагийн үнэлгээ.
+  effectiveRate: string | null;
+}
+
+// Захирлын протокол: үнэлгээг багш, хүүхдээр нь протоколтой тулгана.
+export type RateCheckStatus = "MATCH" | "DIFFERENT" | "MISSING" | "NO_PROTOCOL";
+export const RATE_CHECK_LABELS: Record<RateCheckStatus, string> = {
+  MATCH: "Таарсан",
+  DIFFERENT: "Зөрсөн",
+  MISSING: "Оруулаагүй",
+  NO_PROTOCOL: "Протоколгүй",
+};
+
+export interface RateProtocolRowDto {
+  teacherId: string;
+  teacherName: string;
+  contractId: string;
+  studentName: string;
+  programId: string;
+  programName: string;
+  protocolRate: string | null;
+  enteredRate: string | null;
+  discountPercent: string;
+  status: RateCheckStatus;
+}
+
+export interface RateProtocolDto {
+  programs: { id: string; name: string; protocolRate: string | null }[];
+  rows: RateProtocolRowDto[];
+}
+
+export const rateProtocolQuerySchema = z.object({
+  teacherId: z.uuid().optional(),
+  programId: z.uuid().optional(),
+  status: z.enum(["MATCH", "DIFFERENT", "MISSING", "NO_PROTOCOL"]).optional(),
+});
+
+// D-68: багшийн "Миний цалин" хуудас сурагч (гэрээ) бүрээр. Хугацаа хоосон бол бүх хугацаа.
+export const myStudentsPayrollQuerySchema = z.object({
+  from: dateKey.optional(),
+  to: dateKey.optional(),
+});
+export type MyStudentsPayrollQuery = z.infer<typeof myStudentsPayrollQuerySchema>;
+
+export interface StudentPayrollRowDto {
+  contractId: string;
+  studentId: string;
+  studentName: string;
+  programName: string;
+  // D-73: багц дууссан (COMPLETED) бол "Амжилттай дууссан сурагчид" хэсэгт гарна.
+  contractStatus: "ACTIVE" | "PAUSED" | "COMPLETED";
+  // Багцын академик цаг (ирэлтийн тоо x нэг ирэлтийн академик цаг), жишээ нь 75.
+  academicHoursExpected: string;
+  // Энэ багшийн заасан, цалинд тооцогдсон академик цаг (минут / нэг академик цагийн минут).
+  academicHoursDone: string;
+  // Цалингийн цаг: цалинд тооцогдсон хичээлийн 60 минутын цаг.
+  payrollHours: string;
+  // Багшийн гараар оруулсан цагийн цалин, оруулаагүй бол null.
+  hourlyRate: string | null;
+  // Ах дүүгийн хөнгөлөлтийн хувь ба хөнгөлсний дараах цагийн цалин.
+  discountPercent: string;
+  effectiveRate: string | null;
+  // Авах цалин = цалингийн цаг x цагийн цалин (хугацаанд).
+  earned: string;
+  // Төлбөрийн төлөв: багшид дүнгүй (ФШ-51).
+  paymentFlag: "FULL" | "DEBT";
+  // Сүүлд эцэг эхэд төлбөрийн сануулга илгээсэн огноо.
+  lastReminderAt: string | null;
+}
+
+export interface MyStudentsPayrollDto {
+  rows: StudentPayrollRowDto[];
+  totalEarned: string;
+}
+
+export interface StudentPayrollEntryDto {
+  attendanceId: string;
+  startsAt: string;
+  date: string;
+  classLabel: string;
+  branchName: string;
+  durationMin: number;
+  academicHours: string;
+  payrollHours: string;
+  status: string;
+  counted: boolean;
+  // Энэ ирцэд бодогдсон цагийн цалин (хөнгөлсөн) ба нийт дүн (EARNING + ADJUSTMENT).
+  rateUsed: string | null;
+  amount: string;
+}

@@ -3,10 +3,16 @@ import {
   createPayoutSchema,
   exportQuerySchema,
   ledgerQuerySchema,
+  myStudentsPayrollQuerySchema,
   payrollSummaryQuerySchema,
+  rateProtocolQuerySchema,
+  setContractRateSchema,
 } from "@pitoo/contracts";
+import { z } from "zod";
 import { DomainError } from "../../shared/errors/domain-error.js";
 import * as ledger from "./payroll.ledger.js";
+import * as rates from "./payroll.rates.js";
+import * as students from "./payroll.students.js";
 
 export async function listLedger(req: Request, res: Response) {
   const query = ledgerQuerySchema.parse(req.query);
@@ -43,4 +49,32 @@ export async function exportReport(req: Request, res: Response) {
       "X-Report-Total": file.total,
     })
     .send(file.body);
+}
+
+// D-67
+export async function listMyRates(req: Request, res: Response) {
+  res.status(200).json(await rates.listMyRates(req.user!));
+}
+
+export async function setContractRate(req: Request, res: Response) {
+  const { id } = z.object({ id: z.uuid() }).parse(req.params);
+  const input = setContractRateSchema.parse(req.body);
+  res.status(200).json(await rates.setContractRate(req.user!, id, input));
+}
+
+export async function getRateProtocol(req: Request, res: Response) {
+  const query = rateProtocolQuerySchema.parse(req.query);
+  res.status(200).json(await rates.getRateProtocol(query));
+}
+
+// D-68
+export async function listMyStudents(req: Request, res: Response) {
+  const query = myStudentsPayrollQuerySchema.parse(req.query);
+  res.status(200).json(await students.listMyStudents(req.user!, query));
+}
+
+export async function listStudentEntries(req: Request, res: Response) {
+  const { id } = z.object({ id: z.uuid() }).parse(req.params);
+  const query = myStudentsPayrollQuerySchema.parse(req.query);
+  res.status(200).json(await students.listStudentEntries(req.user!, id, query));
 }

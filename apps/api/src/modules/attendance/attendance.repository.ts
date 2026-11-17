@@ -37,7 +37,7 @@ export function updateContractCounters(
   tx: Tx,
   id: string,
   data: {
-    remainingVisits?: number;
+    remainingHours?: number;
     leavesLeft?: number;
     freeReviewsLeft?: number;
     status?: ContractStatus;
@@ -58,6 +58,9 @@ export function createAttendance(
     marked: boolean;
     status: AttendanceStatus;
     isMakeup?: boolean;
+    actualStartsAt?: Date;
+    actualEndsAt?: Date;
+    packageHours?: number;
     updatedBy: string;
   },
 ) {
@@ -67,7 +70,14 @@ export function createAttendance(
 export function updateAttendance(
   tx: Tx,
   id: string,
-  data: { marked?: boolean; status?: AttendanceStatus; updatedBy: string },
+  data: {
+    marked?: boolean;
+    status?: AttendanceStatus;
+    actualStartsAt?: Date | null;
+    actualEndsAt?: Date | null;
+    packageHours?: number;
+    updatedBy: string;
+  },
 ) {
   return tx.attendance.update({ where: { id }, data });
 }

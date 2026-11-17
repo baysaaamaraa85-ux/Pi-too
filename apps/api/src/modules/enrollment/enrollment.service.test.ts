@@ -63,7 +63,7 @@ describe("М3 Элсэлт ба гэрээ", () => {
     expect(secondRes.body.tempPassword).toBeUndefined();
   });
 
-  it("ФШ-16, 17: гэрээ үүсэхэд тоолуур settings-ээс зөв тооцогдоно (75/3=25, 3 чөлөө)", async () => {
+  it("ФШ-16, 17, D-70: гэрээ үүсэхэд багц 75 академик цаг, 3 чөлөө settings-ээс", async () => {
     const { programId } = await createBranchAndProgram();
     const student = await prisma.student.create({ data: { fullName: "Сурагч" } });
 
@@ -73,8 +73,8 @@ describe("М3 Элсэлт ба гэрээ", () => {
       .send({ studentId: student.id, programId, rulesAckAt: new Date().toISOString() });
 
     expect(res.status).toBe(201);
-    expect(res.body.remainingVisits).toBe(25);
-    expect(res.body.totalVisits).toBe(25);
+    expect(Number(res.body.remainingHours)).toBe(75);
+    expect(Number(res.body.totalHours)).toBe(75);
     expect(res.body.leavesLeft).toBe(3);
     expect(res.body.price).toBe("500000");
   });
@@ -90,8 +90,8 @@ describe("М3 Элсэлт ба гэрээ", () => {
         studentId: student.id,
         programId,
         price: "500000.00",
-        totalVisits: 25,
-        remainingVisits: 25,
+        totalHours: 75,
+        remainingHours: 75,
         leavesLeft: 3,
         rulesAckAt: new Date(),
       },
@@ -126,8 +126,8 @@ describe("М3 Элсэлт ба гэрээ", () => {
         studentId: student.id,
         programId,
         price: "500000.00",
-        totalVisits: 25,
-        remainingVisits: 25,
+        totalHours: 75,
+        remainingHours: 75,
         leavesLeft: 3,
         rulesAckAt: new Date(),
       },

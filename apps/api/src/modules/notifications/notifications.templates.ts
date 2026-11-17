@@ -50,13 +50,13 @@ export function renderNotification(
     case "attendance_updated":
       return {
         title: template === "attendance_updated" ? "Ирц шинэчлэгдлээ" : "Ирц бүртгэгдлээ",
-        body: `${str(payload.studentName)}: ${STATUS_LABELS[str(payload.status)] ?? str(payload.status)} (${formatLocal(payload.lessonStartsAt)}). Үлдсэн ирэлт ${num(payload.remainingVisits)}, чөлөө ${num(payload.leavesLeft)}.`,
+        body: `${str(payload.studentName)}: ${STATUS_LABELS[str(payload.status)] ?? str(payload.status)} (${formatLocal(payload.lessonStartsAt)}). Үлдсэн багц ${num(payload.remainingHours)} академик цаг, чөлөө ${num(payload.leavesLeft)}.`,
         url: `${appOrigin}/portal/attendance`,
       };
     case "package_ending":
       return {
         title: "Багц дуусахад ойртлоо",
-        body: `${str(payload.studentName)}: үлдсэн ирэлт ${num(payload.remainingVisits)}.`,
+        body: `${str(payload.studentName)}: үлдсэн багц ${num(payload.remainingHours)} академик цаг.`,
         url: `${appOrigin}/portal`,
       };
     case "leave_requested":
@@ -75,6 +75,12 @@ export function renderNotification(
       return {
         title: "Төлбөр бүртгэгдлээ",
         body: `${str(payload.studentName)}: ${num(payload.amount)} ₮ бүртгэгдлээ. Үлдэгдэл ${num(payload.balance)} ₮.`,
+        url: `${appOrigin}/portal/payment`,
+      };
+    case "payment_reminder":
+      return {
+        title: "Төлбөрийн сануулга",
+        body: `${str(payload.studentName)}: ${str(payload.programName)} багцын төлбөр төлөгдөөгүй байна. Үлдэгдэл ${num(payload.balance)} ₮. Төлбөрийн заавар "Гэрээ, төлбөр" хэсэгт байна.`,
         url: `${appOrigin}/portal/payment`,
       };
     case "payment_claim_created":

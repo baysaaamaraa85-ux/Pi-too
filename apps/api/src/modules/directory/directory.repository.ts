@@ -38,7 +38,6 @@ export async function listTeachers(
       take: f.limit,
       include: {
         user: true,
-        rates: { orderBy: { effectiveFrom: "desc" }, take: 1 },
         classes: { where: activeClassWhere, include: { branch: true } },
       },
     }),
@@ -52,7 +51,6 @@ export function findTeacher(tx: Tx, id: string) {
     where: { userId: id },
     include: {
       user: true,
-      rates: { orderBy: { effectiveFrom: "desc" } },
       classes: {
         where: activeClassWhere,
         include: {
@@ -247,4 +245,27 @@ export async function countSetupEntities(tx: Tx) {
     tx.student.count(),
   ]);
   return { branches, programs, teachers, classes, students };
+}
+
+export function updateTeacherPublicProfile(
+  tx: Tx,
+  userId: string,
+  data: { specialties?: string[]; photoUrl?: string | null },
+) {
+  return tx.teacher.update({ where: { userId }, data });
+}
+
+// ФШ-78: нийтийн сайтад зөвхөн идэвхтэй багш. Утас, имэйл, үнэлгээ, цалин орохгүй.
+export function listPublicTeachers(tx: Tx) {
+  return tx.teacher.findMany({
+    where: { user: { isActive: true } },
+    select: {
+      userId: true,
+      fullName: true,
+      specialties: true,
+      photoUrl: true,
+      classes: { where: { isActive: true }, select: { branch: { select: { name: true } } } },
+    },
+    orderBy: { fullName: "asc" },
+  });
 }

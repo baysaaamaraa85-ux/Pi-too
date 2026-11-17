@@ -14,6 +14,9 @@ schedulingRouter.get(
   authorize("ADMIN", "TEACHER"),
   controller.listAvailableClasses,
 );
+// D-69: багшийн долоо хоногийн хуваарь (гариг бүрээр, ачаалалтай) ба ангийн сурагчдын жагсаалт.
+schedulingRouter.get("/classes/week", authorize("ADMIN", "TEACHER"), controller.listWeekClasses);
+schedulingRouter.get("/classes/:id/students", authorize("ADMIN", "TEACHER"), controller.listClassRoster);
 schedulingRouter.get("/classes", authorize("ADMIN", "TEACHER"), controller.listClasses);
 schedulingRouter.post("/classes", authorize("ADMIN", "TEACHER"), controller.createClass);
 schedulingRouter.delete("/classes/:id", authorize("ADMIN", "TEACHER"), controller.deleteClass);

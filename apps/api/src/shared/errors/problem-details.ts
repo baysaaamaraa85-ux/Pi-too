@@ -48,6 +48,17 @@ export const problemDetails: ErrorRequestHandler = (err, req, res, next) => {
     return;
   }
 
+  // body-parser: хэт том зураг (express.raw limit).
+  if (typeof err === "object" && err !== null && (err as { type?: unknown }).type === "entity.too.large") {
+    res.status(413).type("application/problem+json").json({
+      type: `${PROBLEM_BASE}/payload-too-large`,
+      title: "Файл хэт том байна",
+      status: 413,
+      detail: "Илгээсэн файл зөвшөөрөгдсөн хэмжээнээс (3 MB) их байна.",
+    });
+    return;
+  }
+
   // 500 үед дотоод мэдээллийг хэрэглэгчид харуулахгүй, зөвхөн логт бичнэ (CLAUDE.md 6.6).
   (req.log ?? logger).error({ err }, "Таамаглаагүй алдаа");
   res.status(500).type("application/problem+json").json({

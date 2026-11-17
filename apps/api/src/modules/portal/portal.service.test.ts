@@ -113,7 +113,7 @@ describe("Порталын хэсэг: эцэг эх, сурагч", () => {
     expect(res.body.students[0].studentId).not.toBe(other.studentId);
 
     const contract = res.body.students[0].contracts[0];
-    expect(contract.remainingVisits).toBe(25);
+    expect(contract.remainingHours).toBe(75);
     expect(contract.leavesLeft).toBe(3);
     expect(contract.classes).toHaveLength(1);
     expect(contract.classes[0].teacherName).toBe("Тест багш");
@@ -283,15 +283,15 @@ describe("Порталын хэсэг: эцэг эх, сурагч", () => {
         pack === 0
           ? await prisma.contract.update({
               where: { id: family.contractId },
-              data: { status: "COMPLETED", remainingVisits: 0 },
+              data: { status: "COMPLETED", remainingHours: 0 },
             })
           : await prisma.contract.create({
               data: {
                 studentId: family.studentId,
                 programId: program,
                 price: "1200000.00",
-                totalVisits: 25,
-                remainingVisits: 0,
+                totalHours: 75,
+                remainingHours: 0,
                 leavesLeft: 3,
                 status: "COMPLETED",
                 rulesAckAt: new Date(),

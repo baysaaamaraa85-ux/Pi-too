@@ -348,3 +348,44 @@ export async function listDebtBalances(): Promise<{ contractId: string; balance:
   const all = await debtRows({});
   return all.map((r) => ({ contractId: r.contractId, balance: r.balance }));
 }
+
+// D-68: багш (эсвэл админ) төлбөр төлөгдөөгүй хүүхдийн эцэг эхэд мэдэгдэл, нэхэмжлэл илгээнэ. Мэдэгдэл outbox-оор
+// (ADR-006), эцэг эхийн сонгосон сувгаар явна. Багш зөвхөн өөрийн хүүхдэд. Төлөгдсөн гэрээнд 409.
+// Нэг гэрээнд өдөрт нэг удаа (Улаанбаатарын өдрөөр), эцэг эхийг дахин дахин төвөг удахаас сэргийлнэ.
+export async function sendPaymentReminder(actor: Actor, contractId: string) {
+  return prisma.$transaction(async (tx) => {
+    const contract = await repo.findContract(tx, contractId);
+    if (!contract) contractNotFound();
+    if (actor.role === Role.TEACHER && !(await repo.teacherHasContract(tx, actor.id, contractId))) {
+      rejected(403, "forbidden-payment-reminder", "Эрх хүрэхгүй байна", "Та зөвхөн өөрийн сурагчийн эцэг эхэд мэдэгдэл илгээнэ.");
+    }
+
+    const paid = (await paidByContract(tx, [contractId])).get(contractId) ?? new Prisma.Decimal(0);
+    const balance = computeBalance(contract.price, paid);
+    if (balance.balance.lte(0)) {
+      rejected(409, "contract-fully-paid", "Төлбөр төлөгдсөн байна", "Энэ гэрээний төлбөр бүрэн төлөгдсөн тул сануулга илгээхгүй.");
+    }
+
+    const dayStart = new Date(Math.floor((Date.now() + 8 * 3_600_000) / 86_400_000) * 86_400_000 - 8 * 3_600_000);
+    if (await repo.findReminderSince(tx, contractId, dayStart)) {
+      rejected(409, "payment-reminder-already-sent", "Өнөөдөр илгээсэн байна", "Энэ хүүхдийн эцэг эхэд өнөөдөр сануулга илгээсэн байна. Маргааш дахин илгээнэ үү.");
+    }
+
+    const notified = await notifyParentsInTx(tx, contract.studentId, "payment_reminder", {
+      studentName: contract.student.fullName,
+      programName: contract.program.name,
+      balance: balance.balance.toFixed(2),
+    });
+    if (notified === 0) {
+      rejected(409, "no-parent-account", "Эцэг эхийн данс холбогдоогүй", "Энэ сурагчид холбогдсон эцэг эхийн данс байхгүй тул мэдэгдэл илгээх боломжгүй.");
+    }
+    await writeAudit(tx, {
+      entity: "contract",
+      entityId: contractId,
+      action: "PAYMENT_REMINDER",
+      after: { notified, balance: balance.balance.toFixed(2) },
+      actorId: actor.id,
+    });
+    return { contractId, notified };
+  });
+}

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authenticate } from "../../shared/rbac/authenticate.js";
 import { authorize } from "../../shared/rbac/authorize.js";
+import { imageBody } from "../../shared/uploads/image-upload.js";
 import * as controller from "./catalog.controller.js";
 
 export const catalogRouter = Router();
@@ -13,6 +14,7 @@ catalogRouter.use(authenticate);
 catalogRouter.get("/branches", authorize("ADMIN", "TEACHER"), controller.listBranches);
 catalogRouter.post("/branches", authorize("ADMIN"), controller.createBranch);
 catalogRouter.patch("/branches/:id", authorize("ADMIN"), controller.updateBranch);
+catalogRouter.put("/branches/:id/photo", authorize("ADMIN"), imageBody, controller.uploadBranchPhoto);
 
 // ФШ-08
 catalogRouter.get("/programs", authorize("ADMIN", "TEACHER"), controller.listPrograms);
@@ -23,5 +25,3 @@ catalogRouter.patch("/programs/:id", authorize("ADMIN"), controller.updateProgra
 catalogRouter.get("/settings", authorize("ADMIN"), controller.listSettings);
 catalogRouter.put("/settings", authorize("ADMIN"), controller.updateSetting);
 
-// ФШ-10
-catalogRouter.post("/teachers/:id/rates", authorize("ADMIN"), controller.createTeacherRate);

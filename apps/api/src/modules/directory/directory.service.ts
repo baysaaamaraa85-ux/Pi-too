@@ -2,6 +2,8 @@ import { Prisma } from "../../generated/prisma/client.js";
 import { prisma, type Tx } from "../../shared/db/prisma.js";
 import { writeAudit } from "../../shared/audit/write-audit.js";
 import { DomainError } from "../../shared/errors/domain-error.js";
+import { removeUploadedImage, saveImage } from "../../shared/uploads/image-upload.js";
+import type { AuthUser } from "../../shared/rbac/types.js";
 import { createUser } from "../auth/auth.service.js";
 import { getTeacherBalance } from "../payroll/payroll.service.js";
 import { balancesFor, type ContractBalance } from "../../shared/payments/payment-status.js";
@@ -40,9 +42,12 @@ function contractDto(c: ContractRow, balance?: ContractBalance) {
     id: c.id,
     programName: c.program.name,
     price: c.price.toFixed(2),
+    // D-67: ах дүүгийн хөнгөлөлт ба хөнгөлөхөөс өмнөх үнэ.
+    discountPercent: c.siblingDiscountPercent.toFixed(2),
+    listPrice: c.listPrice ? c.listPrice.toFixed(2) : null,
     status: c.status,
-    totalVisits: c.totalVisits,
-    remainingVisits: c.remainingVisits,
+    totalHours: c.totalHours.toNumber(),
+    remainingHours: c.remainingHours.toNumber(),
     leavesLeft: c.leavesLeft,
     freeReviewsLeft: c.freeReviewsLeft,
     meetingsCount: c._count.meetings,
@@ -72,7 +77,6 @@ export async function listTeachers(q: Parameters<typeof repo.listTeachers>[1]) {
       email: t.user.email,
       isActive: t.user.isActive,
       mustChangePassword: t.user.mustChangePassword,
-      currentRate: t.rates[0]?.hourlyRate.toFixed(2) ?? null,
       activeClasses: t.classes.length,
       branches: [...new Map(t.classes.map((c) => [c.branchId, c.branch.name])).entries()].map(
         ([id, name]) => ({ id, name }),
@@ -94,12 +98,9 @@ export async function getTeacher(id: string) {
     email: t.user.email,
     isActive: t.user.isActive,
     mustChangePassword: t.user.mustChangePassword,
+    specialties: t.specialties,
+    photoUrl: t.photoUrl,
     balance: await getTeacherBalance(t.userId),
-    rates: t.rates.map((r) => ({
-      id: r.id,
-      hourlyRate: r.hourlyRate.toFixed(2),
-      effectiveFrom: r.effectiveFrom.toISOString().slice(0, 10),
-    })),
     classes: t.classes.map((c) => ({
       id: c.id,
       branchName: c.branch.name,
@@ -140,7 +141,13 @@ async function applyContactUpdate(
 
 export async function updateTeacher(
   id: string,
-  input: { fullName?: string; phone?: string; email?: string | null },
+  input: {
+    fullName?: string;
+    phone?: string;
+    email?: string | null;
+    specialties?: string[];
+    photoUrl?: string | null;
+  },
   actorId: string,
 ) {
   await prisma.$transaction(async (tx) => {
@@ -148,16 +155,88 @@ export async function updateTeacher(
     if (!t) notFound("Багш");
     await applyContactUpdate(tx, id, input);
     if (input.fullName) await repo.updateTeacherName(tx, id, input.fullName);
+    if (input.specialties !== undefined || input.photoUrl !== undefined) {
+      await repo.updateTeacherPublicProfile(tx, id, {
+        specialties: input.specialties,
+        photoUrl: input.photoUrl === "" ? null : input.photoUrl,
+      });
+    }
     await writeAudit(tx, {
       entity: "teacher",
       entityId: id,
       action: "UPDATE",
-      before: { fullName: t.fullName, phone: t.user.phone, email: t.user.email },
+      before: {
+        fullName: t.fullName,
+        phone: t.user.phone,
+        email: t.user.email,
+        specialties: t.specialties,
+        photoUrl: t.photoUrl,
+      },
       after: input,
       actorId,
     });
   });
   return getTeacher(id);
+}
+
+// D-69: багш өөрийн нийтийн сайтад харагдах заах чиглэлээ (мэргэшил) өөрөө засна. Админ хэнийх ч.
+export async function updateTeacherSpecialties(actor: AuthUser, id: string, specialties: string[]) {
+  if (actor.role !== "ADMIN" && actor.id !== id) {
+    throw new DomainError({
+      code: "forbidden",
+      status: 403,
+      title: "Хандах эрхгүй",
+      detail: "Та зөвхөн өөрийн профайлыг засна.",
+    });
+  }
+  await prisma.$transaction(async (tx) => {
+    const t = await repo.findTeacher(tx, id);
+    if (!t) notFound("Багш");
+    await repo.updateTeacherPublicProfile(tx, id, { specialties });
+    await writeAudit(tx, {
+      entity: "teacher",
+      entityId: id,
+      action: "UPDATE",
+      before: { specialties: t.specialties },
+      after: { specialties },
+      actorId: actor.id,
+    });
+  });
+  return { specialties };
+}
+
+// ФШ-78: багшийн зураг. Админ хэнийх ч, багш зөвхөн өөрийнхийг (BOLA, ADR-008).
+export async function setTeacherPhoto(id: string, image: Buffer | null, actor: AuthUser) {
+  if (actor.role !== "ADMIN" && actor.id !== id) {
+    throw new DomainError({
+      code: "forbidden",
+      status: 403,
+      title: "Хандах эрхгүй",
+      detail: "Та зөвхөн өөрийн профайлын зургийг солих боломжтой.",
+    });
+  }
+  const photoUrl = await saveImage("teachers", image);
+  try {
+    const before = await prisma.$transaction(async (tx) => {
+      const t = await repo.findTeacher(tx, id);
+      if (!t) notFound("Багш");
+      await repo.updateTeacherPublicProfile(tx, id, { photoUrl });
+      await writeAudit(tx, {
+        entity: "teacher",
+        entityId: id,
+        action: "UPDATE",
+        before: { photoUrl: t.photoUrl },
+        after: { photoUrl },
+        actorId: actor.id,
+      });
+      return t.photoUrl;
+    });
+    await removeUploadedImage(before);
+  } catch (err) {
+    await removeUploadedImage(photoUrl);
+    throw err;
+  }
+  return { photoUrl };
 }
 
 // ---- Эцэг эхчүүд ----
@@ -337,5 +416,18 @@ export async function getSetupStatus() {
     ...step,
     done: step.count > 0,
     unlocked: index === 0 || (steps[index - 1]?.count ?? 0) > 0,
+  }));
+}
+
+// ---- Нийтийн сайт (ФШ-78): нэвтрэлтгүй, зөвхөн нийтэд харагдах мэдээлэл ----
+
+export async function listPublicTeachers() {
+  const rows = await repo.listPublicTeachers(prisma);
+  return rows.map((t) => ({
+    id: t.userId,
+    fullName: t.fullName,
+    specialties: t.specialties,
+    photoUrl: t.photoUrl,
+    branches: [...new Set(t.classes.map((c) => c.branch.name))].sort((a, b) => a.localeCompare(b)),
   }));
 }

@@ -57,7 +57,8 @@ describe("М4 Хуваарь: хичээл үүсгэх, цуцлах, шилж�
     // generateLessons нь АЛЬ ХЭДИЙН идэвхтэй бүх ангид ажилладаг (worker-ийн
     // бодит зорилго), тестийн орчинд өмнөх тестүүдийн анги ч идэвхтэй байж
     // болзошгүй тул нийт тоог биш, зөвхөн ӨӨРИЙН classId-тай хичээлийг шалгана.
-    const from = nextMonday(new Date());
+    // Улаанбаатарын өнөөдрөөс (UTC+8) тоолно: шөнийн 00:00-08:00-д UTC огноо өчигдөр байдаг.
+    const from = nextMonday(new Date(Date.now() + 8 * 3_600_000));
     await generateLessons(from, 4);
     const firstRunLessons = await prisma.lesson.findMany({ where: { classId } });
     expect(firstRunLessons).toHaveLength(4);
@@ -132,8 +133,8 @@ describe("М4 Хуваарь: хичээл үүсгэх, цуцлах, шилж�
         studentId: student.id,
         programId: program.id,
         price: "500000.00",
-        totalVisits: 25,
-        remainingVisits: 25,
+        totalHours: 75,
+        remainingHours: 75,
         leavesLeft: 3,
         rulesAckAt: new Date(),
       },
@@ -162,8 +163,8 @@ describe("М4 Хуваарь: хичээл үүсгэх, цуцлах, шилж�
         studentId: student.id,
         programId: program.id,
         price: "500000.00",
-        totalVisits: 25,
-        remainingVisits: 25,
+        totalHours: 75,
+        remainingHours: 75,
         leavesLeft: 3,
         rulesAckAt: new Date(),
       },
@@ -218,8 +219,8 @@ describe("М4 Хуваарь: хичээл үүсгэх, цуцлах, шилж�
         studentId: student.id,
         programId: branch.id,
         price: "500000.00",
-        totalVisits: 25,
-        remainingVisits: 25,
+        totalHours: 75,
+        remainingHours: 75,
         leavesLeft: 3,
         rulesAckAt: new Date(),
       },

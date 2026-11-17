@@ -13,6 +13,7 @@ enrollmentRouter.post("/enrollments", controller.enrollStudent);
 enrollmentRouter.get("/contracts", controller.listContracts);
 enrollmentRouter.post("/contracts", controller.createContract);
 enrollmentRouter.put("/contracts/:id/plan", controller.updateContractPlan);
+enrollmentRouter.put("/contracts/:id/discount", authorize("ADMIN"), controller.setContractDiscount);
 enrollmentRouter.post("/contracts/:id/pause", controller.pauseContract);
 enrollmentRouter.post("/contracts/:id/resume", controller.resumeContract);
 

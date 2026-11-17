@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { AttendanceStatus, ContractStatus } from "../../generated/prisma/client.js";
 import {
+  academicHours,
   applyDelta,
-  crossedToThree,
+  crossedToThreshold,
   decideStatus,
   effectsOf,
+  forwardOf,
   inverseOf,
-  meetingVisitReached,
+  meetingHoursReached,
+  packageDeduction,
 } from "./attendance.rules.js";
 
 const base = {
@@ -30,12 +33,12 @@ describe("М5 ирцийн төлвийн дүрэм (цэвэр)", () => {
   it("ФШ-29: чөлөөний эрх 0 үед Чөлөө хэтэрсэн болж багцаас хасна", () => {
     const status = decideStatus({ ...base, present: false, leavesLeft: 0 });
     expect(status).toBe(AttendanceStatus.OVER_LIMIT);
-    expect(effectsOf(AttendanceStatus.OVER_LIMIT)).toMatchObject({ visits: -1, counted: true });
+    expect(effectsOf(AttendanceStatus.OVER_LIMIT)).toMatchObject({ consumesPackage: true, counted: true });
   });
 
   it("Хүснэгт 1.3: Чөлөөтэй багцаас хасахгүй, эрхээс 1 хасна, цалинд тооцохгүй", () => {
     expect(effectsOf(AttendanceStatus.EXCUSED)).toEqual({
-      visits: 0,
+      consumesPackage: false,
       leaves: -1,
       freeReviews: 0,
       counted: false,
@@ -44,7 +47,7 @@ describe("М5 ирцийн төлвийн дүрэм (цэвэр)", () => {
 
   it("Хүснэгт 1.3: Нөхөлт багцаас хасна, цалинд тооцно, чөлөөнд хүрэхгүй", () => {
     expect(effectsOf(AttendanceStatus.MAKEUP)).toEqual({
-      visits: -1,
+      consumesPackage: true,
       leaves: 0,
       freeReviews: 0,
       counted: true,
@@ -53,7 +56,7 @@ describe("М5 ирцийн төлвийн дүрэм (цэвэр)", () => {
 
   it("ФШ-40: үнэгүй давтлага багц, цалинд нөлөөлөхгүй, давтлагын эрхээс хасна", () => {
     expect(effectsOf(AttendanceStatus.FREE_REVIEW)).toEqual({
-      visits: 0,
+      consumesPackage: false,
       leaves: 0,
       freeReviews: -1,
       counted: false,
@@ -76,47 +79,84 @@ describe("М5 ирцийн төлвийн дүрэм (цэвэр)", () => {
     );
   });
 
-  it("ФШ-36: үлдэгдэл 4-өөс 3 болоход л мэдэгдэл (3-аас 2, 5-аас 4 биш)", () => {
-    expect(crossedToThree(4, 3)).toBe(true);
-    expect(crossedToThree(5, 4)).toBe(false);
-    expect(crossedToThree(3, 2)).toBe(false);
-    // Засвараар 3-аас 4 болоод дахин 3 болсон бол дахин мэдэгдэнэ.
-    expect(crossedToThree(4, 3)).toBe(true);
+  it("D-70: орсон минут -> академик цаг (40 минут = 1): 120 мин = 3, 170 мин = 4.25, 20 мин = 0.5", () => {
+    expect(academicHours(120, 40)).toBe(3);
+    expect(academicHours(160, 40)).toBe(4);
+    expect(academicHours(170, 40)).toBe(4.25);
+    expect(academicHours(40, 40)).toBe(1);
+    expect(academicHours(20, 40)).toBe(0.5);
+    expect(academicHours(100, 40)).toBe(2.5);
+    expect(academicHours(0, 40)).toBe(0);
   });
 
-  it("ФШ-43: 13 ба 25 дахь ирэлтэд уулзалтын сануулга", () => {
-    expect(meetingVisitReached(25, 13, 12)).toBe(true); // 12 дахь ирэлт -> 13 дахь ирэлт хийгдсэн: 12 -> 13 хийсэн
-    expect(meetingVisitReached(25, 14, 13)).toBe(false); // 11 -> 12 дахь ирэлт
-    expect(meetingVisitReached(25, 1, 0)).toBe(true); // 25 дахь ирэлт
-    expect(meetingVisitReached(25, 5, 4)).toBe(false);
+  it("D-70: багцаас хасах цаг: Ирсэн, Чөлөө хэтэрсэн, Нөхөлтөд бодит цаг; Чөлөөтэй, Үнэгүй давтлагад 0", () => {
+    for (const status of [AttendanceStatus.PRESENT, AttendanceStatus.OVER_LIMIT, AttendanceStatus.MAKEUP]) {
+      expect(packageDeduction(effectsOf(status), 4, 75)).toBe(4);
+    }
+    for (const status of [AttendanceStatus.EXCUSED, AttendanceStatus.FREE_REVIEW]) {
+      expect(packageDeduction(effectsOf(status), 4, 75)).toBe(0);
+    }
   });
 
-  it("үлдэгдэл 4-өөс 3, 1-ээс 0, засварын дараа 0-ээс 1", () => {
-    const start = { remainingVisits: 4, leavesLeft: 3, freeReviewsLeft: 0 };
+  it("D-70: үлдэгдлээс их цаг орвол үлдэгдлээр хязгаарлагдана (багц 0 болж дуусна, сөрөг болохгүй)", () => {
     const present = effectsOf(AttendanceStatus.PRESENT);
-    expect(applyDelta(start, present).remainingVisits).toBe(3);
-    expect(applyDelta({ ...start, remainingVisits: 1 }, present).remainingVisits).toBe(0);
-    expect(applyDelta({ ...start, remainingVisits: 0 }, inverseOf(present)).remainingVisits).toBe(1);
+    expect(packageDeduction(present, 4, 2)).toBe(2);
+    expect(packageDeduction(present, 3, 3)).toBe(3);
+    expect(packageDeduction(present, 3, 0)).toBe(0);
+    const start = { remainingHours: 2, leavesLeft: 3, freeReviewsLeft: 0 };
+    expect(applyDelta(start, forwardOf(present, packageDeduction(present, 4, 2))).remainingHours).toBe(0);
   });
 
-  it("Хүснэгт 3.15: Ирсэн -> Чөлөөтэй засварт багц 1 буцаж нэмэгдэж, эрх 1 хасагдана", () => {
-    let counters = { remainingVisits: 10, leavesLeft: 3, freeReviewsLeft: 0 };
-    counters = applyDelta(counters, inverseOf(effectsOf(AttendanceStatus.PRESENT)));
-    counters = applyDelta(counters, effectsOf(AttendanceStatus.EXCUSED));
-    expect(counters).toEqual({ remainingVisits: 11, leavesLeft: 2, freeReviewsLeft: 0 });
+  it("D-70: үлдэгдэл 75-аас 72 (3 цаг), 4.25 цагаар хасахад 70.75, засварт яг хасагдсан цаг буцаж нэмэгдэнэ", () => {
+    const start = { remainingHours: 75, leavesLeft: 3, freeReviewsLeft: 0 };
+    const present = effectsOf(AttendanceStatus.PRESENT);
+    expect(applyDelta(start, forwardOf(present, 3)).remainingHours).toBe(72);
+    const long = applyDelta(start, forwardOf(present, 4.25));
+    expect(long.remainingHours).toBe(70.75);
+    expect(applyDelta(long, inverseOf(present, 4.25))).toEqual(start);
+  });
+
+  it("ФШ-36: багцын үлдэгдэл 9 цагаас дээрээс доошоо орох үед л мэдэгдэл (9-өөс 6, 12-оос 10 биш)", () => {
+    expect(crossedToThreshold(12, 9, 9)).toBe(true);
+    expect(crossedToThreshold(10, 8.5, 9)).toBe(true); // хэсэгчилсэн цагаар давж орно
+    expect(crossedToThreshold(15, 12, 9)).toBe(false);
+    expect(crossedToThreshold(9, 6, 9)).toBe(false);
+    expect(crossedToThreshold(8, 5, 9)).toBe(false);
+  });
+
+  it("ФШ-43: багцын дундах (37.5) ба сүүлийн (75) цагт уулзалтын сануулга", () => {
+    expect(meetingHoursReached(75, 39, 36)).toBe(true); // 36 -> 39 цаг: дундах 37.5-г давсан
+    expect(meetingHoursReached(75, 42, 39)).toBe(false);
+    expect(meetingHoursReached(75, 3, 0)).toBe(true); // сүүлийн цаг
+    expect(meetingHoursReached(75, 15, 12)).toBe(false);
+  });
+
+  it("үлдэгдэл 12-оос 9, 3-аас 0, засварын дараа 0-ээс 3", () => {
+    const start = { remainingHours: 12, leavesLeft: 3, freeReviewsLeft: 0 };
+    const present = effectsOf(AttendanceStatus.PRESENT);
+    expect(applyDelta(start, forwardOf(present, 3)).remainingHours).toBe(9);
+    expect(applyDelta({ ...start, remainingHours: 3 }, forwardOf(present, 3)).remainingHours).toBe(0);
+    expect(applyDelta({ ...start, remainingHours: 0 }, inverseOf(present, 3)).remainingHours).toBe(3);
+  });
+
+  it("Хүснэгт 3.15: Ирсэн -> Чөлөөтэй засварт багц 3 цаг буцаж нэмэгдэж, эрх 1 хасагдана", () => {
+    let counters = { remainingHours: 30, leavesLeft: 3, freeReviewsLeft: 0 };
+    counters = applyDelta(counters, inverseOf(effectsOf(AttendanceStatus.PRESENT), 3));
+    counters = applyDelta(counters, forwardOf(effectsOf(AttendanceStatus.EXCUSED), 0));
+    expect(counters).toEqual({ remainingHours: 33, leavesLeft: 2, freeReviewsLeft: 0 });
   });
 
   it("Хүснэгт 3.15: Ирсэн -> Чөлөө хэтэрсэн (эрх 0) засварт тоолуур өөрчлөгдөхгүй", () => {
-    let counters = { remainingVisits: 10, leavesLeft: 0, freeReviewsLeft: 0 };
-    counters = applyDelta(counters, inverseOf(effectsOf(AttendanceStatus.PRESENT)));
-    counters = applyDelta(counters, effectsOf(AttendanceStatus.OVER_LIMIT));
-    expect(counters).toEqual({ remainingVisits: 10, leavesLeft: 0, freeReviewsLeft: 0 });
+    let counters = { remainingHours: 30, leavesLeft: 0, freeReviewsLeft: 0 };
+    counters = applyDelta(counters, inverseOf(effectsOf(AttendanceStatus.PRESENT), 3));
+    counters = applyDelta(counters, forwardOf(effectsOf(AttendanceStatus.OVER_LIMIT), 3));
+    expect(counters).toEqual({ remainingHours: 30, leavesLeft: 0, freeReviewsLeft: 0 });
   });
 
-  it("Хүснэгт 3.15: Чөлөөтэй -> Ирсэн засварт багц 1 хасагдаж, эрх 1 буцаж нэмэгдэнэ", () => {
-    let counters = { remainingVisits: 10, leavesLeft: 2, freeReviewsLeft: 0 };
-    counters = applyDelta(counters, inverseOf(effectsOf(AttendanceStatus.EXCUSED)));
-    counters = applyDelta(counters, effectsOf(AttendanceStatus.PRESENT));
-    expect(counters).toEqual({ remainingVisits: 9, leavesLeft: 3, freeReviewsLeft: 0 });
+  it("Хүснэгт 3.15: Чөлөөтэй -> Ирсэн засварт багц 3 цаг хасагдаж, эрх 1 буцаж нэмэгдэнэ", () => {
+    let counters = { remainingHours: 30, leavesLeft: 2, freeReviewsLeft: 0 };
+    counters = applyDelta(counters, inverseOf(effectsOf(AttendanceStatus.EXCUSED), 0));
+    counters = applyDelta(counters, forwardOf(effectsOf(AttendanceStatus.PRESENT), 3));
+    expect(counters).toEqual({ remainingHours: 27, leavesLeft: 3, freeReviewsLeft: 0 });
   });
 });

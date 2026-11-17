@@ -9,6 +9,7 @@ import {
   listContractsQuerySchema,
   pauseContractSchema,
   resumeContractSchema,
+  setContractDiscountSchema,
   updateContractPlanSchema,
 } from "@pitoo/contracts";
 import * as service from "./enrollment.service.js";
@@ -37,6 +38,13 @@ export async function listContracts(req: Request, res: Response) {
 export async function createContract(req: Request, res: Response) {
   const { studentId, programId, rulesAckAt } = createContractSchema.parse(req.body);
   res.status(201).json(await service.createContract(studentId, programId, rulesAckAt));
+}
+
+// D-67: ах дүүгийн хөнгөлөлт (зөвхөн админ).
+export async function setContractDiscount(req: Request, res: Response) {
+  const { id } = idParamSchema.parse(req.params);
+  const { percent } = setContractDiscountSchema.parse(req.body);
+  res.status(200).json(await service.setContractDiscount(req.user!.id, id, percent));
 }
 
 export async function updateContractPlan(req: Request, res: Response) {

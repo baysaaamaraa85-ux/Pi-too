@@ -38,3 +38,37 @@ export const availableClassesQuerySchema = z.object({
   weekday: z.coerce.number().int().min(1).max(7).optional(),
   teacherId: z.uuid().optional(),
 });
+
+// D-69: багшийн долоо хоногийн хуваарь гаригаар: анги бүрийн цаг (эхлэх-дуусах), ачаалал (бүртгэлтэй/суудал).
+export interface ClassWeekDto {
+  id: string;
+  weekday: number;
+  startTime: string;
+  endTime: string;
+  durationMin: number;
+  capacity: number;
+  enrolled: number;
+  branchId: string;
+  branchName: string;
+}
+
+// Ангийн сурагчид (popup): төлбөрийн төлөв дүнгүй (ФШ-51).
+export interface ClassRosterStudentDto {
+  contractId: string;
+  studentId: string;
+  studentName: string;
+  programName: string;
+  paymentFlag: "FULL" | "DEBT";
+  // Сурагчийн одоо бүртгэлтэй бүх ангийн id (нэг сурагч 2-4 ангид байдаг).
+  classIds: string[];
+}
+
+export interface ClassRosterDto {
+  classId: string;
+  weekday: number;
+  startTime: string;
+  endTime: string;
+  branchName: string;
+  capacity: number;
+  students: ClassRosterStudentDto[];
+}

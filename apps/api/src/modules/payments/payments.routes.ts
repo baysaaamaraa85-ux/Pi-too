@@ -16,6 +16,9 @@ paymentsRouter.patch("/payments/:id", authorize("ADMIN"), controller.updatePayme
 paymentsRouter.post("/payments/:id/cancel", authorize("ADMIN"), controller.cancelPayment);
 paymentsRouter.get("/debts", authorize("ADMIN"), controller.listDebts);
 
+// D-68: төлөгдөөгүй хүүхдийн эцэг эхэд мэдэгдэл, нэхэмжлэл (багш өөрийн хүүхдэд, админ).
+paymentsRouter.post("/contracts/:id/payment-reminder", authorize("ADMIN", "TEACHER"), controller.sendPaymentReminder);
+
 // ФШ-76: шилжүүлгийн мэдэгдэл.
 paymentsRouter.post("/payment-claims", authorize("PARENT"), controller.createClaim);
 paymentsRouter.get("/payment-claims", authorize("ADMIN"), controller.listClaims);

@@ -13,3 +13,4 @@ export * from "./progress.schemas.js";
 export * from "./payments.schemas.js";
 export * from "./notifications.schemas.js";
 export * from "./reports.schemas.js";
+export * from "./categories.schemas.js";

@@ -9,6 +9,7 @@ import {
   updateParentSchema,
   updateStudentSchema,
   updateTeacherSchema,
+  updateTeacherSpecialtiesSchema,
 } from "@pitoo/contracts";
 import { DomainError } from "../../shared/errors/domain-error.js";
 import * as service from "./directory.service.js";
@@ -34,6 +35,20 @@ export async function updateTeacher(req: Request, res: Response) {
   const { id } = idParamSchema.parse(req.params);
   const input = updateTeacherSchema.parse(req.body);
   res.status(200).json(await service.updateTeacher(id, input, req.user!.id));
+}
+
+// D-69: багш өөрийн заах чиглэлийг засна.
+export async function updateTeacherSpecialties(req: Request, res: Response) {
+  const { id } = idParamSchema.parse(req.params);
+  const { specialties } = updateTeacherSpecialtiesSchema.parse(req.body);
+  res.status(200).json(await service.updateTeacherSpecialties(req.user!, id, specialties));
+}
+
+// ФШ-78: багшийн зураг (raw image/jpeg, png, webp).
+export async function uploadTeacherPhoto(req: Request, res: Response) {
+  const { id } = idParamSchema.parse(req.params);
+  const image = Buffer.isBuffer(req.body) ? req.body : null;
+  res.status(200).json(await service.setTeacherPhoto(id, image, req.user!));
 }
 
 // GET /parents: ?phone= бол утсаар хайх (админ, багш: ФШ-13), үгүй бол админы жагсаалт.

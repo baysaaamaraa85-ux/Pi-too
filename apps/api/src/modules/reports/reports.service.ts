@@ -12,6 +12,8 @@ import { Prisma, Role } from "../../generated/prisma/client.js";
 import { prisma } from "../../shared/db/prisma.js";
 import { listLessonsForDay, listUnfilledLessons } from "../attendance/attendance.record.js";
 import { negativeBalanceTeachers } from "../payroll/payroll.ledger.js";
+import { dashboardCategories } from "../categories/categories.service.js";
+import { listMyRates } from "../payroll/payroll.rates.js";
 import { getDebtSummary, listDebtBalances } from "../payments/payments.service.js";
 import { listOpenTasks } from "../progress/progress.service.js";
 import { todayInUlaanbaatar } from "../scheduling/scheduling.service.js";
@@ -37,20 +39,21 @@ export async function getDashboard(actor: { id: string; role: Role }): Promise<D
   const month = today.slice(0, 7);
   const range = monthRange(month);
   const progressFrom = dateKey(new Date(todayInUlaanbaatar().getTime() - 92 * 86_400_000));
-  const [todayLessons, unfilledLessons, tasks, extra] = await Promise.all([
+  const [todayLessons, unfilledLessons, tasks, myRates, categories, extra] = await Promise.all([
     listLessonsForDay(actor, { date: today }),
     listUnfilledLessons(actor),
     listOpenTasks(actor),
+    listMyRates(actor),
+    dashboardCategories(actor.id),
     prisma.$transaction(async (tx) => {
-      const [teacher, students, lessons, attendance, progress, categories] = await Promise.all([
+      const [teacher, students, lessons, attendance, progress] = await Promise.all([
         repo.teacherName(tx, actor.id),
         repo.teacherStudentCount(tx, actor.id),
         repo.teacherLessonCount(tx, actor.id, range),
         repo.teacherAttendanceCounts(tx, actor.id, range),
         repo.teacherProgress(tx, actor.id, progressFrom),
-        repo.teacherCategories(tx, actor.id),
       ]);
-      return { teacher, students, lessons, attendance, progress, categories };
+      return { teacher, students, lessons, attendance, progress };
     }),
   ]);
   const dto: TeacherDashboardDto = {
@@ -62,10 +65,14 @@ export async function getDashboard(actor: { id: string; role: Role }): Promise<D
       attendancePercent: percent(extra.attendance.attended, extra.attendance.total),
     },
     progress: extra.progress.map((p) => ({ date: p.date, averagePercent: p.value.toFixed(1), count: p.count })),
-    categories: extra.categories,
+    categories,
     todayLessons,
     unfilledLessons,
     tasks,
+    // D-67: цагийн үнэлгээгээ оруулаагүй сурагчид.
+    unratedStudents: myRates
+      .filter((r) => r.hourlyRate === null)
+      .map((r) => ({ contractId: r.contractId, studentId: r.studentId, studentName: r.studentName, programName: r.programName })),
   };
   return dto;
 }

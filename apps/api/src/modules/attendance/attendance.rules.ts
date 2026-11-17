@@ -49,7 +49,9 @@ export function decideStatus(input: StatusInput): AttendanceStatus | null {
 }
 
 export interface Effects {
-  visits: number;
+  // D-70: багцаас хасагдах эсэх (Ирсэн, Чөлөө хэтэрсэн, Нөхөлт). Хасагдах цаг нь ирц бүрийн БОДИТ орсон
+  // академик цаг (минут / 40), тогтмол нэг ирэлт биш.
+  consumesPackage: boolean;
   leaves: number;
   freeReviews: number;
   // Багшийн цалинд тооцох (БД-23): багцаас хасагдсан ирэлт бүр.
@@ -62,46 +64,70 @@ export function effectsOf(status: AttendanceStatus): Effects {
     case AttendanceStatus.PRESENT:
     case AttendanceStatus.OVER_LIMIT:
     case AttendanceStatus.MAKEUP:
-      return { visits: -1, leaves: 0, freeReviews: 0, counted: true };
+      return { consumesPackage: true, leaves: 0, freeReviews: 0, counted: true };
     case AttendanceStatus.EXCUSED:
-      return { visits: 0, leaves: -1, freeReviews: 0, counted: false };
+      return { consumesPackage: false, leaves: -1, freeReviews: 0, counted: false };
     case AttendanceStatus.FREE_REVIEW:
-      return { visits: 0, leaves: 0, freeReviews: -1, counted: false };
+      return { consumesPackage: false, leaves: 0, freeReviews: -1, counted: false };
   }
 }
 
-// Засвар: хуучин төлвийн нөлөөг буцаана (тэмдэг эсрэг).
-export function inverseOf(effects: Effects): Pick<Effects, "visits" | "leaves" | "freeReviews"> {
-  return { visits: -effects.visits, leaves: -effects.leaves, freeReviews: -effects.freeReviews };
+// Тоолуурын өөрчлөлт: hours нь тэмдэгтэй (хасалт сөрөг).
+export interface Delta {
+  hours: number;
+  leaves: number;
+  freeReviews: number;
+}
+
+// Академик цаг 2 орноор (0.01) тоологдоно: JavaScript-ийн хөвөгч таслалын алдаа хуримтлагдахгүй.
+export const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+
+// D-70: орсон минут -> академик цаг (нэг академик цаг = academicHourMinutes, анхдагч 40 минут).
+// 120 минут = 3, 170 минут = 4.25.
+export function academicHours(minutes: number, academicHourMinutes: number): number {
+  return round2(minutes / academicHourMinutes);
+}
+
+// Багцаас хасах цаг: цаг бүхий л хасагдана, гэхдээ үлдэгдлээс хэтрэхгүй (багц 0 болж дуусна, сөрөг болохгүй).
+export function packageDeduction(effects: Effects, hours: number, remaining: number): number {
+  return effects.consumesPackage ? Math.min(round2(hours), round2(remaining)) : 0;
+}
+
+// Шинэ ирцийн нөлөө: хасагдсан цаг (deducted) нь packageDeduction-оор тооцогдсон.
+export function forwardOf(effects: Effects, deducted: number): Delta {
+  return { hours: -deducted, leaves: effects.leaves, freeReviews: effects.freeReviews };
+}
+
+// Засвар: хуучин ирцийн нөлөөг буцаана. Багцад яг хасагдсан цагийг (attendance.package_hours) нэмнэ.
+export function inverseOf(effects: Effects, deducted: number): Delta {
+  return { hours: deducted, leaves: -effects.leaves, freeReviews: -effects.freeReviews };
 }
 
 export interface Counters {
-  remainingVisits: number;
+  remainingHours: number;
   leavesLeft: number;
   freeReviewsLeft: number;
 }
 
-export function applyDelta(
-  counters: Counters,
-  delta: Pick<Effects, "visits" | "leaves" | "freeReviews">,
-): Counters {
+export function applyDelta(counters: Counters, delta: Delta): Counters {
   return {
-    remainingVisits: counters.remainingVisits + delta.visits,
+    remainingHours: round2(counters.remainingHours + delta.hours),
     leavesLeft: counters.leavesLeft + delta.leaves,
     freeReviewsLeft: counters.freeReviewsLeft + delta.freeReviews,
   };
 }
 
-// ФШ-36: үлдэгдэл 4-өөс 3 болох үед нэг л удаа.
-export function crossedToThree(before: number, after: number): boolean {
-  return before === 4 && after === 3;
+// ФШ-36: багцын үлдэгдэл босгоос (3 ирэлт x нэг ирэлтийн академик цаг, жишээ нь 9) дээрээс доошоо
+// орох үед нэг л удаа. Хэсэгчилсэн цагаар хасагддаг тул яг тэнцэхийг биш, давж орохыг шалгана.
+export function crossedToThreshold(before: number, after: number, thresholdHours: number): boolean {
+  return before > thresholdHours && after <= thresholdHours;
 }
 
-// ФШ-43: гэрээний дундах (13 дахь) болон сүүлийн (25 дахь) ирэлт. Дундах = багцын хагас.
-export function meetingVisitReached(total: number, before: number, after: number): boolean {
-  const done = (remaining: number) => total - remaining;
-  const midpoint = Math.ceil(total / 2);
+// ФШ-43: гэрээний дундах (багцын хагас) болон сүүлийн (бүтэн) цаг. Орсон цаг = нийт - үлдэгдэл.
+export function meetingHoursReached(totalHours: number, before: number, after: number): boolean {
+  const done = (remaining: number) => totalHours - remaining;
+  const midpoint = totalHours / 2;
   const wasBefore = done(before);
   const isAfter = done(after);
-  return [midpoint, total].some((v) => wasBefore < v && isAfter >= v);
+  return [midpoint, totalHours].some((v) => wasBefore < v && isAfter >= v);
 }

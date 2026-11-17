@@ -71,8 +71,9 @@ export type TeacherStatsDto = {
 // 3 сараар нэгтгэхдээ жигнэсэн дундаж тооцоход хэрэглэнэ.
 export type TeacherProgressPointDto = { date: string; averagePercent: string; count: number };
 
-// Багш сурагчдаа хөтөлбөрөөр (категориор) хуваасан байдал: хөтөлбөр бүрийн идэвхтэй сурагчийн тоо.
-export type TeacherCategoryDto = { programId: string; name: string; students: number };
+// Багш сурагчдаа өөрийн категориор хуваасан байдал: категори бүрийн идэвхтэй сурагчийн тоо.
+// D-69: багшийн өөрийн нэрлэсэн категори. categoryId = null бол "Ангилаагүй".
+export type TeacherCategoryDto = { categoryId: string | null; name: string; students: number };
 
 export type TeacherDashboardDto = {
   role: "TEACHER";
@@ -84,6 +85,8 @@ export type TeacherDashboardDto = {
   todayLessons: DashboardLessonDto[];
   unfilledLessons: DashboardLessonDto[];
   tasks: TeacherTaskDto[];
+  // D-67: цагийн үнэлгээгээ оруулаагүй сурагчид (үнэлгээгүй хичээл 0 ₮-өөр бодогдоно).
+  unratedStudents: { contractId: string; studentId: string; studentName: string; programName: string }[];
 };
 
 export type DashboardDto = AdminDashboardDto | TeacherDashboardDto;
@@ -122,11 +125,23 @@ export const transferContractSchema = z.object({
 });
 export type TransferContractInput = z.infer<typeof transferContractSchema>;
 
+// D-73: сурагчийн хэд хэдэн ангийг нэг дор шилжүүлнэ (нэг транзакц).
+export const transferManySchema = z.object({
+  moves: z
+    .array(z.object({ fromClassId: z.uuid(), toClassId: z.uuid() }))
+    .min(1, "Дор хаяж нэг анги сонгоно уу")
+    .max(4)
+    .refine((m) => new Set(m.map((x) => x.fromClassId)).size === m.length, "Нэг ангиас хоёр удаа шилжүүлэх боломжгүй"),
+  effectiveFrom: z.iso.date(),
+  reason: z.string().trim().min(1, "Шалтгаан шаардлагатай").max(500),
+});
+export type TransferManyInput = z.infer<typeof transferManySchema>;
+
 export type TransferResultDto = {
   contractId: string;
   fromClassId: string;
   toClassId: string;
   effectiveFrom: string;
-  remainingVisits: number;
+  remainingHours: number;
   leavesLeft: number;
 };

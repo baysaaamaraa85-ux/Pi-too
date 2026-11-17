@@ -27,6 +27,8 @@ const envSchema = z.object({
   SMTP_USER: z.string().min(1).optional(),
   SMTP_PASS: z.string().min(1).optional(),
   SMTP_FROM: z.string().min(1).default("Пи тоо <no-reply@pi-too.mn>"),
+  // Багш, салбарын зураг хадгалах хавтас (apps/api-ийн дотор хандлагатай зам). git-д орохгүй.
+  UPLOAD_DIR: z.string().min(1).default("uploads"),
   ADMIN_PHONE: z.string().min(1).optional(),
   ADMIN_TEMP_PASSWORD: z.string().min(8).optional(),
 });

@@ -75,8 +75,8 @@ describe("М2 Суурь мэдээлэл", () => {
         studentId: student.id,
         programId,
         price: "500000.00",
-        totalVisits: 25,
-        remainingVisits: 25,
+        totalHours: 75,
+        remainingHours: 75,
         leavesLeft: 3,
         rulesAckAt: new Date(),
       },
@@ -123,20 +123,40 @@ describe("М2 Суурь мэдээлэл", () => {
       .send({ key: "class_defaults", value: { maxCapacity: 6 } });
   });
 
-  it("ФШ-10: багшийн цагийн үнэлгээ хүчинтэй огноотой нэмэгдэнэ", async () => {
+  it("D-67: админ хөтөлбөрийн цалингийн протокол (жишиг цагийн үнэлгээ) тавина, аудитад бичигдэнэ; хуучин /teachers/{id}/rates байхгүй", async () => {
     const adminToken = await loginAs(Role.ADMIN);
-    const teacherPhone = `ct${randomUUID().replace(/-/g, "").slice(0, 9)}`;
-    const teacherUser = await prisma.user.create({
-      data: { role: Role.TEACHER, phone: teacherPhone, passwordHash: "x" },
+    const teacherToken = await loginAs(Role.TEACHER);
+    const program = await prisma.program.create({
+      data: { name: `Протокол ${randomUUID().slice(0, 8)}`, currentPrice: "1800000.00" },
     });
-    await prisma.teacher.create({ data: { userId: teacherUser.id, fullName: "Тест багш" } });
+
+    const denied = await request(app)
+      .patch(`/api/v1/programs/${program.id}`)
+      .set("Authorization", `Bearer ${teacherToken}`)
+      .send({ protocolHourlyRate: "40000.00" });
+    expect(denied.status).toBe(403);
 
     const res = await request(app)
-      .post(`/api/v1/teachers/${teacherUser.id}/rates`)
+      .patch(`/api/v1/programs/${program.id}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ protocolHourlyRate: "40000.00" });
+    expect(res.status).toBe(200);
+    expect(Number(res.body.protocolHourlyRate)).toBe(40000);
+    const audit = await prisma.auditLog.findFirstOrThrow({
+      where: { entity: "program", entityId: program.id, action: "UPDATE_PROTOCOL_RATE" },
+    });
+    expect(audit.after).toEqual({ protocolHourlyRate: "40000.00" });
+
+    const bad = await request(app)
+      .patch(`/api/v1/programs/${program.id}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ protocolHourlyRate: "-5.00" });
+    expect(bad.status).toBe(422);
+
+    const old = await request(app)
+      .post(`/api/v1/teachers/${program.id}/rates`)
       .set("Authorization", `Bearer ${adminToken}`)
       .send({ hourlyRate: "18000.00", effectiveFrom: "2026-11-01" });
-
-    expect(res.status).toBe(201);
-    expect(res.body.hourlyRate).toBe("18000");
+    expect(old.status).toBe(404);
   });
 });

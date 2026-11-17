@@ -20,9 +20,6 @@ async function loginUser(role: Role, fullName = "Тест") {
   });
   if (role === Role.TEACHER) {
     await prisma.teacher.create({ data: { userId: user.id, fullName: `${fullName} ${phone}` } });
-    await prisma.teacherRate.create({
-      data: { teacherId: user.id, hourlyRate: "5000.00", effectiveFrom: new Date("2026-01-01") },
-    });
   }
   if (role === Role.PARENT) {
     await prisma.parent.create({ data: { userId: user.id, fullName, phone } });
@@ -60,8 +57,8 @@ async function fixture(opts: { status?: ContractStatus; remaining?: number } = {
       studentId: student.id,
       programId: await getProgramId(),
       price: "500000.00",
-      totalVisits: 25,
-      remainingVisits: opts.remaining ?? 10,
+      totalHours: 75,
+      remainingHours: (opts.remaining ?? 10) * 3,
       leavesLeft: 3,
       status: opts.status ?? ContractStatus.ACTIVE,
       rulesAckAt: new Date(),
@@ -208,7 +205,7 @@ describe("М6 Сорил, шалгалт (ФШ-38, 39, 41, 42)", () => {
     expect(last?.status).toBe(409);
     const after = await prisma.contract.findUniqueOrThrow({ where: { id: f.contract.id } });
     expect(after.freeReviewsLeft).toBe(0);
-    expect(after.remainingVisits).toBe(0);
+    expect(after.remainingHours.toNumber()).toBe(0);
     expect(await prisma.ledgerEntry.count({ where: { teacherId: f.teacher.userId } })).toBe(0);
   });
 

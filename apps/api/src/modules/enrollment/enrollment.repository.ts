@@ -54,8 +54,8 @@ export function createContract(
     studentId: string;
     programId: string;
     price: string;
-    totalVisits: number;
-    remainingVisits: number;
+    totalHours: number;
+    remainingHours: number;
     leavesLeft: number;
     rulesAckAt: Date;
   },
@@ -273,4 +273,13 @@ export function findTeacherContractOfStudent(tx: Tx, studentId: string, teacherI
     },
     select: { id: true },
   });
+}
+
+// D-67: ах дүүгийн хөнгөлөлт. listPrice нь хөнгөлөлт тавихаас өмнөх үнэ, price нь төлөх (хөнгөлсөн) үнэ.
+export function updateContractDiscount(
+  tx: Tx,
+  id: string,
+  data: { siblingDiscountPercent: string; price: string; listPrice: string },
+) {
+  return tx.contract.update({ where: { id }, data });
 }

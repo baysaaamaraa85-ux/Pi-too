@@ -3,6 +3,7 @@ import { Prisma, Role } from "../../generated/prisma/client.js";
 import { writeAudit } from "../../shared/audit/write-audit.js";
 import { DomainError } from "../../shared/errors/domain-error.js";
 import { notifyUser } from "../../shared/outbox/notify-user.js";
+import { balancesFor, teacherFlag } from "../../shared/payments/payment-status.js";
 import * as catalog from "../catalog/catalog.service.js";
 import * as repo from "./scheduling.repository.js";
 
@@ -466,4 +467,71 @@ export async function rescheduleLesson(
 // ФШ-71: transfer модуль гэрээний нэг бүртгэлийг хаахдаа өөрийн транзакц дотроос дуудна.
 export function closeEnrollmentInTx(tx: Tx, enrollmentId: string, toDate: Date) {
   return repo.closeEnrollment(tx, enrollmentId, toDate);
+}
+
+// "10:00" + 120 мин = "12:00" (24 цагийн систем).
+function endTimeOf(startTime: string, durationMin: number): string {
+  const [h, m] = startTime.split(":").map(Number) as [number, number];
+  const total = (h * 60 + m + durationMin) % (24 * 60);
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+// D-69: багшийн долоо хоногийн хуваарь. Багш зөвхөн өөрийн, админ teacherId-аар.
+export async function listWeekClasses(user: { id: string; role: Role }, teacherId?: string) {
+  const owner = user.role === Role.ADMIN ? teacherId : user.id;
+  const classes = await repo.listClassesWithCounts(prisma, { teacherId: owner });
+  return classes.map((c) => ({
+    id: c.id,
+    weekday: c.weekday,
+    startTime: c.startTime,
+    endTime: endTimeOf(c.startTime, c.durationMin),
+    durationMin: c.durationMin,
+    capacity: c.capacity,
+    enrolled: c._count.enrollments,
+    branchId: c.branchId,
+    branchName: c.branch.name,
+  }));
+}
+
+// D-69: ангид хэн хэн байгааг төлбөрийн төлөвтэй нь харуулна. Багш зөвхөн өөрийн ангийг (BOLA).
+export async function listClassRoster(user: { id: string; role: Role }, classId: string) {
+  const cls = await repo.findClassWithBranch(prisma, classId);
+  if (!cls || !cls.isActive) {
+    throw new DomainError({
+      code: "class-not-found",
+      status: 404,
+      title: "Анги олдсонгүй",
+      detail: "Заасан анги бүртгэлгүй эсвэл устгагдсан байна.",
+    });
+  }
+  if (user.role !== Role.ADMIN && cls.teacherId !== user.id) {
+    throw new DomainError({
+      code: "forbidden-class",
+      status: 403,
+      title: "Эрх хүрэхгүй байна",
+      detail: "Энэ анги танай анги биш байна.",
+    });
+  }
+  const roster = await repo.listActiveRoster(prisma, classId);
+  const balances = await balancesFor(
+    prisma,
+    roster.map((e) => e.contract),
+  );
+  return {
+    classId,
+    weekday: cls.weekday,
+    startTime: cls.startTime,
+    endTime: endTimeOf(cls.startTime, cls.durationMin),
+    branchName: cls.branch.name,
+    capacity: cls.capacity,
+    students: roster.map((e) => ({
+      contractId: e.contractId,
+      studentId: e.contract.studentId,
+      studentName: e.contract.student.fullName,
+      programName: e.contract.program.name,
+      paymentFlag: teacherFlag(balances.get(e.contractId)!),
+      // Сурагчийн одоо бүртгэлтэй бүх анги: зөөхдөө аль хэдийн бүртгэлтэй ангийг санал болгохгүй.
+      classIds: e.contract.enrollments.map((x) => x.classId),
+    })),
+  };
 }

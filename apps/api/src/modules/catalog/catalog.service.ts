@@ -3,6 +3,7 @@ import { Prisma } from "../../generated/prisma/client.js";
 import { prisma, type Tx } from "../../shared/db/prisma.js";
 import { writeAudit } from "../../shared/audit/write-audit.js";
 import { DomainError } from "../../shared/errors/domain-error.js";
+import { removeUploadedImage, saveImage } from "../../shared/uploads/image-upload.js";
 import * as repo from "./catalog.repository.js";
 
 const authDefaultsSchema = z.object({
@@ -142,12 +143,37 @@ export function listBranches() {
   return repo.listBranches(prisma);
 }
 
-export function createBranch(name: string, address: string) {
-  return withUniqueNameHandling(name, () => repo.createBranch(prisma, { name, address }));
+export function createBranch(data: repo.BranchData & { name: string; address: string }) {
+  return withUniqueNameHandling(data.name, () => repo.createBranch(prisma, data));
 }
 
-export function updateBranch(id: string, data: { name?: string; address?: string }) {
+export function updateBranch(id: string, data: repo.BranchData) {
   return withUniqueNameHandling(data.name ?? id, () => repo.updateBranch(prisma, id, data));
+}
+
+// ФШ-78: салбарын зураг (зөвхөн админ). Хуучин зургийн файлыг шинэ нь хадгалагдсаны дараа устгана.
+export async function setBranchPhoto(id: string, image: Buffer | null, actorId: string) {
+  const photoUrl = await saveImage("branches", image);
+  try {
+    const before = await prisma.$transaction(async (tx) => {
+      const branch = await getBranchById(tx, id);
+      await repo.updateBranch(tx, id, { photoUrl });
+      await writeAudit(tx, {
+        entity: "branch",
+        entityId: id,
+        action: "UPDATE",
+        before: { photoUrl: branch.photoUrl },
+        after: { photoUrl },
+        actorId,
+      });
+      return branch.photoUrl;
+    });
+    await removeUploadedImage(before);
+  } catch (err) {
+    await removeUploadedImage(photoUrl);
+    throw err;
+  }
+  return { photoUrl };
 }
 
 // ФШ-08, ADR-013: үнэ өөрчлөгдөхөд өмнөх гэрээний contracts.price хэвээр
@@ -162,8 +188,30 @@ export function createProgram(name: string, currentPrice: string) {
   );
 }
 
-export function updateProgram(id: string, data: { name?: string; currentPrice?: string }) {
-  return withUniqueNameHandling(data.name ?? id, () => repo.updateProgram(prisma, id, data));
+// D-67: protocolHourlyRate (захирлын цалингийн протокол) өөрчлөлт аудитад бичигдэнэ.
+export function updateProgram(
+  id: string,
+  data: { name?: string; currentPrice?: string; protocolHourlyRate?: string | null },
+  actorId: string,
+) {
+  return withUniqueNameHandling(data.name ?? id, () =>
+    prisma.$transaction(async (tx) => {
+      const before = await repo.findProgramById(tx, id);
+      if (!before) programNotFound();
+      const after = await repo.updateProgram(tx, id, data);
+      if (data.protocolHourlyRate !== undefined) {
+        await writeAudit(tx, {
+          entity: "program",
+          entityId: id,
+          action: "UPDATE_PROTOCOL_RATE",
+          before: { protocolHourlyRate: before.protocolHourlyRate?.toFixed(2) ?? null },
+          after: { protocolHourlyRate: after.protocolHourlyRate?.toFixed(2) ?? null },
+          actorId,
+        });
+      }
+      return after;
+    }),
+  );
 }
 
 // ФШ-09, ФБШ-29
@@ -196,33 +244,6 @@ export async function updateSetting(
   });
 }
 
-function teacherNotFound(): never {
-  throw new DomainError({
-    code: "teacher-not-found",
-    status: 404,
-    title: "Багш олдсонгүй",
-    detail: "Заасан багш бүртгэлгүй байна.",
-  });
-}
-
-// ФШ-10: хүчинтэй огноотой үнэлгээ. Хичээлийн цалинд тухайн өдрийн
-// хамгийн ойрын (effectiveFrom <= lesson date) үнэлгээ хэрэглэгдэнэ.
-export async function createTeacherRate(
-  teacherId: string,
-  hourlyRate: string,
-  effectiveFrom: string,
-) {
-  return prisma.$transaction(async (tx) => {
-    const teacher = await repo.findTeacherByUserId(tx, teacherId);
-    if (!teacher) teacherNotFound();
-    return repo.createTeacherRate(tx, {
-      teacherId,
-      hourlyRate,
-      effectiveFrom: new Date(effectiveFrom),
-    });
-  });
-}
-
 // enrollment модуль (нийтийн хүсэлт) салбар байгаа эсэхийг шалгахдаа дуудна.
 export async function getBranchById(tx: Tx, id: string) {
   const branch = await repo.findBranchById(tx, id);
@@ -235,4 +256,23 @@ export async function getBranchById(tx: Tx, id: string) {
     });
   }
   return branch;
+}
+
+// ФШ-78: нийтийн сайтын нүүр хуудасны тоон мэдээлэл (салбарын тоо, журмын гол утгууд).
+export function getPublicOverview() {
+  return prisma.$transaction(async (tx) => {
+    const [contract, klass, assessment, branchCount] = await Promise.all([
+      getContractDefaults(tx),
+      getClassDefaults(tx),
+      getAssessmentDefaults(tx),
+      tx.branch.count(),
+    ]);
+    return {
+      branchCount,
+      classCapacity: klass.maxCapacity,
+      packageHours: contract.totalAcademicHours,
+      leaves: contract.defaultLeaves,
+      reviewThresholdPercent: assessment.freeReviewThresholdPercent,
+    };
+  });
 }

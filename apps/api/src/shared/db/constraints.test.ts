@@ -55,8 +55,8 @@ describe("Өгөгдлийн сангийн гараар бичсэн хязга
         studentId,
         programId,
         price: "500000.00",
-        totalVisits: 25,
-        remainingVisits: 25,
+        totalHours: 75,
+        remainingHours: 75,
         leavesLeft: 3,
         rulesAckAt: new Date(),
       },
@@ -89,13 +89,13 @@ describe("Өгөгдлийн сангийн гараар бичсэн хязга
 
   it("сөрөг remaining_visits бичигдэхгүй (ADR-009)", async () => {
     await expect(
-      prisma.contract.update({ where: { id: contractId }, data: { remainingVisits: -1 } }),
+      prisma.contract.update({ where: { id: contractId }, data: { remainingHours: -1 } }),
     ).rejects.toThrow();
   });
 
   it("remaining_visits нийт ирэлтээс хэтэрч бичигдэхгүй (ADR-009)", async () => {
     await expect(
-      prisma.contract.update({ where: { id: contractId }, data: { remainingVisits: 999 } }),
+      prisma.contract.update({ where: { id: contractId }, data: { remainingHours: 999 } }),
     ).rejects.toThrow();
   });
 
@@ -142,8 +142,8 @@ describe("Өгөгдлийн сангийн гараар бичсэн хязга
         studentId: otherStudent.id,
         programId: (await prisma.contract.findUniqueOrThrow({ where: { id: contractId } })).programId,
         price: "500000.00",
-        totalVisits: 25,
-        remainingVisits: 25,
+        totalHours: 75,
+        remainingHours: 75,
         leavesLeft: 3,
         rulesAckAt: new Date(),
       },

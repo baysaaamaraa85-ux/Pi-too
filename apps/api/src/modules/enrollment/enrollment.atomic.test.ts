@@ -12,8 +12,9 @@ function phone8(): string {
   return String(randomInt(10_000_000, 99_999_999));
 }
 
+// Систем Улаанбаатарын огноог (UTC+8) ашигладаг: шөнийн 00:00-08:00-д UTC огноо өчигдөр байдаг.
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10);
 }
 
 async function loginAsTeacher() {
@@ -72,7 +73,7 @@ describe("Багшаас сурагч бүртгэх, нэг транзакц (�
       .send(payload);
     expect(res.status).toBe(201);
     expect(res.body.tempPassword).toBeTypeOf("string");
-    expect(res.body.remainingVisits).toBe(25);
+    expect(res.body.remainingHours).toBe(75);
     expect(res.body.leavesLeft).toBe(3);
 
     const student = await prisma.student.findUniqueOrThrow({
@@ -111,8 +112,8 @@ describe("Багшаас сурагч бүртгэх, нэг транзакц (�
           studentId: student.id,
           programId: program.id,
           price: "500000.00",
-          totalVisits: 25,
-          remainingVisits: 25,
+          totalHours: 75,
+          remainingHours: 75,
           leavesLeft: 3,
           rulesAckAt: new Date(),
         },

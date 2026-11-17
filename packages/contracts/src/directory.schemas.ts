@@ -45,14 +45,33 @@ export type CreateTeacherInput = z.infer<typeof createTeacherSchema>;
 export const createParentSchema = createTeacherSchema;
 export type CreateParentInput = z.infer<typeof createParentSchema>;
 
-export const updateTeacherSchema = z.object({
+const updateContactBase = z.object({
   fullName: z.string().trim().min(1, "Нэр шаардлагатай").max(120).optional(),
   phone: phoneSchema.optional(),
   email: emailOnUpdate,
 });
+
+// Нийтийн сайтад харагдах зураг: өөрийн сайтын зам (/images/...) эсвэл https хаяг. Бусад (javascript: гэх мэт) татгалзана.
+const photoUrlSchema = z
+  .string()
+  .trim()
+  .max(300)
+  .refine((v) => v === "" || v.startsWith("/images/") || v.startsWith("/uploads/") || /^https:\/\//.test(v), "Зураг /images/ эсвэл https:// хаягтай байх ёстой")
+  .nullable();
+
+export const updateTeacherSchema = updateContactBase.extend({
+  specialties: z.array(z.string().trim().min(1).max(40)).max(8).optional(),
+  photoUrl: photoUrlSchema.optional(),
+});
 export type UpdateTeacherInput = z.infer<typeof updateTeacherSchema>;
 
-export const updateParentSchema = updateTeacherSchema;
+// D-69: багш өөрийн нийтийн сайтад харагдах заах чиглэлээ (мэргэшил) өөрөө засна.
+export const updateTeacherSpecialtiesSchema = z.object({
+  specialties: z.array(z.string().trim().min(1).max(40)).max(8, "Хамгийн ихдээ 8 чиглэл"),
+});
+export type UpdateTeacherSpecialtiesInput = z.infer<typeof updateTeacherSpecialtiesSchema>;
+
+export const updateParentSchema = updateContactBase;
 export type UpdateParentInput = z.infer<typeof updateParentSchema>;
 
 export const updateStudentSchema = z.object({

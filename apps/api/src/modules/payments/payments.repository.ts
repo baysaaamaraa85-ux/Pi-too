@@ -151,3 +151,20 @@ export function resolveClaim(
 export function findActiveAdmins(tx: Tx) {
   return tx.user.findMany({ where: { role: "ADMIN", isActive: true }, select: { id: true } });
 }
+
+// D-68: багш энэ хүүхдийг заадаг (идэвхтэй бүртгэлтэй) эсвэл заасан (ирцтэй) эсэх.
+export async function teacherHasContract(tx: Tx, teacherId: string, contractId: string) {
+  const [enrolled, taught] = await Promise.all([
+    tx.enrollment.findFirst({ where: { contractId, class: { teacherId } }, select: { id: true } }),
+    tx.attendance.findFirst({ where: { contractId, lesson: { teacherId } }, select: { id: true } }),
+  ]);
+  return enrolled !== null || taught !== null;
+}
+
+// Өнөөдөр (хугацааны дотор) энэ гэрээнд төлбөрийн сануулга илгээсэн эсэх.
+export function findReminderSince(tx: Tx, contractId: string, since: Date) {
+  return tx.auditLog.findFirst({
+    where: { entity: "contract", entityId: contractId, action: "PAYMENT_REMINDER", createdAt: { gte: since } },
+    select: { id: true },
+  });
+}

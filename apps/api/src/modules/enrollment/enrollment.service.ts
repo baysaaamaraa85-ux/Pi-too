@@ -25,6 +25,7 @@ import {
   todayInUlaanbaatar,
 } from "../scheduling/scheduling.service.js";
 import type { EnrollStudentInput } from "@pitoo/contracts";
+import { trueUpContractAllTeachersInTx } from "../payroll/payroll.rates.js";
 import * as repo from "./enrollment.repository.js";
 
 export function searchParentsByPhone(phone: string) {
@@ -142,16 +143,15 @@ async function createContractInTx(
   if (!student) studentNotFound();
 
   const program = await getProgramById(tx, programId);
-  const { totalAcademicHours, academicHoursPerVisit, defaultLeaves } =
-    await getContractDefaults(tx);
-  const totalVisits = Math.floor(totalAcademicHours / academicHoursPerVisit);
+  // D-70: багц академик цагаар (75). Ирэлт бүр бодит орсон цагаараа хасагдана.
+  const { totalAcademicHours, defaultLeaves } = await getContractDefaults(tx);
 
   return repo.createContract(tx, {
     studentId,
     programId,
     price: program.currentPrice.toString(),
-    totalVisits,
-    remainingVisits: totalVisits,
+    totalHours: totalAcademicHours,
+    remainingHours: totalAcademicHours,
     leavesLeft: defaultLeaves,
     rulesAckAt: new Date(rulesAckAt),
   });
@@ -168,7 +168,7 @@ function forbiddenClass(): never {
 
 export interface EnrollStudentResult extends RegisterStudentResult {
   contractId: string;
-  remainingVisits: number;
+  remainingHours: number;
   leavesLeft: number;
 }
 
@@ -244,7 +244,7 @@ export async function enrollNewStudent(
     return {
       ...registered,
       contractId: contract.id,
-      remainingVisits: contract.remainingVisits,
+      remainingHours: contract.remainingHours.toNumber(),
       leavesLeft: contract.leavesLeft,
     };
   });
@@ -273,8 +273,8 @@ function mapContractRow(row: Awaited<ReturnType<typeof repo.listContracts>>["ite
     studentName: row.student.fullName,
     programName: row.program.name,
     status: row.status,
-    totalVisits: row.totalVisits,
-    remainingVisits: row.remainingVisits,
+    totalHours: row.totalHours.toNumber(),
+    remainingHours: row.remainingHours.toNumber(),
     leavesLeft: row.leavesLeft,
     freeReviewsLeft: row.freeReviewsLeft,
     meetingsCount: row._count.meetings,
@@ -292,9 +292,11 @@ function mapContractRow(row: Awaited<ReturnType<typeof repo.listContracts>>["ite
       : null,
     classes: row.enrollments.map((e) => ({
       id: e.class.id,
+      branchId: e.class.branchId,
       branchName: e.class.branch.name,
       weekday: e.class.weekday,
       startTime: e.class.startTime,
+      teacherId: e.class.teacherId,
       teacherName: e.class.teacher.fullName,
     })),
   };
@@ -534,8 +536,8 @@ export interface StudentOverview {
     id: string;
     programName: string;
     status: ContractStatus;
-    totalVisits: number;
-    remainingVisits: number;
+    totalHours: number;
+    remainingHours: number;
     leavesLeft: number;
     freeReviewsLeft: number;
     classes: {
@@ -561,8 +563,8 @@ function toStudentOverview(student: StudentWithContracts): StudentOverview {
       id: contract.id,
       programName: contract.program.name,
       status: contract.status,
-      totalVisits: contract.totalVisits,
-      remainingVisits: contract.remainingVisits,
+      totalHours: contract.totalHours.toNumber(),
+      remainingHours: contract.remainingHours.toNumber(),
       leavesLeft: contract.leavesLeft,
       freeReviewsLeft: contract.freeReviewsLeft,
       classes: contract.enrollments.map((enrollment) => ({
@@ -670,6 +672,7 @@ export async function notifyParentsInTx(
   for (const link of links) {
     await notifyUser(tx, link.parentId, template, payload);
   }
+  return links.length;
 }
 
 // ФШ-71: transfer модуль гэрээний тоолуурыг өөрчлөхгүйгээр уншихаасаа өмнө түгжинэ (ADR-009).
@@ -678,4 +681,44 @@ export async function lockContractInTx(tx: Tx, contractId: string) {
   const contract = await repo.findContractById(tx, contractId);
   if (!contract) contractNotFound();
   return contract;
+}
+
+// D-67: ах дүүгийн хөнгөлөлт (зөвхөн админ). Хөнгөлөлтийн хувиар эцэг эхийн төлөх үнэ (contracts.price) болон
+// энэ хүүхдийн багшийн цалин ижил хувиар буурна. Цалин бүх хичээлд (өмнөх ба дараах) тулгагдаж, зөрүү нь ADJUSTMENT
+// мөрөөр бичигдэнэ: анхны EARNING засагдахгүй (ADR-010). Хөнгөлөлтийн өмнөх үнэ list_price-д хадгалагдана,
+// 0.00 болговол анхны үнэ сэргэнэ.
+export async function setContractDiscount(actorId: string, contractId: string, percent: string) {
+  return prisma.$transaction(async (tx) => {
+    const contract = await repo.findContractById(tx, contractId);
+    if (!contract) contractNotFound();
+    await repo.lockContractForUpdate(tx, contractId);
+
+    const listPrice = new Prisma.Decimal(contract.listPrice ?? contract.price);
+    const price = listPrice
+      .times(new Prisma.Decimal(100).minus(percent))
+      .div(100)
+      .toDecimalPlaces(2);
+    const before = { percent: contract.siblingDiscountPercent.toFixed(2), price: contract.price.toFixed(2) };
+    const updated = await repo.updateContractDiscount(tx, contractId, {
+      siblingDiscountPercent: percent,
+      price: price.toFixed(2),
+      listPrice: listPrice.toFixed(2),
+    });
+    // D-68: цагийн цалин нь хөнгөлөлттэй хамт хүүхдийн бүх цалинд үйлчилдэг тул цалинг тулгана (ADJUSTMENT).
+    await trueUpContractAllTeachersInTx(tx, contractId, actorId, "Ах дүүгийн хөнгөлөлт өөрчлөгдсөн тул нөхөн бодолт");
+    await writeAudit(tx, {
+      entity: "contract",
+      entityId: contractId,
+      action: "SET_SIBLING_DISCOUNT",
+      before,
+      after: { percent, price: price.toFixed(2), listPrice: listPrice.toFixed(2) },
+      actorId,
+    });
+    return {
+      contractId,
+      discountPercent: updated.siblingDiscountPercent.toFixed(2),
+      listPrice: listPrice.toFixed(2),
+      price: updated.price.toFixed(2),
+    };
+  });
 }

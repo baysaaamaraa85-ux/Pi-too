@@ -3,7 +3,6 @@ import { z } from "zod";
 import {
   createBranchSchema,
   createProgramSchema,
-  createTeacherRateSchema,
   updateBranchSchema,
   updateProgramSchema,
   updateSettingSchema,
@@ -17,14 +16,21 @@ export async function listBranches(_req: Request, res: Response) {
 }
 
 export async function createBranch(req: Request, res: Response) {
-  const { name, address } = createBranchSchema.parse(req.body);
-  res.status(201).json(await service.createBranch(name, address));
+  const data = createBranchSchema.parse(req.body);
+  res.status(201).json(await service.createBranch(data));
 }
 
 export async function updateBranch(req: Request, res: Response) {
   const { id } = idParamSchema.parse(req.params);
   const data = updateBranchSchema.parse(req.body);
   res.status(200).json(await service.updateBranch(id, data));
+}
+
+// ФШ-78: салбарын зураг (raw image/jpeg, png, webp).
+export async function uploadBranchPhoto(req: Request, res: Response) {
+  const { id } = idParamSchema.parse(req.params);
+  const image = Buffer.isBuffer(req.body) ? req.body : null;
+  res.status(200).json(await service.setBranchPhoto(id, image, req.user!.id));
 }
 
 export async function listPrograms(_req: Request, res: Response) {
@@ -39,7 +45,7 @@ export async function createProgram(req: Request, res: Response) {
 export async function updateProgram(req: Request, res: Response) {
   const { id } = idParamSchema.parse(req.params);
   const data = updateProgramSchema.parse(req.body);
-  res.status(200).json(await service.updateProgram(id, data));
+  res.status(200).json(await service.updateProgram(id, data, req.user!.id));
 }
 
 export async function listSettings(_req: Request, res: Response) {
@@ -49,10 +55,4 @@ export async function listSettings(_req: Request, res: Response) {
 export async function updateSetting(req: Request, res: Response) {
   const { key, value } = updateSettingSchema.parse(req.body);
   res.status(200).json(await service.updateSetting(key, value, req.user!.id));
-}
-
-export async function createTeacherRate(req: Request, res: Response) {
-  const { id } = idParamSchema.parse(req.params);
-  const { hourlyRate, effectiveFrom } = createTeacherRateSchema.parse(req.body);
-  res.status(201).json(await service.createTeacherRate(id, hourlyRate, effectiveFrom));
 }

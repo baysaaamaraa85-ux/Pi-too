@@ -5,6 +5,9 @@ import { moneySchema } from "./money.js";
 export const createBranchSchema = z.object({
   name: z.string().min(1, "Нэр шаардлагатай"),
   address: z.string().min(1, "Хаяг шаардлагатай"),
+  // ФШ-78: нийтийн сайтын "Салбарууд" хуудсанд харагдах дэлгэрэнгүй, холбоо барих утаснууд.
+  description: z.string().trim().max(1000).nullable().optional(),
+  phones: z.array(z.string().trim().min(3, "Утас богино байна").max(30)).max(6).optional(),
 });
 export type CreateBranchInput = z.infer<typeof createBranchSchema>;
 
@@ -18,15 +21,11 @@ export const createProgramSchema = z.object({
 });
 export type CreateProgramInput = z.infer<typeof createProgramSchema>;
 
-export const updateProgramSchema = createProgramSchema.partial();
+// D-67: protocolHourlyRate нь захирлын цалингийн протокол (жишиг цагийн үнэлгээ), зөвхөн тулгах лавлах.
+export const updateProgramSchema = createProgramSchema
+  .partial()
+  .extend({ protocolHourlyRate: moneySchema.nullable().optional() });
 export type UpdateProgramInput = z.infer<typeof updateProgramSchema>;
-
-// ФШ-10
-export const createTeacherRateSchema = z.object({
-  hourlyRate: moneySchema,
-  effectiveFrom: z.iso.date("Огноог YYYY-MM-DD хэлбэрээр бичнэ"),
-});
-export type CreateTeacherRateInput = z.infer<typeof createTeacherRateSchema>;
 
 // ФШ-09, ФБШ-29: нэг удаад нэг тохиргооны мөр.
 export const updateSettingSchema = z.object({
