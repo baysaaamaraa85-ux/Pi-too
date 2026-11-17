@@ -15,11 +15,13 @@ test("ФШ-78: нүүр хуудасны цэс, hero, давуу талын к�
   await page.goto("/");
 
   const nav = page.getByRole("navigation").first();
-  for (const label of ["Нүүр", "Хөтөлбөр", "Багш нар", "Бидний тухай", "Салбарууд", "Нэвтрэх", "Бүртгүүлэх", "Бидэнтэй холбогдох"]) {
+  // Цэс: анхны загвар (3 холбоос) ба "Манай төв" цувирдаг цэс ("Бидний тухай", "Салбарууд").
+  for (const label of ["Нүүр", "Хөтөлбөр", "Багш нар", "Нэвтрэх", "Бүртгүүлэх", "Бидэнтэй шууд холбогдох"]) {
     await expect(nav.getByRole("link", { name: label }).first()).toBeVisible();
   }
+  await expect(nav.getByRole("button", { name: /Манай төв/ })).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toContainText("тусгайлан");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("математикийн");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("математик");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("сургалт");
 
   // Давуу талын карт: тоонууд settings-ээс (6 суудал, 75 цаг, 3 чөлөө, 93%).
@@ -28,16 +30,18 @@ test("ФШ-78: нүүр хуудасны цэс, hero, давуу талын к�
   await expect(card).toContainText("2–6 сурагч");
   await expect(card).toContainText("3 удаа чөлөө");
   await expect(card).toContainText("93 хувиас");
-  // Улаан зурвас: салбарын тоо бодит байна.
-  await expect(page.getByText(`${branches.length} Салбар`, { exact: true })).toBeVisible();
+  // Улаан зурвас: салбарын тоо бодит байна (тоо ба "Салбар" шошго тусдаа мөр).
+  await expect(page.getByTestId("hero-stats")).toContainText(`${branches.length}`);
+  await expect(page.getByTestId("hero-stats")).toContainText("Салбар");
 
-  // Нүүр хуудас товч: "Бидний тухай", "Салбарууд" тусдаа хуудас руу холбогдоно, нүүрэнд үнэ, салбарын жагсаалт байхгүй.
-  await expect(page.getByTestId("home-explore")).toBeVisible();
+  // Нүүр хуудас товч: "Бидний тухай", "Салбарууд" нь нүүрэнд биш цэсэнд, нүүрэнд үнэ, салбарын жагсаалт байхгүй.
+  await expect(page.getByTestId("home-explore")).toHaveCount(0);
   await expect(page.getByTestId("public-prices")).toHaveCount(0);
   await expect(page.getByTestId("public-branches")).toHaveCount(0);
 
-  // "Салбарууд" цэс тусдаа хуудас руу аваачна, бүх салбар нэр, хаягтай.
-  await nav.getByRole("link", { name: "Салбарууд" }).click();
+  // "Салбарууд" холбоос тусдаа хуудас руу аваачна, бүх салбар нэр, хаягтай.
+  await nav.getByRole("button", { name: /Манай төв/ }).click();
+  await nav.getByRole("link", { name: /Салбарууд/ }).click();
   await expect(page).toHaveURL(/\/branches$/);
   await expect(page.getByTestId("public-branches").getByRole("listitem").filter({ has: page.getByRole("heading") })).toHaveCount(branches.length);
   await expect(page.getByTestId("public-branches")).toContainText(branches[0]!.name);
@@ -47,7 +51,9 @@ test("ФШ-78: Бидний тухай хуудас: түүх, багш, сал�
   const teachers = (await (await request.get("/api/v1/public/teachers")).json()) as unknown[];
   const branches = (await (await request.get("/api/v1/public/branches")).json()) as unknown[];
   await page.goto("/");
-  await page.getByRole("navigation").first().getByRole("link", { name: "Бидний тухай" }).click();
+  const nav = page.getByRole("navigation").first();
+  await nav.getByRole("button", { name: /Манай төв/ }).click();
+  await nav.getByRole("link", { name: /Бидний тухай/ }).click();
   await expect(page).toHaveURL(/\/about$/);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await expect(page.getByTestId("about-origin")).toContainText("Пи тоо");
