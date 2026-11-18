@@ -1,0 +1,63 @@
+# Railway дээрх proxy (design 7). TLS-ийг Railway-ийн edge дээр дуусгадаг тул Caddy энд зөвхөн
+# энгийн HTTP-ээр сонсоно, өөрөө гэрчилгээ авахгүй (auto_https off).
+{
+	auto_https off
+	admin off
+
+	servers {
+		# Энэ контейнерт зөвхөн Railway edge-ээр дамжиж хүрдэг тул X-Forwarded-* толгойг
+		# итгэмжлэнэ. Ингэснээр API жинхэнэ хэрэглэгчийн IP-г (rate limit) харна.
+		# Хөгжүүлэлтөд шууд ашиглавал энэ мөрийг хас.
+		trusted_proxies static 0.0.0.0/0 ::/0
+	}
+}
+
+:{$PORT:8080} {
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		Strict-Transport-Security "max-age=31536000"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	# Railway-ийн healthcheck: API-аас хамаарахгүй, Caddy өөрөө амьд эсэхийг л шалгана.
+	handle /healthz {
+		respond "ok" 200
+	}
+
+	# API: хуудаснуудын ижил домэйнээр (SameSite=Strict refresh cookie ажиллахын тулд заавал).
+	# /health нь гадаад мониторингт (ФБШ-14), /uploads нь багш, салбарын зураг (ФШ-78).
+	@api path /api/* /uploads/* /health
+	handle @api {
+		reverse_proxy {$API_UPSTREAM}
+	}
+
+	# Hash-тэй build файл: хөтөч жилээр кэшилнэ. Байхгүй файлд index.html буцаахгүй (404).
+	handle /assets/* {
+		root * /srv
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
+	# Бусад бүх зүйл (index.html, SPA-ийн замууд, sw.js, manifest, icon) no-cache: хөтөч ETag-аар
+	# шалгаж, өөрчлөгдөөгүй бол 304. PWA-ийн service worker кэшлэгдвэл шинэ хувилбар
+	# хэрэглэгчид хүрэхгүй тул sw.js заавал no-cache байх ёстой.
+	handle {
+		root * /srv
+		header Cache-Control "no-cache"
+		# SPA: React Router-ийн замууд (жишээ нь /teacher/today) index.html руу.
+		try_files {path} /index.html
+		file_server
+	}
+
+	# Алдааны хариу (жишээ нь байхгүй /assets/x.js-ийн 404) хэзээ ч кэшлэгдэхгүй.
+	handle_errors {
+		header Cache-Control "no-store"
+		header -Server
+		respond "{err.status_code} {err.status_text}"
+	}
+}

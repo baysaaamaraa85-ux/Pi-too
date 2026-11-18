@@ -3,12 +3,10 @@ import type { LedgerRowDto, LedgerSummaryDto } from "@pitoo/contracts";
 import { LEDGER_TYPE_LABELS, ATTENDANCE_STATUS_LABELS, type AttendanceStatus } from "@pitoo/contracts";
 import ExcelJS from "exceljs";
 import PDFDocument from "pdfkit";
-import { createRequire } from "node:module";
+import { resolvePdfFonts } from "./pdf-fonts.js";
 
 // ФШ-59: цалингийн тайланг Excel, PDF файлаар гаргана. Файлын нийлбэр системийн
 // тооцоотой (summary.balance биш, мөрүүдийн нийлбэр) тэнцүү байна.
-
-const require = createRequire(import.meta.url);
 
 export interface ReportData {
   title: string;
@@ -87,8 +85,7 @@ function groupDigits(value: string): string {
 }
 
 export function buildPdf(data: ReportData): Promise<Buffer> {
-  const regular = require.resolve("@expo-google-fonts/roboto/400Regular/Roboto_400Regular.ttf");
-  const bold = require.resolve("@expo-google-fonts/roboto/700Bold/Roboto_700Bold.ttf");
+  const { regular, bold } = resolvePdfFonts();
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: "A4", layout: "landscape", margin: 30 });

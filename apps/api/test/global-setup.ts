@@ -30,6 +30,8 @@ export default async function setup() {
   await admin.end();
 
   for (const args of [
+    // pitoo_app үүрэг migration-аас өмнө APP_DATABASE_URL-аас үүснэ (нууц үг migration-д байхгүй).
+    ["tsx", "prisma/bootstrap-app-role.ts"],
     ["prisma", "migrate", "deploy"],
     ["tsx", "prisma/seed.ts"],
   ]) {

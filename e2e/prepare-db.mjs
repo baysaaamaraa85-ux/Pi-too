@@ -26,6 +26,8 @@ function run(command, args) {
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
+// pitoo_app үүрэг migration-аас өмнө APP_DATABASE_URL-аас үүснэ (нууц үг migration-д байхгүй).
+run("npx", ["tsx", "prisma/bootstrap-app-role.ts"]);
 run("npx", ["prisma", "migrate", "deploy"]);
 run("npx", ["tsx", "prisma/seed.ts"]);
 

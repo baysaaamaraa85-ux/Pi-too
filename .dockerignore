@@ -1,0 +1,22 @@
+# Docker build context-оос хасах зүйлс (нууц, том, дахин үүсдэг файлууд)
+**/node_modules
+**/dist
+**/src/generated
+.git
+.gitignore
+.env
+.env.*
+**/.env
+**/.env.*
+!**/.env.example
+**/.claude
+**/.agents
+**/.windsurf
+apps/api/uploads
+test-results
+playwright-report
+coverage
+e2e
+docs
+*.log
+.DS_Store

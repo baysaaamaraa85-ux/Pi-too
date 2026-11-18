@@ -77,8 +77,14 @@ async function main() {
     return teacher;
   }
 
-  await ensureTeacher("99112233", "Б.Солонго");
-  await ensureTeacher("99223344", "Д.Эрдэнэ");
+  // Аюулгүй байдал: жишээ багш нар репод бичигдсэн нийтэд мэдэгдэх нууц үгтэй (Teacher123!).
+  // Үйлдвэрийн (production) сан дээр хэзээ ч үүсгэхгүй, жинхэнэ багшийг админ UI-аар бүртгэнэ.
+  if (process.env.NODE_ENV === "production") {
+    console.log("NODE_ENV=production: жишээ багш үүсгээгүй.");
+  } else {
+    await ensureTeacher("99112233", "Б.Солонго");
+    await ensureTeacher("99223344", "Д.Эрдэнэ");
+  }
 
   // ФШ-09, ФБШ-29: журмын утгууд. Код дотор биш, эндээс уншина.
   await prisma.settings.upsert({

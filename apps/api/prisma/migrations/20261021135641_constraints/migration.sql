@@ -1,19 +1,23 @@
 -- CLAUDE.md 7-р хэсэг: Prisma схемоор илэрхийлэгдэхгүй хязгаарлалтууд.
 
 -- ФБШ-24: аппликейшний DB хэрэглэгч audit_log, ledger_entries хоёрт UPDATE,
--- DELETE хийх боломжгүй байх ёстой (зөвхөн нэмэгддэг). Хөгжүүлэлтийн орчинд
--- migration-ууд postgres superuser-ээр ажилладаг тул тусдаа pitoo_app
--- хэрэглэгч үүсгэж, аппликейшн зөвхөн түүгээр холбогдоно (src/shared/db/prisma.ts,
--- APP_DATABASE_URL). Нууц үгийг зөвхөн хөгжүүлэлтийн орчинд ийм энгийн үлдэнэ.
+-- DELETE хийх боломжгүй байх ёстой (зөвхөн нэмэгддэг). Migration-ууд superuser-ээр
+-- ажилладаг тул тусдаа pitoo_app хэрэглэгчээр аппликейшн холбогдоно
+-- (src/shared/db/prisma.ts, APP_DATABASE_URL).
+--
+-- Үүргийг (нууц үгтэй нь) энд үүсгэхгүй: SQL нь орчны хувьсагч уншиж чадахгүй тул нууц үг
+-- кодонд үлдэх байсан. Үүргийг migration-аас ӨМНӨ prisma/bootstrap-app-role.ts
+-- (npm run db:bootstrap) APP_DATABASE_URL-аас үүсгэнэ. Өгөгдлийн сангийн нэрийг
+-- current_database()-аас авна, тиймээс "pitoo", "railway" гэх мэт ямар ч нэртэй сан дээр ажиллана.
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pitoo_app') THEN
-    CREATE ROLE pitoo_app LOGIN PASSWORD 'pitoo_app_dev';
+    RAISE EXCEPTION 'pitoo_app үүрэг байхгүй байна. Эхлээд "npm run db:bootstrap -w @pitoo/api" ажиллуулна уу (APP_DATABASE_URL-аас үүсгэнэ).';
   END IF;
+  EXECUTE format('GRANT CONNECT ON DATABASE %I TO pitoo_app', current_database());
 END
 $$;
 
-GRANT CONNECT ON DATABASE pitoo TO pitoo_app;
 GRANT USAGE ON SCHEMA public TO pitoo_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO pitoo_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO pitoo_app;

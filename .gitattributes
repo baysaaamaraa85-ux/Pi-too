@@ -1,0 +1,4 @@
+# Docker image (Linux) дотор ажиллах файлууд Windows дээр CRLF болохоос сэргийлнэ.
+# CRLF-тэй .sh файл "bad interpreter" алдаа өгдөг.
+*.sh text eol=lf
+deploy/** text eol=lf
