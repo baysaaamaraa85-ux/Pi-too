@@ -48,7 +48,6 @@ async function setup() {
 }
 
 function body(programId: string, classIds: string[], extra: Record<string, unknown> = {}) {
-  const now = new Date().toISOString();
   return {
     parentPhone: phone8(),
     parentFullName: "Эцэг",
@@ -56,8 +55,8 @@ function body(programId: string, classIds: string[], extra: Record<string, unkno
     programId,
     classIds,
     fromDate: today(),
-    rulesAckAt: now,
-    consentAt: now,
+    rulesAcknowledged: true,
+    consentGiven: true,
     ...extra,
   };
 }
@@ -172,16 +171,48 @@ describe("Багшаас сурагч бүртгэх, нэг транзакц (�
     expect(ok.status).toBe(201);
   });
 
-  it("ФШ-12: зөвшөөрлийн огноо, журмын огноо дутуу бол 422", async () => {
+  it("ФШ-12, 16: зөвшөөрөл, журамтай танилцсан баталгаажуулалт дутуу бол 422, юу ч хадгалагдахгүй", async () => {
     const { program, teacher, classIds } = await setup();
     const payload = body(program.id, classIds.slice(0, 2));
-    const { consentAt: _consent, ...withoutConsent } = payload;
-    void _consent;
+    const studentsBefore = await prisma.student.count();
+    for (const missing of ["consentGiven", "rulesAcknowledged"] as const) {
+      const incomplete: Record<string, unknown> = { ...payload };
+      delete incomplete[missing];
+      const res = await request(app)
+        .post("/api/v1/enrollments")
+        .set("Authorization", `Bearer ${teacher.token}`)
+        .send(incomplete);
+      expect(res.status).toBe(422);
+    }
+    // false утга ч хүчингүй (зөвхөн true баталгаажуулалт).
+    const denied = await request(app)
+      .post("/api/v1/enrollments")
+      .set("Authorization", `Bearer ${teacher.token}`)
+      .send({ ...payload, rulesAcknowledged: false });
+    expect(denied.status).toBe(422);
+    expect(await prisma.student.count()).toBe(studentsBefore);
+  });
+
+  it("D-82, ФШ-16, ФБШ-23: журамтай танилцсан, зөвшөөрсөн огноо, цагийг сервер өөрөө бүртгэнэ (клиентийн цаг хүчингүй)", async () => {
+    const { program, teacher, classIds } = await setup();
+    const before = Date.now();
     const res = await request(app)
       .post("/api/v1/enrollments")
       .set("Authorization", `Bearer ${teacher.token}`)
-      .send(withoutConsent);
-    expect(res.status).toBe(422);
+      // Клиент хуучин огноо илгээсэн ч (шаардлагагүй талбар) сервер үүнийг үл тоомсорлоно.
+      .send(body(program.id, classIds.slice(0, 2), { rulesAckAt: "2020-01-01T00:00:00.000Z", consentAt: "2020-01-01T00:00:00.000Z" }));
+    const after = Date.now();
+    expect(res.status).toBe(201);
+
+    const student = await prisma.student.findUniqueOrThrow({
+      where: { id: res.body.studentId },
+      include: { contracts: true },
+    });
+    const contract = student.contracts[0]!;
+    // Хүсэлт хүлээн авсан хугацааны завсарт, нэг транзакцын нэг цаг.
+    expect(contract.rulesAckAt.getTime()).toBeGreaterThanOrEqual(before - 1000);
+    expect(contract.rulesAckAt.getTime()).toBeLessThanOrEqual(after + 1000);
+    expect(student.consentAt?.getTime()).toBe(contract.rulesAckAt.getTime());
   });
 
   it("ФШ-18, ФБШ-20: багш өөр багшийн сурагчийн төлөвлөгөөг засахад 403", async () => {

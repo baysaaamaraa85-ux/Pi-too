@@ -1,17 +1,27 @@
 import { ArrowRight } from "lucide-react";
+import type * as React from "react";
 import { Link } from "react-router";
-import { Eyebrow } from "@/shared/ui/eyebrow";
 import { ABOUT } from "./content";
+import { Reveal } from "@/shared/pt/motion";
+import { PageBody, PageHead, PublicPage } from "./page-kit";
 import { usePublicOverview, usePublicTeachers } from "./public-api";
 
-function Stat({ value, label }: { value: string; label: string }) {
+function Stat({ value, label, last }: { value: string; label: string; last?: boolean }) {
   return (
-    <li className="rounded-2xl border border-border bg-surface px-5 py-4">
-      <strong className="block font-display text-3xl font-extrabold leading-none text-primary tabular-nums">{value}</strong>
-      <span className="mt-1.5 block text-[0.8rem] text-muted">{label}</span>
+    <li className={`border-b border-white/15 p-6 sm:p-8 lg:border-b-0 ${last ? "" : "border-r"}`}>
+      <strong className="pt-tight pt-num block text-[44px] font-semibold leading-none sm:text-[56px]">{value}</strong>
+      <span className="mt-3 block text-[13px] font-medium text-white/70">{label}</span>
     </li>
   );
 }
+
+// Үйл ажиллагааны 4 алхмын өнгө (нүүрний картуудтай ижил)
+const STYLES = [
+  { hue: "139,26,26", tint: "#F6E9E9" },
+  { hue: "242,174,58", tint: "#F8F0E2" },
+  { hue: "181,72,72", tint: "#F7ECEC" },
+  { hue: "76,194,126", tint: "#EAF5EE" },
+] as const;
 
 // "Бидний тухай": үүсэл, одоогийн бүтэц (багш, салбар), ажиллах арга, байгууллагын зураг. Тоонууд DB-ээс.
 export function AboutPage() {
@@ -21,15 +31,19 @@ export function AboutPage() {
     text.replace("{capacity}", String(overview?.classCapacity ?? "цөөн")).replace("{hours}", String(overview?.packageHours ?? ""));
 
   return (
-    <>
-      <section className="bg-background px-5 py-14 lg:px-13 lg:py-20">
-        <div className="mx-auto grid max-w-270 items-center gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-          <div>
-            <Eyebrow>Бидний тухай</Eyebrow>
-            <h1 className="mb-4 font-display text-[clamp(1.8rem,2.8vw,2.6rem)] font-extrabold leading-tight tracking-[-0.03em] text-foreground">
-              Сурагч бүрт тохирсон математикийн сургалт
-            </h1>
-            <div className="grid gap-3.5 text-[0.95rem] leading-[1.85] text-mid" data-testid="about-origin">
+    <PublicPage>
+      <PageHead
+        eyebrow="Бидний тухай"
+        title={
+          <>
+            Сурагч бүрт <span className="text-brand-700">тохирсон</span> математикийн сургалт
+          </>
+        }
+      />
+      <PageBody className="mt-12">
+        <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-14">
+          <Reveal>
+            <div className="grid gap-4 text-[16px] leading-[1.8] text-ink-700" data-testid="about-origin">
               {ABOUT.origin.map((p) => (
                 <p key={p}>{p}</p>
               ))}
@@ -40,49 +54,87 @@ export function AboutPage() {
                 заана.
               </p>
             </div>
-            <ul className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-4" data-testid="about-stats">
-              <Stat value={teachers ? String(teachers.length) : "–"} label="Багш" />
-              <Stat value={overview ? String(overview.branchCount) : "–"} label="Салбар" />
-              <Stat value={overview ? String(overview.classCapacity) : "–"} label="Сурагч / 1 багш" />
-              <Stat value={overview ? String(overview.packageHours) : "–"} label="Цагийн багц" />
-            </ul>
-          </div>
-          <figure className="m-0 overflow-hidden rounded-[1.75rem] shadow-lg">
-            <img src={ABOUT.photo} alt={ABOUT.photoAlt} className="aspect-[4/3] size-full object-cover" />
-          </figure>
+          </Reveal>
+          <Reveal className="relative" delay={80}>
+            <div
+              className="pointer-events-none absolute -inset-6 rounded-[48px]"
+              style={{ background: "radial-gradient(50% 50% at 50% 50%,rgba(139,26,26,.18),transparent 70%)", filter: "blur(28px)" }}
+              aria-hidden="true"
+            />
+            <figure className="relative m-0 overflow-hidden rounded-[30px] border border-ink-900/[.07] shadow-[0_40px_80px_-40px_rgba(23,23,23,0.45)]">
+              <img src={ABOUT.photo} alt={ABOUT.photoAlt} className="aspect-[4/3] size-full object-cover" />
+            </figure>
+          </Reveal>
         </div>
-      </section>
 
-      <section className="bg-surface px-5 py-14 lg:px-13 lg:py-20">
-        <div className="mx-auto max-w-270">
-          <Eyebrow>Хэрхэн үйл ажиллагаа явуулдаг вэ</Eyebrow>
-          <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {ABOUT.howWeWork.map((item, i) => (
-              <li key={item.title} className="rounded-[10px] bg-background px-5 py-6">
-                <span className="mb-4 grid size-10 place-items-center rounded-lg bg-primary/9 font-display text-base font-extrabold text-primary">
-                  {i + 1}
-                </span>
-                <h3 className="mb-1.5 font-display text-[0.98rem] font-extrabold tracking-tight text-foreground">{item.title}</h3>
-                <p className="text-[0.83rem] leading-[1.7] text-muted">{fill(item.text)}</p>
-              </li>
-            ))}
+        <Reveal className="relative mt-14 overflow-hidden rounded-[34px] bg-brand-700 text-white">
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                "radial-gradient(50% 120% at 10% 0%,rgba(242,174,58,.25),transparent 60%),radial-gradient(50% 120% at 90% 100%,rgba(23,23,23,.45),transparent 60%)",
+            }}
+          />
+          <div className="pt-noise" />
+          <ul className="relative grid grid-cols-2 lg:grid-cols-4" data-testid="about-stats">
+            <Stat value={teachers ? String(teachers.length) : "–"} label="Багш" />
+            <Stat value={overview ? String(overview.branchCount) : "–"} label="Салбар" />
+            <Stat value={overview ? String(overview.classCapacity) : "–"} label="Сурагч / 1 багш" />
+            <Stat value={overview ? String(overview.packageHours) : "–"} label="Цагийн багц" last />
           </ul>
-          <div className="mt-8 flex flex-wrap gap-3">
+        </Reveal>
+
+        <section className="mt-20">
+          <Reveal>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-brand-700">Хэрхэн үйл ажиллагаа явуулдаг вэ</p>
+          </Reveal>
+          <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {ABOUT.howWeWork.map((item, i) => {
+              const style = STYLES[i % STYLES.length]!;
+              return (
+                <Reveal
+                  key={item.title}
+                  as="li"
+                  delay={i * 60}
+                  className="pt-lib group flex flex-col"
+                  style={{ "--tint": style.tint } as React.CSSProperties}
+                >
+                  <div className="pt-cover pt-dark grid h-[96px] place-items-center">
+                    <div className="pt-glow" style={{ background: `radial-gradient(40% 50% at 50% 55%,rgba(${style.hue},.55),transparent 70%)` }} />
+                    <div className="pt-dots" />
+                    <div className="pt-noise" />
+                    <span
+                      className="pt-tight pt-num relative text-[44px] font-semibold leading-none text-white transition-transform duration-500 group-hover:scale-110"
+                      style={{ textShadow: `0 0 30px rgba(${style.hue},.9)` }}
+                      aria-hidden="true"
+                    >
+                      {i + 1}
+                    </span>
+                  </div>
+                  <div className="pt-meta flex-1 px-5 py-4">
+                    <h3 className="text-[16px] font-semibold leading-snug">{item.title}</h3>
+                    <p className="mt-1.5 text-[13.5px] leading-[1.65] text-ink-500">{fill(item.text)}</p>
+                  </div>
+                </Reveal>
+              );
+            })}
+          </ul>
+          <div className="mt-10 flex flex-wrap gap-3">
             <Link
               to="/branches"
-              className="inline-flex min-h-12 items-center gap-2 rounded-full border-[1.5px] border-primary/30 px-6 text-[0.85rem] font-semibold text-primary transition-colors hover:bg-primary/5"
+              className="pt-glass inline-flex h-12 items-center gap-2 rounded-full px-6 text-[14px] font-medium text-brand-700 transition hover:bg-white"
             >
-              Салбарууд <ArrowRight className="size-4" />
+              Салбарууд <ArrowRight className="size-4" aria-hidden="true" />
             </Link>
             <Link
               to="/contact"
-              className="inline-flex min-h-12 items-center gap-2 rounded-full bg-primary px-6 text-[0.85rem] font-bold text-primary-foreground transition-colors hover:bg-primary-hover"
+              className="inline-flex h-12 items-center gap-2 rounded-full bg-brand-700 px-6 text-[14px] font-medium text-white shadow-[0_10px_24px_-10px_rgba(139,26,26,0.7)] transition hover:bg-brand-800"
             >
-              Бүртгүүлэх <ArrowRight className="size-4" />
+              Бүртгүүлэх <ArrowRight className="size-4" aria-hidden="true" />
             </Link>
           </div>
-        </div>
-      </section>
-    </>
+        </section>
+      </PageBody>
+    </PublicPage>
   );
 }

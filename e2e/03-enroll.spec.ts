@@ -23,7 +23,6 @@ async function fillWizardToConfirm(
   await expect(options).toHaveCount(2);
   for (let i = 0; i < opts.classCount; i++) await options.nth(i).check();
   await page.getByRole("button", { name: "Үргэлжлүүлэх" }).click();
-  await page.getByLabel("Журамтай танилцсан огноо").fill("2026-10-28");
   await page.getByLabel("Эцэг эх төвийн журамтай танилцсан.").check();
   await page.getByLabel("Эцэг эх хүүхдийн хувийн мэдээллийг боловсруулахыг зөвшөөрсөн.").check();
 }

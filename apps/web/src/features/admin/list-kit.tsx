@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Copy, Search } from "lucide-react";
 import * as React from "react";
 import { useSearchParams } from "react-router";
@@ -139,6 +139,58 @@ export function CredentialsCard({ credentials, title }: { credentials: Credentia
 export function errorMessage(error: unknown): string | null {
   if (!error) return null;
   return error instanceof ApiError ? error.problem.detail : "Алдаа гарлаа.";
+}
+
+// Түүхгүй бүртгэлийг бодитоор устгах (салбар, багш, сурагч). Буцаах боломжгүй тул
+// баталгаажуулах цонхтой (ФБШ-12). Түүхтэй бол сервер 409 буцааж, шалтгааныг цонхонд харуулна.
+export function DeleteRecordButton({
+  path,
+  label,
+  title,
+  description,
+  testId,
+  onDeleted,
+}: {
+  path: string;
+  label: string;
+  title: string;
+  description: string;
+  testId: string;
+  onDeleted: () => void | Promise<unknown>;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const remove = useMutation({
+    mutationFn: () => api.delete(path),
+    onSuccess: async () => {
+      setOpen(false);
+      await onDeleted();
+    },
+  });
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="danger"
+        data-testid={testId}
+        onClick={() => {
+          remove.reset();
+          setOpen(true);
+        }}
+      >
+        {label}
+      </Button>
+      <ConfirmDialog
+        open={open}
+        title={title}
+        description={`${errorMessage(remove.error) ?? ""} ${description}`.trim()}
+        confirmLabel="Устгах"
+        busy={remove.isPending}
+        onConfirm={() => remove.mutate()}
+        onClose={() => setOpen(false)}
+      />
+    </>
+  );
 }
 
 // Данс идэвхгүй болгох (ФШ-06) ба нууц үг шинээр үүсгэх (ФШ-03). Мөнгө биш ч

@@ -1,0 +1,413 @@
+/*
+ * Нүүр хуудас, нийтийн цэс, доод хэсгийн загвар (D-84): хэрэглэгчийн pi_too_home.html загварыг дагана.
+ * Бүх анги `pt-` угтвартай, `.pt-ui` дотор л үйлчилнэ (самбарын хэсэгт нөлөөлөхгүй).
+ * Хөдөлгөөн: prefers-reduced-motion үед бүгд унтарч, бүх зүйл шууд харагдана (ФБШ-10, WCAG 2.3.3).
+ */
+
+.pt-ui {
+  font-family: var(--font-onest);
+  letter-spacing: -0.012em;
+  text-rendering: optimizeLegibility;
+}
+
+/* Нийтийн сайтын гарчгийн фонт (classic-type) нүүр, цэс, доод хэсэгт Onest болно (TeacherCard-ын нэр гэх мэт). */
+.classic-type .pt-ui .font-display {
+  font-family: var(--font-onest);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.pt-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.pt-tight {
+  letter-spacing: -0.045em;
+}
+
+/* Шилэн гадаргуу: цэс, товч, жижиг шошго */
+.pt-glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  border: 1px solid rgba(23, 23, 23, 0.07);
+  box-shadow:
+    0 1px 2px rgba(23, 23, 23, 0.04),
+    0 10px 30px -12px rgba(23, 23, 23, 0.14);
+}
+
+/* Цэсний шахмал: идэвхтэй холбоосыг дагадаг улаан заагч */
+.pt-ind {
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  border-radius: 9999px;
+  background: #8b1a1a;
+  box-shadow: 0 6px 16px -6px rgba(139, 26, 26, 0.6);
+  opacity: 0;
+}
+.pt-ind[data-ready="true"] {
+  opacity: 1;
+  transition:
+    left 0.4s cubic-bezier(0.3, 1.2, 0.4, 1),
+    width 0.4s cubic-bezier(0.3, 1.2, 0.4, 1);
+}
+
+/* Гарчгийн үг бүр бүдэг байснаа тодрох */
+.pt-word {
+  display: inline-block;
+  opacity: 0;
+  filter: blur(14px);
+  transform: translateY(14px);
+  animation: pt-word-in 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+@keyframes pt-word-in {
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: none;
+  }
+}
+
+/* Гүйлгэхэд харагдах үед бүдэг байснаа тодрох */
+.pt-reveal {
+  opacity: 0;
+  filter: blur(10px);
+  transform: translateY(22px);
+  transition:
+    opacity 0.9s cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 0.9s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.pt-reveal[data-in="true"] {
+  opacity: 1;
+  filter: blur(0);
+  transform: none;
+}
+
+/* 3D нум хэлбэрийн карусель */
+.pt-arc-stage {
+  perspective: 1500px;
+  perspective-origin: 50% 40%;
+}
+.pt-arc-card {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: var(--cw);
+  height: var(--ch);
+  margin-left: calc(var(--cw) / -2);
+  transform-style: preserve-3d;
+  transition:
+    transform 0.9s cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 0.9s,
+    opacity 0.9s;
+  cursor: pointer;
+}
+.pt-arc-card .pt-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 28px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid rgba(23, 23, 23, 0.07);
+  box-shadow:
+    0 30px 60px -30px rgba(23, 23, 23, 0.35),
+    0 2px 6px rgba(23, 23, 23, 0.05);
+}
+.pt-arc-card[data-active="true"] {
+  cursor: default;
+}
+.pt-arc-card[data-active="true"] .pt-face {
+  box-shadow:
+    0 60px 110px -35px rgba(139, 26, 26, 0.65),
+    0 0 0 1px rgba(139, 26, 26, 0.25),
+    0 2px 6px rgba(23, 23, 23, 0.05);
+}
+.pt-arc-card[data-active="true"]::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 30px;
+  background: conic-gradient(from var(--ang, 0deg), #8b1a1a, #f2ae3a, #b54848, #8b1a1a);
+  opacity: 0.75;
+  filter: blur(10px);
+  z-index: -1;
+  animation: pt-ang 6s linear infinite;
+}
+@property --ang {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes pt-ang {
+  to {
+    --ang: 360deg;
+  }
+}
+.pt-arc-edge {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+  background: linear-gradient(90deg, #f9f6f2 0%, rgba(249, 246, 242, 0) 6%, rgba(249, 246, 242, 0) 94%, #f9f6f2 100%);
+}
+.pt-horizon {
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  top: 16%;
+  height: 66%;
+  pointer-events: none;
+  filter: blur(60px);
+  opacity: 0.8;
+  background:
+    radial-gradient(40% 60% at 50% 50%, rgba(139, 26, 26, 0.35), transparent 70%),
+    radial-gradient(30% 50% at 22% 60%, rgba(242, 174, 58, 0.26), transparent 70%),
+    radial-gradient(30% 50% at 80% 55%, rgba(181, 72, 72, 0.24), transparent 70%);
+}
+
+/* Харанхуй карт дээрх цэгэн торлог, дуу чимээ */
+.pt-dots {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.09) 1px, transparent 1px);
+  background-size: 14px 14px;
+}
+.pt-noise {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.22;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Эцсийн хэсгийн гялбаа */
+.pt-orb-core {
+  border-radius: 9999px;
+  background: radial-gradient(circle at 30% 24%, #ffe9c2 0%, #f2ae3a 14%, #b54848 42%, #6b1010 74%, #171717 100%);
+  box-shadow:
+    0 0 60px 10px rgba(181, 72, 72, 0.55),
+    0 0 140px 40px rgba(242, 174, 58, 0.18);
+  animation: pt-breathe 6s ease-in-out infinite;
+}
+.pt-orb-ring {
+  position: absolute;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  animation: pt-spin 18s linear infinite;
+}
+.pt-orb-ring::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: #f7c978;
+  box-shadow: 0 0 12px 3px #f2ae3a;
+}
+@keyframes pt-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+@keyframes pt-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Давуу талын карт (bento) */
+.pt-lib {
+  border-radius: 26px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid rgba(23, 23, 23, 0.07);
+  transition:
+    transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.35s;
+}
+/* .pt-reveal-тай хамт: тодрох (opacity, filter) нь удаан, hover (transform, shadow) нь хурдан */
+.pt-lib.pt-reveal[data-in="true"] {
+  transition:
+    opacity 0.9s cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 0.9s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.35s;
+}
+.pt-lib:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 30px 50px -28px rgba(23, 23, 23, 0.4);
+}
+.pt-lib .pt-cover {
+  position: relative;
+  overflow: hidden;
+  background: #141110;
+}
+.pt-lib .pt-glow {
+  position: absolute;
+  inset: -30%;
+  transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.pt-lib:hover .pt-glow {
+  transform: scale(1.15) rotate(8deg);
+}
+.pt-lib .pt-meta {
+  background: linear-gradient(180deg, var(--tint) 0%, #fff 100%);
+}
+
+/* Хөвөх математик тэмдэг */
+.pt-glyph {
+  position: absolute;
+  font-weight: 600;
+  color: rgba(139, 26, 26, 0.1);
+  pointer-events: none;
+  animation: pt-drift 14s ease-in-out infinite;
+}
+@keyframes pt-drift {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0);
+  }
+  50% {
+    transform: translateY(-18px) rotate(6deg);
+  }
+}
+
+/* Хулганыг дагадаг гэрэл */
+.pt-spot {
+  position: relative;
+  overflow: hidden;
+}
+.pt-spot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgba(242, 174, 58, 0.16), transparent 45%);
+}
+.pt-spot:hover::before {
+  opacity: 1;
+}
+
+/* Салбарын цэгүүд амьсгалах */
+.pt-breathe {
+  animation: pt-breathe 4s ease-in-out infinite;
+}
+
+.pt-ui :focus-visible {
+  outline: 2.5px solid #8b1a1a;
+  outline-offset: 3px;
+  border-radius: 12px;
+}
+.pt-ui ::selection {
+  background: #8b1a1a;
+  color: #fff;
+}
+/* Харанхуй дэвсгэр дээр улаан outline харагдахгүй тул цайвар */
+.pt-dark :focus-visible {
+  outline-color: #f7c978;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pt-ui *,
+  .pt-ui *::before,
+  .pt-ui *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .pt-word,
+  .pt-reveal {
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+  }
+}
+
+/* ---- Багшийн самбар (teacher_today_v5.html): энгийн карусель, сегмент, график ---- */
+.pt-arc-plain .pt-arc-card[data-active="true"]::before {
+  display: none;
+}
+.pt-arc-plain .pt-arc-card .pt-face {
+  border-radius: 26px;
+}
+.pt-arc-plain .pt-arc-card[data-active="true"] .pt-face {
+  box-shadow:
+    0 40px 80px -30px rgba(139, 26, 26, 0.55),
+    0 2px 6px rgba(23, 23, 23, 0.05);
+}
+.pt-arc-plain .pt-arc-edge {
+  z-index: 5;
+  background: linear-gradient(90deg, #f9f6f2 0%, rgba(249, 246, 242, 0) 14%, rgba(249, 246, 242, 0) 86%, #f9f6f2 100%);
+}
+
+/* Хугацаа сонгох сегмент: харанхуй дээр цагаан гулсдаг товч */
+.pt-seg {
+  position: relative;
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.pt-seg-thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  border-radius: 9999px;
+  background: #fff;
+  transition:
+    left 0.35s cubic-bezier(0.3, 1.2, 0.4, 1),
+    width 0.35s cubic-bezier(0.3, 1.2, 0.4, 1);
+}
+.pt-seg button {
+  position: relative;
+  z-index: 1;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 9999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.65);
+  transition: color 0.2s;
+}
+.pt-seg button[aria-pressed="true"] {
+  color: #171717;
+}
+
+/* Графикийн шугам зурагдах */
+@keyframes pt-draw {
+  from {
+    stroke-dashoffset: var(--len);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.pt-draw {
+  stroke-dasharray: var(--len);
+  animation: pt-draw 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* Багшийн самбарын бүрхүүл: дэвсгэр, Onest (нийтийн нүүртэй ижил). Гарчгийн font-display мөн Onest болно. */
+.pt-ui .font-display {
+  font-family: var(--font-onest);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+/* Холбоостой идэвхтэй карт дээр заагч хуруу */
+.pt-arc-plain .pt-arc-card[data-active="true"]:has(a) {
+  cursor: pointer;
+}

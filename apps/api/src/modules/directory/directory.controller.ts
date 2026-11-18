@@ -37,6 +37,12 @@ export async function updateTeacher(req: Request, res: Response) {
   res.status(200).json(await service.updateTeacher(id, input, req.user!.id));
 }
 
+export async function deleteTeacher(req: Request, res: Response) {
+  const { id } = idParamSchema.parse(req.params);
+  await service.deleteTeacher(id, req.user!.id);
+  res.status(204).end();
+}
+
 // D-69: багш өөрийн заах чиглэлийг засна.
 export async function updateTeacherSpecialties(req: Request, res: Response) {
   const { id } = idParamSchema.parse(req.params);
@@ -92,4 +98,9 @@ export async function updateStudent(req: Request, res: Response) {
   const { id } = idParamSchema.parse(req.params);
   const input = updateStudentSchema.parse(req.body);
   res.status(200).json(await service.updateStudent(id, input, req.user!.id));
+}
+export async function deleteStudent(req: Request, res: Response) {
+  const { id } = idParamSchema.parse(req.params);
+  await service.deleteStudent(id, req.user!.id);
+  res.status(204).end();
 }

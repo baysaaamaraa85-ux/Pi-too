@@ -70,7 +70,7 @@ describe("М3 Элсэлт ба гэрээ", () => {
     const res = await request(app)
       .post("/api/v1/contracts")
       .set("Authorization", `Bearer ${(await loginAsTeacher()).token}`)
-      .send({ studentId: student.id, programId, rulesAckAt: new Date().toISOString() });
+      .send({ studentId: student.id, programId, rulesAcknowledged: true });
 
     expect(res.status).toBe(201);
     expect(Number(res.body.remainingHours)).toBe(75);

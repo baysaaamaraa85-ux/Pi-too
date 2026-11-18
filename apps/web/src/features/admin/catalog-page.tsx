@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Field, FormError } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { PhotoUpload } from "@/shared/ui/photo-upload";
+import { DeleteRecordButton } from "./list-kit";
 
 function errorText(error: unknown) {
   return error instanceof ApiError ? error.problem.detail : error ? "Алдаа гарлаа." : null;
@@ -22,6 +23,8 @@ function errorText(error: unknown) {
 function BranchRow({ branch }: { branch: BranchDto }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = React.useState(false);
+  const [name, setName] = React.useState(branch.name);
+  const [address, setAddress] = React.useState(branch.address);
   const [description, setDescription] = React.useState(branch.description ?? "");
   const [phones, setPhones] = React.useState(branch.phones.join(", "));
   const [saved, setSaved] = React.useState(false);
@@ -29,6 +32,8 @@ function BranchRow({ branch }: { branch: BranchDto }) {
   const save = useMutation({
     mutationFn: () =>
       api.patch(`/branches/${branch.id}`, {
+        name: name.trim(),
+        address: address.trim(),
         description: description.trim() === "" ? null : description.trim(),
         phones: phones
           .split(",")
@@ -48,12 +53,33 @@ function BranchRow({ branch }: { branch: BranchDto }) {
           <p className="text-sm font-semibold text-foreground-strong">{branch.name}</p>
           <p className="text-xs text-muted">{branch.address}</p>
         </div>
-        <Button type="button" variant="secondary" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
-          {open ? "Хаах" : "Нийтийн сайтад харагдах"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="secondary" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+            {open ? "Хаах" : "Нийтийн сайтад харагдах"}
+          </Button>
+          <DeleteRecordButton
+            path={`/branches/${branch.id}`}
+            label="Устгах"
+            testId="delete-branch"
+            title={`"${branch.name}" салбарыг устгах уу?`}
+            description="Салбар бүрмөсөн устаж, буцаах боломжгүй. Идэвхтэй анги, эсвэл ирц, цалингийн түүхтэй салбарыг устгах боломжгүй."
+            onDeleted={async () => {
+              await queryClient.invalidateQueries({ queryKey: ["public"] });
+              await refresh();
+            }}
+          />
+        </div>
       </div>
       {open ? (
         <div className="mt-3 grid gap-3.5 rounded-xl bg-background-soft p-4">
+          <div className="grid gap-3.5 sm:grid-cols-2">
+            <Field label="Салбарын нэр" htmlFor={`b-name-${branch.id}`}>
+              <Input id={`b-name-${branch.id}`} value={name} onChange={(e) => setName(e.target.value)} />
+            </Field>
+            <Field label="Хаяг" htmlFor={`b-addr-${branch.id}`}>
+              <Input id={`b-addr-${branch.id}`} value={address} onChange={(e) => setAddress(e.target.value)} />
+            </Field>
+          </div>
           <PhotoUpload
             shape="wide"
             uploadPath={`/branches/${branch.id}/photo`}
@@ -80,7 +106,7 @@ function BranchRow({ branch }: { branch: BranchDto }) {
           <Button
             type="button"
             className="w-fit"
-            disabled={save.isPending}
+            disabled={save.isPending || name.trim() === "" || address.trim() === ""}
             onClick={() => {
               setSaved(false);
               save.mutate();

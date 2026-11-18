@@ -40,7 +40,7 @@ export function ChildPicker({
 }) {
   if (students.length < 2) return null;
   return (
-    <div className="mb-6 flex flex-wrap gap-2" role="tablist" aria-label="Хүүхэд сонгох">
+    <div className="mb-4 mt-4 flex flex-wrap gap-2 sm:mb-6" role="tablist" aria-label="Хүүхэд сонгох">
       {students.map((student) => (
         <button
           key={student.studentId}
@@ -49,10 +49,10 @@ export function ChildPicker({
           aria-selected={student.studentId === selectedId}
           onClick={() => onSelect(student.studentId)}
           className={cn(
-            "rounded-full border-[1.5px] px-4 py-1.5 text-sm font-semibold transition-colors",
+            "min-h-11 rounded-full border px-5 text-sm font-medium transition-colors",
             student.studentId === selectedId
-              ? "border-primary bg-primary text-primary-foreground"
-              : "border-border bg-surface text-mid hover:border-primary hover:text-primary",
+              ? "border-brand-700 bg-brand-700 text-white shadow-[0_10px_24px_-10px_rgba(139,26,26,0.7)]"
+              : "pt-glass border-transparent text-ink-700 hover:bg-white",
           )}
         >
           {student.fullName}

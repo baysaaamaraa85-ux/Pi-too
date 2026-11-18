@@ -151,6 +151,52 @@ export function updateBranch(id: string, data: repo.BranchData) {
   return withUniqueNameHandling(data.name ?? id, () => repo.updateBranch(prisma, id, data));
 }
 
+// ФШ-07: салбар устгах. Идэвхтэй анги байвал хаана (эхлээд ангиудыг устгана). Идэвхгүй
+// болсон (устгагдсан) ангид ирц, цалингийн бичилт, тэмдэглэл байвал түүх хадгалагдах тул
+// хаана (ФБШ-12, ФБШ-24, Restrict). Түүхгүй бол идэвхгүй ангиуд хичээл, бүртгэлтэйгээ хамт
+// цэвэрлэгдэж салбар бодитоор устна. Түвшин тогтоох хүсэлт устахгүй, салбаргүй болно.
+export async function deleteBranch(id: string, actorId: string) {
+  const photoUrl = await prisma.$transaction(async (tx) => {
+    const branch = await getBranchById(tx, id);
+    const activeClasses = await repo.countActiveClassesInBranch(tx, id);
+    if (activeClasses > 0) {
+      throw new DomainError({
+        code: "branch-has-active-classes",
+        status: 409,
+        title: "Салбарт идэвхтэй анги байна",
+        detail: `"${branch.name}" салбарт ${activeClasses} идэвхтэй анги байна. Эхлээд ангиудыг устгана уу.`,
+        extra: { activeClasses },
+      });
+    }
+    const history = await repo.countBranchClassHistory(tx, id);
+    if (history.attendance + history.ledger + history.notes > 0) {
+      throw new DomainError({
+        code: "branch-has-classes",
+        status: 409,
+        title: "Салбарын түүх хадгалагдсан байна",
+        detail: `"${branch.name}" салбарт ${history.attendance} ирцийн бүртгэл, ${history.ledger} цалингийн бичилт, ${history.notes} хичээлийн тэмдэглэл бүртгэгдсэн тул устгах боломжгүй.`,
+        extra: { history },
+      });
+    }
+    const removedClasses = await repo.deleteBranchClasses(tx, id);
+    const detached = await repo.detachPlacementRequests(tx, id);
+    await repo.deleteBranch(tx, id);
+    await writeAudit(tx, {
+      entity: "branch",
+      entityId: id,
+      action: "DELETE",
+      before: { name: branch.name, address: branch.address },
+      after: {
+        removedInactiveClasses: removedClasses.count,
+        detachedPlacementRequests: detached.count,
+      },
+      actorId,
+    });
+    return branch.photoUrl;
+  });
+  await removeUploadedImage(photoUrl);
+}
+
 // ФШ-78: салбарын зураг (зөвхөн админ). Хуучин зургийн файлыг шинэ нь хадгалагдсаны дараа устгана.
 export async function setBranchPhoto(id: string, image: Buffer | null, actorId: string) {
   const photoUrl = await saveImage("branches", image);

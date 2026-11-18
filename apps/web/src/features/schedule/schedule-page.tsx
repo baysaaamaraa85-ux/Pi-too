@@ -8,9 +8,16 @@ import { cn } from "@/shared/ui/utils";
 import { DayGroups, LessonCard, useLessons } from "./lessons";
 import { WeekSchedule } from "./week-schedule";
 
-function useRange() {
+// Энэ сарын (Улаанбаатарын календарийн) хичээлүүд. API-ийн from, to нь UTC өдрийн эхлэл тул хоёр талд нэг өдрийн нөөцтэй
+// авч, дараа нь Улаанбаатарын өдрийн түлхүүрээр сараар шүүнэ.
+function useMonth() {
   const today = localDateKey(new Date());
-  return { from: addDaysToKey(today, -1), to: addDaysToKey(today, 29), today };
+  const monthKey = today.slice(0, 7);
+  const [year, month] = monthKey.split("-").map(Number) as [number, number];
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const first = `${monthKey}-01`;
+  const last = `${monthKey}-${String(lastDay).padStart(2, "0")}`;
+  return { monthKey, year, month, from: addDaysToKey(first, -1), to: addDaysToKey(last, 1) };
 }
 
 function Loading({ query }: { query: { isLoading: boolean; isError: boolean } }) {
@@ -26,27 +33,29 @@ function Loading({ query }: { query: { isLoading: boolean; isError: boolean } })
 
 type View = "week" | "lessons";
 
-// D-69: үндсэн харагдац нь долоо хоногийн хуваарь гаригаар (анги, дүүргэлт, сурагчид). ФШ-23: тусдаа "Хичээлүүд"
-// таб дараагийн 4 долоо хоногийн хичээлийг харуулж, багш цуцлах, шилжүүлэх боломжтой.
+// D-69: үндсэн харагдац нь долоо хоногийн хуваарь гаригаар (анги, дүүргэлт, сурагчид). ФШ-23: тусдаа "Энэ сарын хичээлүүд"
+// таб энэ сарын бүх хичээлийг (өнгөрсөн, удахгүй) өдрөөр харуулж, дуусаагүй хичээлийг багш цуцлах, шилжүүлэх боломжтой.
 export function TeacherSchedulePage() {
   const { user } = useAuth();
-  const { from, to, today } = useRange();
+  const { monthKey, year, month, from, to } = useMonth();
   const [view, setView] = React.useState<View>("week");
+  // Дууссан хичээлийг цуцлах, шилжүүлэх үйлдэл харуулахгүй.
+  const [now] = React.useState(() => Date.now());
   const lessons = useLessons(from, to);
   const { classes, branches } = useTeacherClasses(user!.id);
-  const upcoming = (lessons.data ?? []).filter((l) => localDateKey(l.startsAt) >= today);
+  const monthLessons = (lessons.data ?? []).filter((l) => localDateKey(l.startsAt).startsWith(monthKey));
 
   return (
     <>
       <PageHeader
         title="Хуваарь"
-        subtitle={view === "week" ? "Долоо хоногийн хуваарь гаригаар" : "Дараагийн 4 долоо хоногийн хичээл"}
+        subtitle={view === "week" ? "Долоо хоногийн хуваарь гаригаар" : `${year} оны ${month}-р сарын бүх хичээл`}
       />
       <div role="tablist" aria-label="Харагдац" className="mb-4 inline-flex gap-0.5 rounded-xl bg-background-soft p-1">
         {(
           [
             ["week", "Долоо хоногоор"],
-            ["lessons", "Ирэх хичээлүүд"],
+            ["lessons", "Энэ сарын хичээлүүд"],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -71,7 +80,7 @@ export function TeacherSchedulePage() {
           <Loading query={lessons} />
           {lessons.data ? (
             <DayGroups
-              lessons={upcoming}
+              lessons={monthLessons}
               renderLesson={(lesson) => (
                 <LessonCard
                   lesson={lesson}
@@ -79,7 +88,7 @@ export function TeacherSchedulePage() {
                     classes.data?.find((c) => c.id === lesson.classId),
                     branches.data,
                   )}
-                  actions={<LessonActions lesson={lesson} />}
+                  actions={Date.parse(lesson.endsAt) > now ? <LessonActions lesson={lesson} /> : undefined}
                 />
               )}
             />

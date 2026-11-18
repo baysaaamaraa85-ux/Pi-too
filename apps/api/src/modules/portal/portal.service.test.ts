@@ -61,7 +61,7 @@ async function createFamily(options: { withStudentAccount: boolean }) {
     .send({
       studentId: registerRes.body.studentId,
       programId: program.id,
-      rulesAckAt: new Date().toISOString(),
+      rulesAcknowledged: true,
     });
   await request(app)
     .post(`/api/v1/classes/${classId}/enrollments`)

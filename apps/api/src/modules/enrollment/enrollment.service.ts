@@ -129,15 +129,16 @@ function contractNotFound(): never {
 
 // ФШ-16, 17: гэрээ үүсгэх үед тухайн үеийн үнийг хуулж, тоолуурыг
 // settings-ээс тооцно (75 цаг / 3 цаг = 25 ирэлт, 3 чөлөө) (ADR-009, 013).
-export function createContract(studentId: string, programId: string, rulesAckAt: string) {
-  return prisma.$transaction((tx) => createContractInTx(tx, studentId, programId, rulesAckAt));
+// D-82: журамтай танилцсан огноо, цагийг сервер хүсэлт хүлээн авсан үеийн цагаар бүртгэнэ.
+export function createContract(studentId: string, programId: string) {
+  return prisma.$transaction((tx) => createContractInTx(tx, studentId, programId, new Date()));
 }
 
 async function createContractInTx(
   tx: Tx,
   studentId: string,
   programId: string,
-  rulesAckAt: string,
+  rulesAckAt: Date,
 ) {
   const student = await repo.findStudentById(tx, studentId);
   if (!student) studentNotFound();
@@ -153,7 +154,7 @@ async function createContractInTx(
     totalHours: totalAcademicHours,
     remainingHours: totalAcademicHours,
     leavesLeft: defaultLeaves,
-    rulesAckAt: new Date(rulesAckAt),
+    rulesAckAt,
   });
 }
 
@@ -202,6 +203,8 @@ export async function enrollNewStudent(
       });
     }
 
+    // D-82: зөвшөөрөл, журамтай танилцсан огноог (ФШ-16, ФБШ-23) сервер НЭГ удаа, яг энэ үед бүртгэнэ.
+    const acknowledgedAt = new Date();
     const registered = await registerStudentInTx(tx, {
       parentPhone: input.parentPhone,
       parentFullName: input.parentFullName,
@@ -209,7 +212,7 @@ export async function enrollNewStudent(
       studentPhone: input.studentPhone,
       school: input.school,
       grade: input.grade,
-      consentAt: new Date(input.consentAt),
+      consentAt: acknowledgedAt,
     });
 
     if (input.placementPercent !== undefined) {
@@ -225,7 +228,7 @@ export async function enrollNewStudent(
       tx,
       registered.studentId,
       input.programId,
-      input.rulesAckAt,
+      acknowledgedAt,
     );
 
     const fromDate = new Date(input.fromDate);

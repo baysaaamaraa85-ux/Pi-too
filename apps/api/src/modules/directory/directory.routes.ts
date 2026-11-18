@@ -15,6 +15,7 @@ directoryRouter.get("/teachers", authorize("ADMIN"), controller.listTeachers);
 directoryRouter.post("/teachers", authorize("ADMIN"), controller.createTeacher);
 directoryRouter.get("/teachers/:id", authorize("ADMIN"), controller.getTeacher);
 directoryRouter.patch("/teachers/:id", authorize("ADMIN"), controller.updateTeacher);
+directoryRouter.delete("/teachers/:id", authorize("ADMIN"), controller.deleteTeacher);
 directoryRouter.patch("/teachers/:id/specialties", authorize("ADMIN", "TEACHER"), controller.updateTeacherSpecialties);
 // Багшийн зураг: админ хэнийх ч, багш зөвхөн өөрийнхийг (service-д эзэмшил шалгана).
 directoryRouter.put("/teachers/:id/photo", authorize("ADMIN", "TEACHER"), imageBody, controller.uploadTeacherPhoto);
@@ -27,3 +28,4 @@ directoryRouter.patch("/parents/:id", authorize("ADMIN"), controller.updateParen
 directoryRouter.get("/students", authorize("ADMIN"), controller.listStudents);
 directoryRouter.get("/students/:id", authorize("ADMIN"), controller.getStudent);
 directoryRouter.patch("/students/:id", authorize("ADMIN"), controller.updateStudent);
+directoryRouter.delete("/students/:id", authorize("ADMIN"), controller.deleteStudent);

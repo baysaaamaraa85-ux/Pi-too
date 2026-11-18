@@ -26,6 +26,12 @@ export async function updateBranch(req: Request, res: Response) {
   res.status(200).json(await service.updateBranch(id, data));
 }
 
+export async function deleteBranch(req: Request, res: Response) {
+  const { id } = idParamSchema.parse(req.params);
+  await service.deleteBranch(id, req.user!.id);
+  res.status(204).end();
+}
+
 // ФШ-78: салбарын зураг (raw image/jpeg, png, webp).
 export async function uploadBranchPhoto(req: Request, res: Response) {
   const { id } = idParamSchema.parse(req.params);

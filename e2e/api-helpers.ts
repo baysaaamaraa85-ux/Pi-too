@@ -112,8 +112,8 @@ export async function enrollViaApi(
       programId: await firstProgramId(request),
       classIds,
       fromDate: now.slice(0, 10),
-      rulesAckAt: now,
-      consentAt: now,
+      rulesAcknowledged: true,
+      consentGiven: true,
     },
   });
   if (res.status() === 201 && extra.rate !== false) {

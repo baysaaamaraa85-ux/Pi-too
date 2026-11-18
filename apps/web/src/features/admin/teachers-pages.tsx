@@ -27,6 +27,7 @@ import {
 import {
   AccountActions,
   CredentialsCard,
+  DeleteRecordButton,
   FilterBar,
   USER_STATUS_OPTIONS,
   errorMessage,
@@ -230,6 +231,7 @@ export function AdminTeacherDetailPage() {
   const { id = "" } = useParams();
   const teacher = useTeacher(id);
   const invalidate = useInvalidateDirectory();
+  const navigate = useNavigate();
   const form = useForm<EditValues>({ resolver: zodResolver(updateTeacherSchema) });
   const [saved, setSaved] = React.useState(false);
 
@@ -306,6 +308,19 @@ export function AdminTeacherDetailPage() {
                 isActive={t.isActive}
                 mustChangePassword={t.mustChangePassword}
               />
+              <div className="mt-3">
+                <DeleteRecordButton
+                  path={`/teachers/${t.id}`}
+                  label="Багшийг устгах"
+                  testId="delete-teacher"
+                  title="Багшийг устгах уу?"
+                  description="Багш бүрмөсөн устаж, буцаах боломжгүй. Анги, хичээл, цалингийн түүхтэй багшийг устгах боломжгүй, тэр үед идэвхгүй болгоно."
+                  onDeleted={async () => {
+                    navigate("/admin/teachers");
+                    await invalidate();
+                  }}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>

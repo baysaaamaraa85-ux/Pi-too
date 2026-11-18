@@ -39,6 +39,7 @@ import {
 import {
   AccountActions,
   CredentialsCard,
+  DeleteRecordButton,
   FilterBar,
   errorMessage,
   useListFilters,
@@ -355,6 +356,7 @@ export function AdminStudentDetailPage() {
   const { id = "" } = useParams();
   const student = useStudent(id);
   const invalidate = useInvalidateDirectory();
+  const navigate = useNavigate();
   const [payingContract, setPayingContract] = React.useState<ContractSummary | null>(null);
   const [transferring, setTransferring] = React.useState<{
     contractId: string;
@@ -450,6 +452,19 @@ export function AdminStudentDetailPage() {
                   />
                 </div>
               ) : null}
+              <div className="mt-5 border-t border-border-warm pt-5">
+                <DeleteRecordButton
+                  path={`/students/${s.id}`}
+                  label="Сурагчийг устгах"
+                  testId="delete-student"
+                  title="Сурагчийг устгах уу?"
+                  description="Сурагч, түүний гэрээ, ангид бүртгэл, түвшин тогтоох дүн бүрмөсөн устаж, буцаах боломжгүй. Ирц эсвэл төлбөрийн түүхтэй сурагчийг устгах боломжгүй."
+                  onDeleted={async () => {
+                    navigate("/admin/students");
+                    await invalidate();
+                  }}
+                />
+              </div>
             </CardContent>
           </Card>
 

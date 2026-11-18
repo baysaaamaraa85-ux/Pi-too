@@ -14,11 +14,12 @@ export const createStudentSchema = z.object({
 });
 export type CreateStudentInput = z.infer<typeof createStudentSchema>;
 
-// ФШ-16, 17
+// ФШ-16, 17. D-82: журамтай танилцсан огноо, цагийг СЕРВЕР өөрийн цагаар бүртгэнэ (клиент цаг илгээхгүй, хуурч болохгүй).
+// Клиент зөвхөн эцэг эх танилцсаныг баталгаажуулна: үгүй бол гэрээ хадгалагдахгүй (422).
 export const createContractSchema = z.object({
   studentId: z.uuid(),
   programId: z.uuid(),
-  rulesAckAt: z.iso.datetime(),
+  rulesAcknowledged: z.literal(true, { error: "Эцэг эх журамтай танилцсаныг баталгаажуулна уу" }),
 });
 export type CreateContractInput = z.infer<typeof createContractSchema>;
 
@@ -59,8 +60,9 @@ export const enrollStudentSchema = z.object({
   programId: z.uuid(),
   classIds: z.array(z.uuid()).min(1, "Дор хаяж нэг анги сонгоно").max(7),
   fromDate: z.iso.date(),
-  rulesAckAt: z.iso.datetime(),
-  consentAt: z.iso.datetime(),
+  // D-82: журамтай танилцсан, хувийн мэдээлэл боловсруулахыг зөвшөөрсөн огноо, цагийг сервер бүртгэнэ.
+  rulesAcknowledged: z.literal(true, { error: "Эцэг эх журамтай танилцсаныг баталгаажуулна уу" }),
+  consentGiven: z.literal(true, { error: "Хувийн мэдээлэл боловсруулахыг зөвшөөрснийг баталгаажуулна уу" }),
   weeklyWarningAcknowledged: z.boolean().optional(),
 });
 export type EnrollStudentInput = z.infer<typeof enrollStudentSchema>;

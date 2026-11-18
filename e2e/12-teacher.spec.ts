@@ -48,11 +48,15 @@ test("ФШ-19, 25: багш анги үүсгэж, давхцсан цагт с�
 });
 
 test("ФШ-24: багш хуваариас хичээлээ цуцалж, цуцлагдсан гэж харагдана", async ({ page, request }) => {
+  // "Энэ сарын хичээлүүд" таб: сарын сүүлээр дараагийн хичээл маргааш, дараа сард орох тул дор хаяж 7 хоног үлдсэн үед шалгана.
+  const ub = new Date(Date.now() + 8 * 3_600_000);
+  const daysLeft = new Date(Date.UTC(ub.getUTCFullYear(), ub.getUTCMonth() + 1, 0)).getUTCDate() - ub.getUTCDate();
+  test.skip(daysLeft < 7, "Энэ сарын үлдсэн өдөр 7-оос цөөн: цуцлах хичээл энэ сард байхгүй байж болно");
   const teacher = await createTeacherWithClasses(request, weekdaysExceptToday(2));
   await loginTeacher(page, teacher);
   await nav(page).getByRole("link", { name: "Хуваарь" }).click();
-  // Үндсэн харагдац нь долоо хоногоор (D-69). Хичээл цуцлах нь "Ирэх хичээлүүд" табд.
-  await page.getByRole("tab", { name: "Ирэх хичээлүүд" }).click();
+  // Үндсэн харагдац нь долоо хоногоор (D-69). Хичээл цуцлах нь "Энэ сарын хичээлүүд" табд.
+  await page.getByRole("tab", { name: "Энэ сарын хичээлүүд" }).click();
 
   const first = page.getByRole("button", { name: "Цуцлах", exact: true }).first();
   await expect(first).toBeVisible();
@@ -140,7 +144,7 @@ test("ФБШ-10: багшийн бүх хуудсанд хүрэх товч, т�
   }
 });
 
-// Багшийн нүүр (дизайн): мэндчилгээ, дөрвөн үзүүлэлт, хажуугийн цэс, сурагчдын ахицын график.
+// Багшийн нүүр (дизайн, D-87): мэндчилгээ, дөрвөн үзүүлэлт, дээд шилэн цэс, сурагчдын ахицын график.
 test("Багшийн нүүр: нэртэй мэндчилгээ, дөрвөн үзүүлэлт, хажуугийн цэс, ахицын график", async ({ page, request }) => {
   const teacher = await createTeacherWithClasses(request, weekdaysExceptToday(2));
   const res = await enrollViaApi(request, teacher.token, teacher.classIds, {
@@ -161,19 +165,13 @@ test("Багшийн нүүр: нэртэй мэндчилгээ, дөрвөн �
 
   await page.setViewportSize({ width: 1280, height: 800 });
   await loginTeacher(page, teacher);
-  await expect(page.getByRole("heading", { level: 1 })).toContainText(`Багш ${teacher.phone} багшдаа`);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(`Багш ${teacher.phone}`);
   await expect(page.getByTestId("stat-students")).toContainText("1");
   await expect(page.getByTestId("stat-lessons")).toBeVisible();
   await expect(page.getByTestId("stat-attendance")).toBeVisible();
   await expect(page.getByTestId("stat-unfilled")).toContainText("0");
 
-  // Нэг дэлгэцэнд багтана (гүйлгэхгүй): 1280x800.
-  const [scrollHeight, innerHeight] = await page.evaluate(() => [
-    document.documentElement.scrollHeight,
-    window.innerHeight,
-  ]);
-  expect(scrollHeight).toBeLessThanOrEqual(innerHeight);
-
+  // D-87: нүүр шинэ загвартай (карусель, олон хэсэгтэй) тул нэг дэлгэцэнд багтах шаардлага хасагдсан.
   const sidebar = page.getByRole("navigation", { name: "Багшийн цэс" });
   for (const label of ["Өнөөдөр", "Хуваарь", "Анги", "Сурагчид", "Цалин"]) {
     await expect(sidebar.getByRole("link", { name: label })).toBeVisible();
@@ -194,8 +192,9 @@ test("Багшийн нүүр: нэртэй мэндчилгээ, дөрвөн �
   await expect(page.getByTestId("trend-chart")).toContainText("70%");
 
   // Дээд мөрний хайлт сурагчийн жагсаалтыг нэрээр шүүнэ.
-  await page.getByLabel("Сурагч хайх").fill("Ахицтай");
-  await page.getByLabel("Сурагч хайх").press("Enter");
+  await page.getByRole("button", { name: /Хайх/ }).click();
+  await page.getByRole("combobox", { name: "Хайх" }).fill("Ахицтай");
+  await page.getByRole("combobox", { name: "Хайх" }).press("Enter");
   await expect(page).toHaveURL(/\/teacher\/students\?q=/);
   await expect(page.getByLabel("Сурагчийн нэрээр хайх")).toHaveValue("Ахицтай");
   await page.goto("/teacher");

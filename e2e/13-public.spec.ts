@@ -24,15 +24,15 @@ test("ФШ-78: нүүр хуудасны цэс, hero, давуу талын к�
   await expect(page.getByRole("heading", { level: 1 })).toContainText("математик");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("сургалт");
 
-  // Давуу талын карт: тоонууд settings-ээс (6 суудал, 75 цаг, 3 чөлөө, 93%).
-  const card = page.getByRole("region", { name: /цагийн багц хөтөлбөр/ });
+  // Каруселийн багцын карт (D-84): тоонууд settings-ээс (6 суудал, 75 цаг, 3 чөлөө, 93%).
+  const card = page.getByRole("group", { name: /цагийн багц хөтөлбөр/ });
   await expect(card).toContainText("75 цагийн багц хөтөлбөр");
   await expect(card).toContainText("2–6 сурагч");
   await expect(card).toContainText("3 удаа чөлөө");
   await expect(card).toContainText("93 хувиас");
-  // Улаан зурвас: салбарын тоо бодит байна (тоо ба "Салбар" шошго тусдаа мөр).
-  await expect(page.getByTestId("hero-stats")).toContainText(`${branches.length}`);
-  await expect(page.getByTestId("hero-stats")).toContainText("Салбар");
+  // Карусель: эхний карт "Нэг багш 2–6 сурагч", гурав дахь карт хөтөлбөрийн төрлүүдийг нэрлэнэ.
+  await expect(page.getByRole("group", { name: "Хөтөлбөрүүд" })).toContainText("бүх төрлийн хөтөлбөр");
+  await expect(page.getByRole("group", { name: "Пи тоо сургалт" })).toContainText("Нэг багш 2–6 сурагч");
 
   // Нүүр хуудас товч: "Бидний тухай", "Салбарууд" нь нүүрэнд биш цэсэнд, нүүрэнд үнэ, салбарын жагсаалт байхгүй.
   await expect(page.getByTestId("home-explore")).toHaveCount(0);
@@ -163,9 +163,9 @@ test("ФШ-78, ФШ-08: хөтөлбөрийн хэсэгт ангиллын г�
   await page.getByRole("tab", { name: "Сургуулийн шалгалт" }).click();
   await expect(page.getByTestId("track-price")).toHaveCount(0);
 
-  // Нүүрний хөтөлбөрийн картууд дээр мөн жижиг үнэ.
+  // Нүүрний хөтөлбөрийн картууд хэрэглэгчийн үзүүлсэн анхны загвар ёсоор үнэгүй (D-74): үнэ "Хөтөлбөр", "Бүртгүүлэх" хуудсанд.
   await page.goto("/");
-  await expect(page.getByTestId("track-price")).toHaveCount(2);
+  await expect(page.getByTestId("track-price")).toHaveCount(0);
 });
 
 test("ФШ-78: багш өөрийн профайл хуудаснаас зураг оруулж, нийтийн сайт ба цэсэнд харагдана; өөр багшийнх 403", async ({ page, request }) => {

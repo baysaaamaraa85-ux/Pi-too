@@ -239,6 +239,65 @@ export async function setTeacherPhoto(id: string, image: Buffer | null, actor: A
   return { photoUrl };
 }
 
+const TEACHER_HISTORY_LABELS: Record<string, string> = {
+  classes: "анги",
+  lessons: "хичээл",
+  ledger: "цалингийн бичилт",
+  rates: "цагийн үнэлгээ",
+  tasks: "ажил",
+  notes: "хичээлийн тэмдэглэл",
+  meetings: "уулзалт",
+  pauses: "гэрээ зогсоосон бүртгэл",
+  payments: "төлбөрийн бичлэг",
+  claims: "төлбөрийн мэдэгдлийн шийдвэр",
+  audits: "аудитын бичлэг",
+};
+
+const STUDENT_HISTORY_LABELS: Record<string, string> = {
+  attendance: "ирцийн бүртгэл",
+  payments: "төлбөрийн бичлэг",
+  claims: "төлбөрийн мэдэгдэл",
+  audits: "аудитын бичлэг",
+};
+
+function describeHistory(counts: Record<string, number>, labels: Record<string, string>) {
+  return Object.entries(counts)
+    .filter(([, n]) => n > 0)
+    .map(([key, n]) => `${n} ${labels[key] ?? key}`)
+    .join(", ");
+}
+
+// ФШ-06, ФБШ-12, ФБШ-24: багшийг зөвхөн ямар ч түүхгүй (анги, хичээл, цалин, тэмдэглэл)
+// бол бодитоор устгана. Түүхтэй бол өмнөх цалингийн тайлан хадгалагдахын тулд 409, харин
+// "Идэвхгүй болгох" (ФШ-06) хэвээр байна.
+export async function deleteTeacher(id: string, actorId: string) {
+  const photoUrl = await prisma.$transaction(async (tx) => {
+    const t = await repo.findTeacher(tx, id);
+    if (!t) notFound("Багш");
+    const history = await repo.countTeacherHistory(tx, id);
+    const summary = describeHistory(history, TEACHER_HISTORY_LABELS);
+    if (summary) {
+      throw new DomainError({
+        code: "teacher-has-history",
+        status: 409,
+        title: "Багшийг устгах боломжгүй",
+        detail: `Багшид ${summary} бүртгэлтэй тул устгах боломжгүй. Устгахын оронд "Идэвхгүй болгох" товчийг ашиглана уу.`,
+        extra: { history },
+      });
+    }
+    await repo.deleteTeacherRecords(tx, id);
+    await writeAudit(tx, {
+      entity: "teacher",
+      entityId: id,
+      action: "DELETE",
+      before: { fullName: t.fullName, phone: t.user.phone, email: t.user.email },
+      actorId,
+    });
+    return t.photoUrl;
+  });
+  await removeUploadedImage(photoUrl);
+}
+
 // ---- Эцэг эхчүүд ----
 
 export async function listParents(q: Parameters<typeof repo.listParents>[1]) {
@@ -398,6 +457,36 @@ export async function updateStudent(
     });
   });
   return getStudent(id);
+}
+
+// ФБШ-12, ФБШ-24: сурагчийг зөвхөн ирц, төлбөрийн түүхгүй бол устгана. Түүхгүй гэрээ,
+// ангид бүртгэл, төлөвлөгөө, тэмдэглэл, түвшин тогтоох дүн хамт устна (буруу бүртгэсэн
+// сурагчийг засах зориулалттай). Эцэг эхийн данс устахгүй, зөвхөн холбоос тасарна.
+export async function deleteStudent(id: string, actorId: string) {
+  await prisma.$transaction(async (tx) => {
+    const s = await repo.findStudent(tx, id);
+    if (!s) notFound("Сурагч");
+    const history = await repo.countStudentHistory(tx, id, s.userId);
+    const summary = describeHistory(history, STUDENT_HISTORY_LABELS);
+    if (summary) {
+      throw new DomainError({
+        code: "student-has-history",
+        status: 409,
+        title: "Сурагчийг устгах боломжгүй",
+        detail: `Сурагчид ${summary} бүртгэлтэй тул устгах боломжгүй. Ирц, төлбөрийн түүх хадгалагдах ёстой.`,
+        extra: { history },
+      });
+    }
+    const removed = await repo.deleteStudentRecords(tx, id, s.userId);
+    await writeAudit(tx, {
+      entity: "student",
+      entityId: id,
+      action: "DELETE",
+      before: { fullName: s.fullName, school: s.school, grade: s.grade },
+      after: { removedContracts: removed.contracts, removedAccount: s.userId !== null },
+      actorId,
+    });
+  });
 }
 
 // ФШ-11: салбар, хөтөлбөр, багш, анги, сурагч гэсэн дараалал. Өмнөх алхмын өгөгдөл

@@ -85,8 +85,15 @@ export function ProgressTrend({ buckets, label = "Сурагчдын дунда�
     pad.left + (buckets.length <= 1 ? innerW / 2 : inset + (i / (buckets.length - 1)) * (innerW - 2 * inset));
   const y = (pct: number) => pad.top + innerH - (pct / 100) * innerH;
   const filled = buckets.flatMap((b, i) => (b.value === null ? [] : [{ i, label: b.label, value: b.value }]));
-  const line = filled.map((p) => `${x(p.i)},${y(p.value)}`).join(" ");
-  const area = filled.length > 1 ? `${x(filled[0]!.i)},${pad.top + innerH} ${line} ${x(filled[filled.length - 1]!.i)},${pad.top + innerH}` : "";
+  // Зөөлөн муруй: хоёр цэгийн голд хэвтээ шүргэгчтэй cubic Bezier (огцом булангүй).
+  const line = filled.reduce((d, p, k) => {
+    if (k === 0) return `M ${x(p.i)} ${y(p.value)}`;
+    const prev = filled[k - 1]!;
+    const cx = (x(prev.i) + x(p.i)) / 2;
+    return `${d} C ${cx} ${y(prev.value)}, ${cx} ${y(p.value)}, ${x(p.i)} ${y(p.value)}`;
+  }, "");
+  const baseline = pad.top + innerH;
+  const area = filled.length > 1 ? `${line} L ${x(filled[filled.length - 1]!.i)} ${baseline} L ${x(filled[0]!.i)} ${baseline} Z` : "";
 
   return (
     <div ref={box} className="w-full min-w-0 overflow-hidden">
@@ -101,7 +108,7 @@ export function ProgressTrend({ buckets, label = "Сурагчдын дунда�
     >
       <defs>
         <linearGradient id={`area-${id}`} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="var(--color-primary)" stopOpacity="0.28" />
+          <stop offset="0%" stopColor="var(--color-primary)" stopOpacity="0.22" />
           <stop offset="100%" stopColor="var(--color-primary)" stopOpacity="0.02" />
         </linearGradient>
       </defs>
@@ -113,9 +120,9 @@ export function ProgressTrend({ buckets, label = "Сурагчдын дунда�
           </text>
         </g>
       ))}
-      {area ? <polygon points={area} fill={`url(#area-${id})`} /> : null}
+      {area ? <path d={area} fill={`url(#area-${id})`} /> : null}
       {filled.length > 1 ? (
-        <polyline fill="none" stroke="var(--color-primary)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" points={line} />
+        <path fill="none" stroke="var(--color-primary)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" d={line} />
       ) : null}
       {filled.map((p) => (
         <g key={p.i} data-testid="trend-point">
@@ -150,13 +157,15 @@ export function ProgressPanel({
   const today = localDateKey(new Date());
   const buckets = React.useMemo(() => bucketize(points, range, today), [points, range, today]);
   const hasData = buckets.some((b) => b.value !== null);
+  const values = buckets.flatMap((b) => (b.value === null ? [] : [b.value]));
+  const average = values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : null;
 
   return (
     <section className={cn(panelClass, className)} aria-labelledby="trend-title" data-testid="progress-panel">
       <PanelTitle
         icon={TrendingUp}
         action={
-          <div role="group" aria-label="Хугацаа" className="flex gap-0.5 rounded-xl bg-background-soft p-1">
+          <div role="group" aria-label="Хугацаа" className="flex gap-0.5 rounded-2xl bg-background-soft p-1">
             {RANGES.map((r) => (
               <button
                 key={r.key}
@@ -164,7 +173,7 @@ export function ProgressPanel({
                 aria-pressed={range === r.key}
                 onClick={() => setRange(r.key)}
                 className={cn(
-                  "min-h-11 rounded-lg px-3.5 text-[0.8rem] font-semibold transition-colors",
+                  "min-h-11 rounded-xl px-3.5 text-[0.8rem] font-semibold transition-colors motion-reduce:transition-none",
                   range === r.key ? "bg-primary text-primary-foreground shadow-soft" : "text-mid hover:text-primary",
                 )}
               >
@@ -175,6 +184,11 @@ export function ProgressPanel({
         }
       >
         <span id="trend-title">{title}</span>
+        {average !== null ? (
+          <span className="ml-2 shrink-0 whitespace-nowrap rounded-lg bg-success-bg px-2 py-0.5 align-middle font-sans text-xs font-bold tabular-nums text-success" data-testid="trend-average">
+            Дундаж: {Math.round(average)}%
+          </span>
+        ) : null}
       </PanelTitle>
       {hasData ? (
         <ProgressTrend buckets={buckets} label={chartLabel} />

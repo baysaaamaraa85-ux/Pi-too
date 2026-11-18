@@ -235,6 +235,80 @@ export function updateStudentProfile(
   return tx.student.update({ where: { id }, data });
 }
 
+// ---- Устгал (зөвхөн түүхгүй бүртгэл). Шийдвэрийг service гаргана, энд зөвхөн асуулга. ----
+
+// Багшийг устгахыг хориглох түүх: Restrict холбоос бүр. Тоо нь 0-ээс их бол DB-ийн FK-д
+// бүр ч баригдах тул service урьдчилан шалгаж ойлгомжтой мессеж өгнө.
+export async function countTeacherHistory(tx: Tx, id: string) {
+  const [classes, lessons, ledger, rates, tasks, notes, meetings, pauses, payments, claims, audits] =
+    await Promise.all([
+      tx.class.count({ where: { teacherId: id } }),
+      tx.lesson.count({ where: { teacherId: id } }),
+      tx.ledgerEntry.count({ where: { OR: [{ teacherId: id }, { createdBy: id }] } }),
+      tx.contractRate.count({ where: { teacherId: id } }),
+      tx.teacherTask.count({ where: { teacherId: id } }),
+      tx.lessonNote.count({ where: { authorId: id } }),
+      tx.parentMeeting.count({ where: { teacherId: id } }),
+      tx.contractPause.count({ where: { OR: [{ pausedBy: id }, { resumedBy: id }] } }),
+      tx.payment.count({ where: { createdBy: id } }),
+      tx.paymentClaim.count({ where: { resolvedBy: id } }),
+      tx.auditLog.count({ where: { actorId: id } }),
+    ]);
+  return { classes, lessons, ledger, rates, tasks, notes, meetings, pauses, payments, claims, audits };
+}
+
+export async function countStudentHistory(tx: Tx, studentId: string, userId: string | null) {
+  const [attendance, payments, claims, audits] = await Promise.all([
+    tx.attendance.count({ where: { contract: { studentId } } }),
+    tx.payment.count({ where: { contract: { studentId } } }),
+    tx.paymentClaim.count({ where: { contract: { studentId } } }),
+    userId ? tx.auditLog.count({ where: { actorId: userId } }) : Promise.resolve(0),
+  ]);
+  return { attendance, payments, claims, audits };
+}
+
+// Хэрэглэгчийн данс болон түүнд хамаарах түр мөрүүдийг (token, push, outbox) устгана.
+export async function deleteUserWithSatellites(tx: Tx, userId: string) {
+  await tx.refreshToken.deleteMany({ where: { userId } });
+  await tx.passwordReset.deleteMany({ where: { userId } });
+  await tx.pushSubscription.deleteMany({ where: { userId } });
+  await tx.notificationOutbox.deleteMany({ where: { recipientId: userId } });
+  await tx.idempotencyKey.deleteMany({ where: { userId } });
+  await tx.user.delete({ where: { id: userId } });
+}
+
+export async function deleteTeacherRecords(tx: Tx, userId: string) {
+  await tx.teacherCategoryStudent.deleteMany({ where: { teacherId: userId } });
+  await tx.teacherCategory.deleteMany({ where: { teacherId: userId } });
+  await tx.teacherRate.deleteMany({ where: { teacherId: userId } });
+  await tx.teacher.delete({ where: { userId } });
+  await deleteUserWithSatellites(tx, userId);
+}
+
+// Ирц, төлбөргүй сурагчийн гэрээ болон түүнд хамаарах бүх мөрийг дарааллаар нь устгана.
+export async function deleteStudentRecords(tx: Tx, studentId: string, userId: string | null) {
+  const contracts = await tx.contract.findMany({ where: { studentId }, select: { id: true } });
+  const contractIds = contracts.map((c) => c.id);
+  const byContract = { contractId: { in: contractIds } };
+
+  await tx.assessmentTopic.deleteMany({ where: { assessment: { studentId } } });
+  await tx.assessment.deleteMany({ where: { studentId } });
+  await tx.leaveRequest.deleteMany({ where: byContract });
+  await tx.planItem.deleteMany({ where: byContract });
+  await tx.enrollment.deleteMany({ where: byContract });
+  await tx.contractPause.deleteMany({ where: byContract });
+  await tx.teacherTask.deleteMany({ where: byContract });
+  await tx.lessonNote.deleteMany({ where: byContract });
+  await tx.parentMeeting.deleteMany({ where: byContract });
+  await tx.contractRate.deleteMany({ where: byContract });
+  await tx.contract.deleteMany({ where: { studentId } });
+  await tx.teacherCategoryStudent.deleteMany({ where: { studentId } });
+  await tx.parentStudent.deleteMany({ where: { studentId } });
+  await tx.student.delete({ where: { id: studentId } });
+  if (userId) await deleteUserWithSatellites(tx, userId);
+  return { contracts: contractIds.length };
+}
+
 // ФШ-11: тохиргооны шидтэний алхам бүрийн өгөгдлийн тоо.
 export async function countSetupEntities(tx: Tx) {
   const [branches, programs, teachers, classes, students] = await Promise.all([

@@ -45,6 +45,38 @@ export function updateBranch(tx: Tx, id: string, data: BranchData) {
   return tx.branch.update({ where: { id }, data });
 }
 
+export function countActiveClassesInBranch(tx: Tx, branchId: string) {
+  return tx.class.count({ where: { branchId, isActive: true } });
+}
+
+// Салбарын ангиудын хичээлд ирц, цалингийн бичилт, тэмдэглэл байвал энэ нь түүх.
+export async function countBranchClassHistory(tx: Tx, branchId: string) {
+  const lesson = { lesson: { class: { branchId } } };
+  const [attendance, ledger, notes] = await Promise.all([
+    tx.attendance.count({ where: lesson }),
+    tx.ledgerEntry.count({ where: lesson }),
+    tx.lessonNote.count({ where: lesson }),
+  ]);
+  return { attendance, ledger, notes };
+}
+
+// Түүхгүй идэвхгүй ангиудыг хичээл, ангид бүртгэлтэй нь хамт устгана (салбар устгахын өмнө).
+export async function deleteBranchClasses(tx: Tx, branchId: string) {
+  await tx.leaveRequest.deleteMany({ where: { lesson: { class: { branchId } } } });
+  await tx.lesson.deleteMany({ where: { class: { branchId } } });
+  await tx.enrollment.deleteMany({ where: { class: { branchId } } });
+  return tx.class.deleteMany({ where: { branchId } });
+}
+
+// Нийтийн сайтаас ирсэн хүсэлт хэвээр үлдэнэ, зөвхөн салбартай холбоо тасарна.
+export function detachPlacementRequests(tx: Tx, branchId: string) {
+  return tx.placementRequest.updateMany({ where: { branchId }, data: { branchId: null } });
+}
+
+export function deleteBranch(tx: Tx, id: string) {
+  return tx.branch.delete({ where: { id } });
+}
+
 export function listPrograms(tx: Tx) {
   return tx.program.findMany({ orderBy: { name: "asc" } });
 }

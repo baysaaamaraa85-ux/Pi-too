@@ -16,6 +16,24 @@ import { TimeSelect24 } from "@/shared/ui/time-select";
 import { ClassDeleteModal } from "./class-delete-modal";
 import { useTeacherClasses } from "./today-page";
 
+// Багшийн сүүлд сонгосон салбарыг энэ браузерт (багш бүрээр) хадгална: дараагийн анги үүсгэхэд дахин сонгохгүй.
+const branchKey = (userId: string) => `pitoo.teacher.lastBranch.${userId}`;
+function readLastBranch(userId: string) {
+  try {
+    return window.localStorage.getItem(branchKey(userId)) ?? "";
+  } catch {
+    return "";
+  }
+}
+function writeLastBranch(userId: string, branchId: string) {
+  try {
+    if (branchId) window.localStorage.setItem(branchKey(userId), branchId);
+    else window.localStorage.removeItem(branchKey(userId));
+  } catch {
+    // Хадгалах боломжгүй (хувийн цонх гэх мэт): зүгээр л хадгалахгүй.
+  }
+}
+
 const formSchema = createClassSchema.omit({ teacherId: true }).extend({
   weekday: z.coerce.number().int().min(1).max(7),
 });
@@ -32,10 +50,24 @@ export function TeacherClassesPage() {
   });
   const errors = form.formState.errors;
 
+  // Салбарууд ачаалагдсаны дараа хадгалсан салбарыг сонгоно. Тэр салбар устсан бол хадгалалтыг цэвэрлэнэ.
+  const userId = user!.id;
+  React.useEffect(() => {
+    const list = branches.data;
+    const saved = readLastBranch(userId);
+    if (!list || !saved) return;
+    if (!list.some((b) => b.id === saved)) {
+      writeLastBranch(userId, "");
+      return;
+    }
+    if (!form.getValues("branchId")) form.setValue("branchId", saved);
+  }, [branches.data, userId, form]);
+
   const create = useMutation({
     mutationFn: (values: z.output<typeof formSchema>) => api.post("/classes", values),
     onSuccess: () => {
-      form.reset({ branchId: "", weekday: 1, startTime: "10:00" });
+      // Салбарыг хэвээр үлдээнэ (дараагийн анги ихэвчлэн нэг салбарт).
+      form.reset({ branchId: form.getValues("branchId"), weekday: 1, startTime: "10:00" });
       // Анги үүсэхэд хичээлүүд нь шууд үүсдэг тул "Өнөөдөр", "Хуваарь" хуудас шинэчлэгдэнэ.
       void queryClient.invalidateQueries({ queryKey: ["classes"] });
       void queryClient.invalidateQueries({ queryKey: ["lessons"] });
@@ -61,7 +93,7 @@ export function TeacherClassesPage() {
             className="grid gap-3.5 sm:grid-cols-3"
           >
             <Field label="Салбар" htmlFor="branchId" error={errors.branchId?.message}>
-              <Select id="branchId" {...form.register("branchId")}>
+              <Select id="branchId" {...form.register("branchId", { onChange: (e) => writeLastBranch(userId, e.target.value) })}>
                 <option value="">Салбар сонгох</option>
                 {branches.data?.map((b) => (
                   <option key={b.id} value={b.id}>

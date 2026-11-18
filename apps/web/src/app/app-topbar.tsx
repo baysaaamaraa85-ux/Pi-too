@@ -1,9 +1,8 @@
-import { Bell, LogOut, Search } from "lucide-react";
+import { Bell } from "lucide-react";
 import * as React from "react";
-import { Link, useNavigate } from "react-router";
-import { DateChip } from "@/shared/ui/dash";
+import { Link } from "react-router";
 
-// Компьютерийн дээд мөр (md+): хайлт, сануулгын хонх, гарах. Бүх үүрэгт нэг хэлбэр.
+// Сануулгын хонх (багш, админ, эцэг эхийн бүрхүүлд нийтлэг). Нэр нь түүхэн: өмнө нь дээд мөр, хайлт эндээс гарч байсан.
 
 function useDismiss(open: boolean, close: () => void, ref: React.RefObject<HTMLElement | null>) {
   React.useEffect(() => {
@@ -23,32 +22,6 @@ function useDismiss(open: boolean, close: () => void, ref: React.RefObject<HTMLE
   }, [open, close, ref]);
 }
 
-// Жагсаалтын хуудсанд `?q=`-ээр хайлт дамжуулна.
-export function SearchBox({ placeholder, ariaLabel, to }: { placeholder: string; ariaLabel: string; to: string }) {
-  const navigate = useNavigate();
-  const [q, setQ] = React.useState("");
-  return (
-    <form
-      role="search"
-      className="relative w-full max-w-lg"
-      onSubmit={(e) => {
-        e.preventDefault();
-        const text = q.trim();
-        void navigate(text ? `${to}?q=${encodeURIComponent(text)}` : to);
-      }}
-    >
-      <Search className="pointer-events-none absolute left-4 top-1/2 z-10 size-[18px] -translate-y-1/2 text-muted" />
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        aria-label={ariaLabel}
-        placeholder={placeholder}
-        className="h-11 w-full rounded-2xl border border-border-warm bg-white/80 pl-11 pr-4 text-sm text-foreground shadow-soft backdrop-blur placeholder:text-muted focus:border-primary focus:outline-none focus:ring-3 focus:ring-primary/10"
-      />
-    </form>
-  );
-}
-
 export interface BellItem {
   key: string;
   to: string;
@@ -57,7 +30,8 @@ export interface BellItem {
 }
 
 // Хонх: сануулга байвал улаан цэг, дарвал жагсаалт.
-export function ReminderBell({ items }: { items: BellItem[] }) {
+// glass: багшийн самбарын шилэн цэсний загвар (44px дугуй товч, шилэн жагсаалт).
+export function ReminderBell({ items, glass = false }: { items: BellItem[]; glass?: boolean }) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
   const close = React.useCallback(() => setOpen(false), []);
@@ -71,16 +45,24 @@ export function ReminderBell({ items }: { items: BellItem[] }) {
         aria-label={count > 0 ? `Сануулга: ${count}` : "Сануулга"}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="relative grid size-11 place-items-center rounded-full border border-border-warm bg-white/80 text-primary shadow-soft transition-colors hover:bg-white"
+        className={
+          glass
+            ? "pt-glass relative grid size-11 place-items-center rounded-full text-ink-600 transition-colors hover:bg-white hover:text-ink-900"
+            : "relative grid size-11 place-items-center rounded-full border border-border-warm bg-white/80 text-primary shadow-soft transition-colors hover:bg-white"
+        }
         data-testid="reminder-bell"
       >
-        <Bell className="size-[22px]" />
+        <Bell className={glass ? "size-[18px]" : "size-[22px]"} />
         {count > 0 ? (
           <span className="absolute right-2.5 top-2.5 size-2.5 rounded-full bg-danger ring-2 ring-white" data-testid="bell-dot" />
         ) : null}
       </button>
       {open ? (
-        <div role="dialog" aria-label="Сануулга" className="absolute right-0 top-14 z-50 w-80 rounded-2xl border border-border-warm bg-white p-3 shadow-lg">
+        <div role="dialog" aria-label="Сануулга" className={
+            glass
+              ? "absolute right-0 top-14 z-50 w-80 max-w-[calc(100vw-2rem)] rounded-[22px] border border-ink-900/10 bg-white/95 p-2 shadow-[0_20px_50px_-20px_rgba(23,23,23,0.35)] backdrop-blur-xl"
+              : "absolute right-0 top-14 z-50 w-80 rounded-2xl border border-border-warm bg-white p-3 shadow-lg"
+          }>
           {count === 0 ? (
             <p className="px-2 py-4 text-center text-sm text-muted">Шинэ сануулга алга.</p>
           ) : (
@@ -101,36 +83,6 @@ export function ReminderBell({ items }: { items: BellItem[] }) {
           )}
         </div>
       ) : null}
-    </div>
-  );
-}
-
-export function AppTopBar({
-  left,
-  bell,
-  dateChip,
-  onLogout,
-}: {
-  left?: React.ReactNode;
-  bell?: React.ReactNode;
-  dateChip?: boolean;
-  onLogout: () => void;
-}) {
-  return (
-    <div className="sticky top-0 z-30 hidden items-center justify-between gap-4 bg-[#fbf1ea]/60 px-8 py-3 backdrop-blur-md md:flex">
-      {left ?? <span />}
-      <div className="flex items-center gap-2.5">
-        {bell}
-        {dateChip ? <DateChip /> : null}
-        <button
-          type="button"
-          onClick={onLogout}
-          className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-border-warm bg-white/80 px-5 text-sm font-semibold text-primary shadow-soft transition-colors hover:bg-white"
-        >
-          <LogOut className="size-4" />
-          Гарах
-        </button>
-      </div>
     </div>
   );
 }

@@ -29,6 +29,32 @@
 
   --font-display: "Source Serif 4", Georgia, serif;
   --font-sans: "Inter", sans-serif;
+  /* Нүүр хуудас, нийтийн цэс, доод хэсгийн фонт (нүүрний загвар pi_too_home.html). Ө, ө, Ү, ү бүрэн, ₮ байхгүй тул мөнгөн дүн энд харуулахгүй. */
+  --font-onest: "Onest", system-ui, sans-serif;
+
+  /* Нүүрний загварын өнгө (D-84). Одоо байгаа токенуудыг өөрчлөөгүй, зөвхөн шинэ нэрээр нэмсэн. brand-700 нь --color-primary-тай ижил. */
+  --color-paper: #f9f6f2;
+  --color-paper-2: #f3eee7;
+  --color-paper-3: #e8e1d8;
+  --color-ink-300: #b4afa9;
+  --color-ink-400: #8d8780;
+  --color-ink-500: #6b655f;
+  --color-ink-600: #4f4a45;
+  --color-ink-700: #34302c;
+  --color-ink-800: #211e1b;
+  --color-ink-900: #171717;
+  --color-brand-50: #fbf0f0;
+  --color-brand-100: #f3dcdc;
+  --color-brand-300: #ce9f9f;
+  --color-brand-400: #b54848;
+  --color-brand-500: #a02626;
+  --color-brand-600: #8b1a1a;
+  --color-brand-700: #8b1a1a;
+  --color-brand-800: #6b1010;
+  --color-brand-900: #4a0a0a;
+  --color-gold-300: #f7c978;
+  --color-gold-400: #f2ae3a;
+  --color-gold-600: #c26a05;
 
   --radius-sm: 6px;
   --radius-md: 8px;
@@ -94,22 +120,6 @@ body {
 
 html {
   scroll-behavior: smooth;
-}
-
-/* Багшийн хэсгийн дулаан, luxury дэвсгэр */
-@utility luxury-bg {
-  background:
-    radial-gradient(ellipse 70% 42% at 72% 0%, rgba(236, 176, 160, 0.34), transparent 72%),
-    radial-gradient(ellipse 50% 35% at 100% 8%, rgba(139, 26, 26, 0.09), transparent 70%),
-    linear-gradient(to bottom, #fffaf6, var(--color-background) 420px);
-}
-
-/* Компьютерийн дэлгэц (хажуугийн цэстэй shell): бүх зүйлийг 10%-иар жижигрүүлж нэг дэлгэцэнд багтаана (утсанд өөрчлөхгүй) */
-@media (min-width: 768px) {
-  .app-zoom {
-    zoom: 0.9;
-    min-height: calc(100vh / 0.9);
-  }
 }
 
 /* Serif гарчиг, тоо: бүх дэлгэцэнд ижил (lining) цифр */

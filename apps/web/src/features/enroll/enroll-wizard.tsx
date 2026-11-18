@@ -39,7 +39,6 @@ interface WizardState {
   studentPhone: string;
   programId: string;
   classIds: string[];
-  rulesDate: string;
   rulesAck: boolean;
   consent: boolean;
 }
@@ -55,7 +54,6 @@ const EMPTY: WizardState = {
   studentPhone: "",
   programId: "",
   classIds: [],
-  rulesDate: "",
   rulesAck: false,
   consent: false,
 };
@@ -103,8 +101,9 @@ export function EnrollWizardPage({ mode }: { mode: "admin" | "teacher" }) {
         programId: state.programId,
         classIds: state.classIds,
         fromDate: todayKey(),
-        rulesAckAt: new Date(`${state.rulesDate}T12:00:00+08:00`).toISOString(),
-        consentAt: new Date().toISOString(),
+        // D-82: огноо, цагийг сервер бүртгэнэ, зөвхөн баталгаажуулалт илгээнэ.
+        rulesAcknowledged: true,
+        consentGiven: true,
         weeklyWarningAcknowledged: acknowledged || undefined,
       }),
     onSuccess: async (created) => {
@@ -138,7 +137,7 @@ export function EnrollWizardPage({ mode }: { mode: "admin" | "teacher" }) {
       (Number(state.placement) >= 0 && Number(state.placement) <= 100)) &&
     (!state.withAccount || /^\d{8}$/.test(cleanPhone(state.studentPhone)));
   const classValid = state.programId !== "" && state.classIds.length > 0;
-  const confirmValid = state.rulesAck && state.consent && state.rulesDate !== "";
+  const confirmValid = state.rulesAck && state.consent;
 
   if (result) {
     return (
@@ -318,14 +317,6 @@ export function EnrollWizardPage({ mode }: { mode: "admin" | "teacher" }) {
                   {state.classIds.length}
                 </p>
               </div>
-              <Field label="Журамтай танилцсан огноо" htmlFor="w-rulesDate">
-                <Input
-                  id="w-rulesDate"
-                  type="date"
-                  value={state.rulesDate}
-                  onChange={(e) => patch({ rulesDate: e.target.value })}
-                />
-              </Field>
               <label className="flex min-h-11 items-start gap-2.5 text-sm text-mid">
                 <input
                   type="checkbox"
@@ -344,6 +335,7 @@ export function EnrollWizardPage({ mode }: { mode: "admin" | "teacher" }) {
                 />
                 Эцэг эх хүүхдийн хувийн мэдээллийг боловсруулахыг зөвшөөрсөн.
               </label>
+              <p className="text-xs text-muted">Танилцсан огноо, цагийг систем бүртгэх үед нь автоматаар хадгална.</p>
               <FormError message={warning ? null : errorMessage(submit.error)} />
               <div className="flex gap-2">
                 <Button variant="secondary" onClick={() => setStep(2)}>

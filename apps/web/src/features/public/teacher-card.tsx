@@ -29,7 +29,7 @@ export function TeacherCard({
   return (
     <li
       className={cn(
-        "group relative flex w-80 shrink-0 flex-col gap-5 rounded-3xl border border-border bg-surface p-7 transition-colors duration-300",
+        "group relative flex w-80 shrink-0 flex-col gap-5 rounded-[26px] border border-ink-900/[.07] bg-white p-7 transition duration-300 hover:-translate-y-1 hover:shadow-[0_30px_50px_-28px_rgba(23,23,23,0.4)] motion-reduce:transition-none motion-reduce:hover:translate-y-0",
         to && "hover:border-primary/30",
         className,
       )}

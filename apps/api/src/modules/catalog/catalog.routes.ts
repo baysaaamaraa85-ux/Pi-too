@@ -14,6 +14,7 @@ catalogRouter.use(authenticate);
 catalogRouter.get("/branches", authorize("ADMIN", "TEACHER"), controller.listBranches);
 catalogRouter.post("/branches", authorize("ADMIN"), controller.createBranch);
 catalogRouter.patch("/branches/:id", authorize("ADMIN"), controller.updateBranch);
+catalogRouter.delete("/branches/:id", authorize("ADMIN"), controller.deleteBranch);
 catalogRouter.put("/branches/:id/photo", authorize("ADMIN"), imageBody, controller.uploadBranchPhoto);
 
 // ФШ-08
