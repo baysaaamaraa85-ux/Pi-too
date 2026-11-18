@@ -21,8 +21,16 @@ export function upsertSetting(
   });
 }
 
-export function listBranches(tx: Tx) {
-  return tx.branch.findMany({ orderBy: { name: "asc" } });
+// Идэвхгүй салбарыг зөвхөн админ (includeInactive) хардаг, бусад газар идэвхтэй нь л.
+export function listBranches(tx: Tx, includeInactive = false) {
+  return tx.branch.findMany({
+    where: includeInactive ? {} : { isActive: true },
+    orderBy: { name: "asc" },
+  });
+}
+
+export function setBranchActive(tx: Tx, id: string, isActive: boolean) {
+  return tx.branch.update({ where: { id }, data: { isActive } });
 }
 
 export function findBranchById(tx: Tx, id: string) {

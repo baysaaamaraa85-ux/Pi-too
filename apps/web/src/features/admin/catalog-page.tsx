@@ -10,6 +10,7 @@ import type { BranchDto, ProgramDto, SettingDto } from "@/shared/api-client/type
 import { formatMoney } from "@/shared/format/money";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import { Field, FormError } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { PhotoUpload } from "@/shared/ui/photo-upload";
@@ -28,7 +29,18 @@ function BranchRow({ branch }: { branch: BranchDto }) {
   const [description, setDescription] = React.useState(branch.description ?? "");
   const [phones, setPhones] = React.useState(branch.phones.join(", "));
   const [saved, setSaved] = React.useState(false);
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["branches"] });
+  const [confirmStatus, setConfirmStatus] = React.useState(false);
+  const refresh = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["public"] });
+    await queryClient.invalidateQueries({ queryKey: ["branches"] });
+  };
+  const setStatus = useMutation({
+    mutationFn: () => api.patch(`/branches/${branch.id}/status`, { isActive: !branch.isActive }),
+    onSuccess: async () => {
+      setConfirmStatus(false);
+      await refresh();
+    },
+  });
   const save = useMutation({
     mutationFn: () =>
       api.patch(`/branches/${branch.id}`, {
@@ -50,12 +62,26 @@ function BranchRow({ branch }: { branch: BranchDto }) {
     <li className="py-2.5" data-testid="branch-row">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 break-words">
-          <p className="text-sm font-semibold text-foreground-strong">{branch.name}</p>
+          <p className="text-sm font-semibold text-foreground-strong">
+            {branch.name}
+            {branch.isActive ? null : <span className="ml-2 text-xs font-normal text-muted">Идэвхгүй</span>}
+          </p>
           <p className="text-xs text-muted">{branch.address}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="secondary" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
             {open ? "Хаах" : "Нийтийн сайтад харагдах"}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            data-testid="toggle-branch"
+            onClick={() => {
+              setStatus.reset();
+              setConfirmStatus(true);
+            }}
+          >
+            {branch.isActive ? "Идэвхгүй болгох" : "Идэвхжүүлэх"}
           </Button>
           <DeleteRecordButton
             path={`/branches/${branch.id}`}
@@ -63,13 +89,23 @@ function BranchRow({ branch }: { branch: BranchDto }) {
             testId="delete-branch"
             title={`"${branch.name}" салбарыг устгах уу?`}
             description="Салбар бүрмөсөн устаж, буцаах боломжгүй. Идэвхтэй анги, эсвэл ирц, цалингийн түүхтэй салбарыг устгах боломжгүй."
-            onDeleted={async () => {
-              await queryClient.invalidateQueries({ queryKey: ["public"] });
-              await refresh();
-            }}
+            onDeleted={refresh}
           />
         </div>
       </div>
+      <ConfirmDialog
+        open={confirmStatus}
+        title={branch.isActive ? `"${branch.name}" салбарыг идэвхгүй болгох уу?` : `"${branch.name}" салбарыг идэвхжүүлэх үү?`}
+        description={`${errorText(setStatus.error) ?? ""} ${
+          branch.isActive
+            ? "Салбар жагсаалт, нийтийн сайтын нүүр, шинэ анги нээх сонголтоос хасагдана. Өмнөх түүх хадгалагдана, дараа нь буцааж идэвхжүүлж болно."
+            : "Салбар жагсаалт, нийтийн сайтад дахин харагдана."
+        }`.trim()}
+        confirmLabel={branch.isActive ? "Идэвхгүй болгох" : "Идэвхжүүлэх"}
+        busy={setStatus.isPending}
+        onConfirm={() => setStatus.mutate()}
+        onClose={() => setConfirmStatus(false)}
+      />
       {open ? (
         <div className="mt-3 grid gap-3.5 rounded-xl bg-background-soft p-4">
           <div className="grid gap-3.5 sm:grid-cols-2">
@@ -122,7 +158,12 @@ function BranchRow({ branch }: { branch: BranchDto }) {
 
 function Branches() {
   const queryClient = useQueryClient();
-  const branches = useQuery({ queryKey: ["branches"], queryFn: () => api.get<BranchDto[]>("/branches") });
+  const branches = useQuery({
+    queryKey: ["branches", "admin"],
+    queryFn: () => api.get<BranchDto[]>("/branches?includeInactive=true"),
+  });
+  const activeBranches = branches.data?.filter((b) => b.isActive) ?? [];
+  const inactiveBranches = branches.data?.filter((b) => !b.isActive) ?? [];
   const form = useForm<z.infer<typeof createBranchSchema>>({
     resolver: zodResolver(createBranchSchema),
     defaultValues: { name: "", address: "" },
@@ -143,10 +184,20 @@ function Branches() {
       </CardHeader>
       <CardContent>
         <ul className="mb-5 divide-y divide-border-warm">
-          {branches.data?.map((b) => (
+          {activeBranches.map((b) => (
             <BranchRow key={b.id} branch={b} />
           ))}
         </ul>
+        {inactiveBranches.length > 0 ? (
+          <div className="mb-5" data-testid="inactive-branches">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Идэвхгүй салбарууд</p>
+            <ul className="divide-y divide-border-warm opacity-80">
+              {inactiveBranches.map((b) => (
+                <BranchRow key={b.id} branch={b} />
+              ))}
+            </ul>
+          </div>
+        ) : null}
         <form
           noValidate
           onSubmit={form.handleSubmit((v) => create.mutate(v))}

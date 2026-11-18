@@ -93,6 +93,7 @@ export async function createClass(
   startTime: string,
 ) {
   return prisma.$transaction(async (tx) => {
+    await catalog.getActiveBranchById(tx, branchId);
     const { academicHoursPerVisit, academicHourMinutes } = await catalog.getContractDefaults(tx);
     const durationMin = academicHoursPerVisit * academicHourMinutes;
     const classDefaults = await catalog.getClassDefaults(tx);

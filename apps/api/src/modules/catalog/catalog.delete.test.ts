@@ -202,3 +202,92 @@ describe("ФШ-07: салбар устгах", () => {
     expect(await prisma.branch.findUnique({ where: { id: branch.id } })).not.toBeNull();
   });
 });
+
+describe("ФШ-07: салбарыг идэвхгүй болгох", () => {
+  const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
+
+  it("идэвхгүй салбар жагсаалт, нийтийн сайтаас алга болж, админд тусдаа үлдэнэ, буцааж идэвхжинэ", async () => {
+    const admin = await loginAs(Role.ADMIN);
+    const branch = await newBranch();
+
+    const off = await request(app)
+      .patch(`/api/v1/branches/${branch.id}/status`)
+      .set(auth(admin.token))
+      .send({ isActive: false });
+    expect(off.status).toBe(200);
+    expect(off.body.isActive).toBe(false);
+
+    const ids = (rows: { id: string }[]) => rows.map((b) => b.id);
+    const list = await request(app).get("/api/v1/branches").set(auth(admin.token));
+    expect(ids(list.body)).not.toContain(branch.id);
+    const pub = await request(app).get("/api/v1/public/branches");
+    expect(ids(pub.body)).not.toContain(branch.id);
+    const all = await request(app).get("/api/v1/branches?includeInactive=true").set(auth(admin.token));
+    expect(ids(all.body)).toContain(branch.id);
+
+    const audit = await prisma.auditLog.findFirst({
+      where: { entity: "branch", entityId: branch.id, action: "UPDATE_STATUS" },
+    });
+    expect(audit?.actorId).toBe(admin.userId);
+
+    const on = await request(app)
+      .patch(`/api/v1/branches/${branch.id}/status`)
+      .set(auth(admin.token))
+      .send({ isActive: true });
+    expect(on.body.isActive).toBe(true);
+    const pubAgain = await request(app).get("/api/v1/public/branches");
+    expect(ids(pubAgain.body)).toContain(branch.id);
+  });
+
+  it("идэвхтэй анги байвал идэвхгүй болгохгүй (409), салбар идэвхтэй хэвээр", async () => {
+    const admin = await loginAs(Role.ADMIN);
+    const teacher = await loginAs(Role.TEACHER);
+    const branch = await newBranch();
+    await prisma.class.create({
+      data: { teacherId: teacher.userId, branchId: branch.id, weekday: 4, startTime: "16:00" },
+    });
+
+    const res = await request(app)
+      .patch(`/api/v1/branches/${branch.id}/status`)
+      .set(auth(admin.token))
+      .send({ isActive: false });
+    expect(res.status).toBe(409);
+    expect(String(res.body.type).endsWith("/branch-has-active-classes")).toBe(true);
+    expect((await prisma.branch.findUniqueOrThrow({ where: { id: branch.id } })).isActive).toBe(true);
+  });
+
+  it("идэвхгүй салбарт шинэ анги нээх, түвшин тогтоох хүсэлт өгөх боломжгүй (409)", async () => {
+    const admin = await loginAs(Role.ADMIN);
+    const teacher = await loginAs(Role.TEACHER);
+    const branch = await newBranch();
+    await prisma.branch.update({ where: { id: branch.id }, data: { isActive: false } });
+
+    const klass = await request(app)
+      .post("/api/v1/classes")
+      .set(auth(admin.token))
+      .send({ teacherId: teacher.userId, branchId: branch.id, weekday: 2, startTime: "17:00" });
+    expect(klass.status).toBe(409);
+    expect(String(klass.body.type).endsWith("/branch-inactive")).toBe(true);
+
+    const placement = await request(app)
+      .post("/api/v1/public/placement-requests")
+      .send({ studentName: "Хүсэлт", phone: "99112233", branchId: branch.id });
+    expect(placement.status).toBe(409);
+  });
+
+  it("Эрхийн матриц: багш төлөв солих эрхгүй (403), includeInactive нь багшид нөлөөлөхгүй", async () => {
+    const teacher = await loginAs(Role.TEACHER);
+    const branch = await newBranch();
+    await prisma.branch.update({ where: { id: branch.id }, data: { isActive: false } });
+
+    const patch = await request(app)
+      .patch(`/api/v1/branches/${branch.id}/status`)
+      .set(auth(teacher.token))
+      .send({ isActive: true });
+    expect(patch.status).toBe(403);
+
+    const list = await request(app).get("/api/v1/branches?includeInactive=true").set(auth(teacher.token));
+    expect(list.status).toBe(200);
+    expect(list.body.map((b: { id: string }) => b.id)).not.toContain(branch.id);
+  });
+});

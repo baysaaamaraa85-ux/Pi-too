@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 import {
+  branchStatusSchema,
   createBranchSchema,
   createProgramSchema,
   updateBranchSchema,
@@ -11,8 +12,16 @@ import * as service from "./catalog.service.js";
 
 const idParamSchema = z.object({ id: z.uuid() });
 
-export async function listBranches(_req: Request, res: Response) {
-  res.status(200).json(await service.listBranches());
+// ?includeInactive=true зөвхөн админд (багш, нийтийн хэрэглэгч идэвхтэй салбарыг л харна).
+export async function listBranches(req: Request, res: Response) {
+  const includeInactive = req.user?.role === "ADMIN" && req.query.includeInactive === "true";
+  res.status(200).json(await service.listBranches(includeInactive));
+}
+
+export async function setBranchStatus(req: Request, res: Response) {
+  const { id } = idParamSchema.parse(req.params);
+  const { isActive } = branchStatusSchema.parse(req.body);
+  res.status(200).json(await service.setBranchStatus(id, isActive, req.user!.id));
 }
 
 export async function createBranch(req: Request, res: Response) {

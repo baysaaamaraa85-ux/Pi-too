@@ -138,7 +138,7 @@ describe("ФШ-78 Нийтийн сайт: багш нар, хөтөлбөр, с
     const overview = await request(app).get("/api/v1/public/overview");
     expect(overview.status).toBe(200);
     expect(overview.body).toEqual({
-      branchCount: await prisma.branch.count(),
+      branchCount: await prisma.branch.count({ where: { isActive: true } }),
       classCapacity: 6,
       packageHours: 75,
       leaves: 3,

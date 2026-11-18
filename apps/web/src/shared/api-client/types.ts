@@ -18,6 +18,7 @@ export interface BranchDto {
   description: string | null;
   phones: string[];
   photoUrl: string | null;
+  isActive: boolean;
 }
 
 export interface ProgramDto {

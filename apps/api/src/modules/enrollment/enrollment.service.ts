@@ -12,7 +12,7 @@ import { balancesFor, teacherFlag } from "../../shared/payments/payment-status.j
 import { writeAudit } from "../../shared/audit/write-audit.js";
 import { createUserInTx } from "../auth/auth.service.js";
 import {
-  getBranchById,
+  getActiveBranchById,
   getContractDefaults,
   getProgramById,
   getWeeklyLessons,
@@ -507,7 +507,7 @@ export async function createPlacementRequest(input: {
   branchId?: string;
 }) {
   return prisma.$transaction(async (tx) => {
-    if (input.branchId) await getBranchById(tx, input.branchId);
+    if (input.branchId) await getActiveBranchById(tx, input.branchId);
     const created = await repo.createPlacementRequest(tx, input);
     return { id: created.id };
   });

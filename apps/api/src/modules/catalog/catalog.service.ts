@@ -139,8 +139,8 @@ async function withUniqueNameHandling<T>(name: string, fn: () => Promise<T>): Pr
 }
 
 // ФШ-07
-export function listBranches() {
-  return repo.listBranches(prisma);
+export function listBranches(includeInactive = false) {
+  return repo.listBranches(prisma, includeInactive);
 }
 
 export function createBranch(data: repo.BranchData & { name: string; address: string }) {
@@ -149,6 +149,37 @@ export function createBranch(data: repo.BranchData & { name: string; address: st
 
 export function updateBranch(id: string, data: repo.BranchData) {
   return withUniqueNameHandling(data.name ?? id, () => repo.updateBranch(prisma, id, data));
+}
+
+// ФШ-07: салбарыг идэвхгүй болгох (жагсаалт, нийтийн сайтаас хасна, түүх хадгалагдана) эсвэл
+// буцааж идэвхжүүлнэ. Идэвхтэй анги байвал идэвхгүй болгохгүй (ангиуд харагдахгүй үлдэнэ).
+export async function setBranchStatus(id: string, isActive: boolean, actorId: string) {
+  return prisma.$transaction(async (tx) => {
+    const branch = await getBranchById(tx, id);
+    if (branch.isActive === isActive) return branch;
+    if (!isActive) {
+      const activeClasses = await repo.countActiveClassesInBranch(tx, id);
+      if (activeClasses > 0) {
+        throw new DomainError({
+          code: "branch-has-active-classes",
+          status: 409,
+          title: "Салбарт идэвхтэй анги байна",
+          detail: `"${branch.name}" салбарт ${activeClasses} идэвхтэй анги байна. Эхлээд ангиудыг устгана уу.`,
+          extra: { activeClasses },
+        });
+      }
+    }
+    const updated = await repo.setBranchActive(tx, id, isActive);
+    await writeAudit(tx, {
+      entity: "branch",
+      entityId: id,
+      action: "UPDATE_STATUS",
+      before: { isActive: branch.isActive },
+      after: { isActive },
+      actorId,
+    });
+    return updated;
+  });
 }
 
 // ФШ-07: салбар устгах. Идэвхтэй анги байвал хаана (эхлээд ангиудыг устгана). Идэвхгүй
@@ -290,6 +321,20 @@ export async function updateSetting(
   });
 }
 
+// Шинэ анги, түвшин тогтоох хүсэлт зөвхөн идэвхтэй салбарт үүснэ.
+export async function getActiveBranchById(tx: Tx, id: string) {
+  const branch = await getBranchById(tx, id);
+  if (!branch.isActive) {
+    throw new DomainError({
+      code: "branch-inactive",
+      status: 409,
+      title: "Салбар идэвхгүй байна",
+      detail: `"${branch.name}" салбар идэвхгүй болсон тул сонгох боломжгүй.`,
+    });
+  }
+  return branch;
+}
+
 // enrollment модуль (нийтийн хүсэлт) салбар байгаа эсэхийг шалгахдаа дуудна.
 export async function getBranchById(tx: Tx, id: string) {
   const branch = await repo.findBranchById(tx, id);
@@ -311,7 +356,7 @@ export function getPublicOverview() {
       getContractDefaults(tx),
       getClassDefaults(tx),
       getAssessmentDefaults(tx),
-      tx.branch.count(),
+      tx.branch.count({ where: { isActive: true } }),
     ]);
     return {
       branchCount,

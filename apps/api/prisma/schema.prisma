@@ -196,6 +196,8 @@ model Branch {
   description String?
   phones      String[] @default([])
   photoUrl    String?  @map("photo_url")
+  // Идэвхгүй салбар жагсаалт, нийтийн сайт, шинэ анги, хүсэлтэд харагдахгүй (түүх хадгалагдана).
+  isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 

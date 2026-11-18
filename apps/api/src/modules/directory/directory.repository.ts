@@ -312,7 +312,7 @@ export async function deleteStudentRecords(tx: Tx, studentId: string, userId: st
 // ФШ-11: тохиргооны шидтэний алхам бүрийн өгөгдлийн тоо.
 export async function countSetupEntities(tx: Tx) {
   const [branches, programs, teachers, classes, students] = await Promise.all([
-    tx.branch.count(),
+    tx.branch.count({ where: { isActive: true } }),
     tx.program.count(),
     tx.teacher.count(),
     tx.class.count({ where: { isActive: true } }),

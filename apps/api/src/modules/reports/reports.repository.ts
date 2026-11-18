@@ -28,7 +28,7 @@ type CountRow = { branchId: string | null; value: number };
 type MoneyRow = { branchId: string | null; value: Prisma.Decimal };
 
 export function listBranches(tx: Tx) {
-  return tx.branch.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
+  return tx.branch.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true } });
 }
 
 // "Идэвхтэй сурагч" = тухайн сард ирцийн мөртэй (ямар ч төлөвтэй) өвөрмөц сурагч.

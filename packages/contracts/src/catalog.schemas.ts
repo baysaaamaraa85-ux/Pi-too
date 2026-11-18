@@ -14,6 +14,10 @@ export type CreateBranchInput = z.infer<typeof createBranchSchema>;
 export const updateBranchSchema = createBranchSchema.partial();
 export type UpdateBranchInput = z.infer<typeof updateBranchSchema>;
 
+// Салбарыг идэвхгүй болгох, буцааж идэвхжүүлэх.
+export const branchStatusSchema = z.object({ isActive: z.boolean() });
+export type BranchStatusInput = z.infer<typeof branchStatusSchema>;
+
 // ФШ-08
 export const createProgramSchema = z.object({
   name: z.string().min(1, "Нэр шаардлагатай"),
