@@ -36,8 +36,8 @@ export async function listContracts(req: Request, res: Response) {
 }
 
 export async function createContract(req: Request, res: Response) {
-  const { studentId, programId } = createContractSchema.parse(req.body);
-  res.status(201).json(await service.createContract(studentId, programId));
+  const { studentId, programId, packageHours } = createContractSchema.parse(req.body);
+  res.status(201).json(await service.createContract(studentId, programId, packageHours));
 }
 
 // D-67: ах дүүгийн хөнгөлөлт (зөвхөн админ).

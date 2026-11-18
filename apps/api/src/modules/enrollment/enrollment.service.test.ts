@@ -79,6 +79,51 @@ describe("М3 Элсэлт ба гэрээ", () => {
     expect(res.body.price).toBe("500000");
   });
 
+  it("D-96: цаг заавал тоолуур тэр цагаар, үнэ хөтөлбөрийн үнэ / 75 * цаг болно", async () => {
+    const { token } = await loginAsTeacher();
+    const { programId } = await createBranchAndProgram();
+    const student = await prisma.student.create({ data: { fullName: "Сурагч" } });
+
+    const res = await request(app)
+      .post("/api/v1/contracts")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ studentId: student.id, programId, packageHours: 30, rulesAcknowledged: true });
+
+    expect(res.status).toBe(201);
+    expect(Number(res.body.totalHours)).toBe(30);
+    expect(Number(res.body.remainingHours)).toBe(30);
+    expect(res.body.leavesLeft).toBe(3);
+    expect(Number(res.body.price)).toBe(200000);
+  });
+
+  it("D-96: багцын цагаас хэтэрсэн цаг 422, гэрээ үүсэхгүй", async () => {
+    const { token } = await loginAsTeacher();
+    const { programId } = await createBranchAndProgram();
+    const student = await prisma.student.create({ data: { fullName: "Сурагч" } });
+
+    const res = await request(app)
+      .post("/api/v1/contracts")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ studentId: student.id, programId, packageHours: 76, rulesAcknowledged: true });
+
+    expect(res.status).toBe(422);
+    expect(res.body.type).toContain("package-hours-out-of-range");
+    expect(await prisma.contract.count({ where: { studentId: student.id } })).toBe(0);
+  });
+
+  it("D-96: 0 цаг Zod-оор 422", async () => {
+    const { token } = await loginAsTeacher();
+    const { programId } = await createBranchAndProgram();
+    const student = await prisma.student.create({ data: { fullName: "Сурагч" } });
+
+    const res = await request(app)
+      .post("/api/v1/contracts")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ studentId: student.id, programId, packageHours: 0, rulesAcknowledged: true });
+
+    expect(res.status).toBe(422);
+  });
+
   it("ФШ-72: давхар идэвхтэй зогсолт хориглогдоно (409)", async () => {
     const { token, teacherId } = await loginAsTeacher();
     const { branchId, programId } = await createBranchAndProgram();

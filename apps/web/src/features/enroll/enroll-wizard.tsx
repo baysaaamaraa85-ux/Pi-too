@@ -24,6 +24,7 @@ interface EnrollResult {
   contractId: string;
   remainingHours: number;
   leavesLeft: number;
+  price: string;
   tempPassword?: string;
   studentTempPassword?: string;
 }
@@ -39,6 +40,8 @@ interface WizardState {
   studentPhone: string;
   programId: string;
   classIds: string[];
+  // D-96: хоосон бол бүтэн багц. Бөглөвөл тэр цагаар (дундаас нь бүртгэх, тодорхой цагийн сургалт).
+  packageHours: string;
   rulesAck: boolean;
   consent: boolean;
 }
@@ -54,6 +57,7 @@ const EMPTY: WizardState = {
   studentPhone: "",
   programId: "",
   classIds: [],
+  packageHours: "",
   rulesAck: false,
   consent: false,
 };
@@ -100,6 +104,7 @@ export function EnrollWizardPage({ mode }: { mode: "admin" | "teacher" }) {
         placementPercent: state.placement.trim() ? Number(state.placement) : undefined,
         programId: state.programId,
         classIds: state.classIds,
+        packageHours: state.packageHours.trim() ? Number(state.packageHours.replace(",", ".")) : undefined,
         fromDate: todayKey(),
         // D-82: огноо, цагийг сервер бүртгэнэ, зөвхөн баталгаажуулалт илгээнэ.
         rulesAcknowledged: true,
@@ -137,7 +142,9 @@ export function EnrollWizardPage({ mode }: { mode: "admin" | "teacher" }) {
       (Number(state.placement) >= 0 && Number(state.placement) <= 100)) &&
     (!state.withAccount || /^\d{8}$/.test(cleanPhone(state.studentPhone)));
   const classValid = state.programId !== "" && state.classIds.length > 0;
-  const confirmValid = state.rulesAck && state.consent;
+  const hoursText = state.packageHours.trim().replace(",", ".");
+  const hoursValid = hoursText === "" || (Number.isFinite(Number(hoursText)) && Number(hoursText) > 0);
+  const confirmValid = state.rulesAck && state.consent && hoursValid;
 
   if (result) {
     return (
@@ -149,7 +156,7 @@ export function EnrollWizardPage({ mode }: { mode: "admin" | "teacher" }) {
               <p className="font-bold text-success">Бүртгэл амжилттай.</p>
               <p className="mt-1 text-sm text-mid">
                 {state.studentName}: багцын үлдэгдэл {formatHours(result.remainingHours)} академик цаг, чөлөөний эрх{" "}
-                {result.leavesLeft}.
+                {result.leavesLeft}, төлөх үнэ {formatMoney(result.price)}.
               </p>
             </CardContent>
           </Card>
@@ -317,6 +324,19 @@ export function EnrollWizardPage({ mode }: { mode: "admin" | "teacher" }) {
                   {state.classIds.length}
                 </p>
               </div>
+              <Field
+                label="Сургалтын цаг (сонголттой)"
+                htmlFor="w-packageHours"
+                hint="Хоосон бол бүтэн багц. Дундаас нь бүртгэх эсвэл тодорхой цагаар суралцах бол орох академик цагийг бичнэ. Үнийг систем хөтөлбөрийн үнээр цагт хуваарилж тооцно."
+              >
+                <Input
+                  id="w-packageHours"
+                  inputMode="decimal"
+                  placeholder="Бүтэн багц"
+                  value={state.packageHours}
+                  onChange={(e) => patch({ packageHours: e.target.value })}
+                />
+              </Field>
               <label className="flex min-h-11 items-start gap-2.5 text-sm text-mid">
                 <input
                   type="checkbox"

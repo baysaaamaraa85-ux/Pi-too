@@ -54,8 +54,8 @@ export function createContract(
     studentId: string;
     programId: string;
     price: string;
-    totalHours: number;
-    remainingHours: number;
+    totalHours: Prisma.Decimal;
+    remainingHours: Prisma.Decimal;
     leavesLeft: number;
     rulesAckAt: Date;
   },

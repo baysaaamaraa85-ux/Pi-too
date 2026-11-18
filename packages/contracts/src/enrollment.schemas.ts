@@ -16,9 +16,15 @@ export type CreateStudentInput = z.infer<typeof createStudentSchema>;
 
 // ФШ-16, 17. D-82: журамтай танилцсан огноо, цагийг СЕРВЕР өөрийн цагаар бүртгэнэ (клиент цаг илгээхгүй, хуурч болохгүй).
 // Клиент зөвхөн эцэг эх танилцсаныг баталгаажуулна: үгүй бол гэрээ хадгалагдахгүй (422).
+// D-96: packageHours заагаагүй бол бүтэн багц. Заавал үнэ, дээд хязгаарыг сервер тооцож шалгана.
+export const packageHoursSchema = z
+  .number({ error: "Сургалтын цаг тоо байх ёстой" })
+  .positive("Сургалтын цаг 0-ээс их байна");
+
 export const createContractSchema = z.object({
   studentId: z.uuid(),
   programId: z.uuid(),
+  packageHours: packageHoursSchema.optional(),
   rulesAcknowledged: z.literal(true, { error: "Эцэг эх журамтай танилцсаныг баталгаажуулна уу" }),
 });
 export type CreateContractInput = z.infer<typeof createContractSchema>;
@@ -58,6 +64,8 @@ export const enrollStudentSchema = z.object({
   grade: z.string().trim().optional(),
   placementPercent: z.number().min(0).max(100).optional(),
   programId: z.uuid(),
+  // D-96: дундаас нь бүртгэх эсвэл тодорхой цагаар суралцах үед цагийг гараар оруулна.
+  packageHours: packageHoursSchema.optional(),
   classIds: z.array(z.uuid()).min(1, "Дор хаяж нэг анги сонгоно").max(7),
   fromDate: z.iso.date(),
   // D-82: журамтай танилцсан, хувийн мэдээлэл боловсруулахыг зөвшөөрсөн огноо, цагийг сервер бүртгэнэ.

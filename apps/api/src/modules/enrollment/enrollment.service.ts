@@ -26,6 +26,7 @@ import {
 } from "../scheduling/scheduling.service.js";
 import type { EnrollStudentInput } from "@pitoo/contracts";
 import { trueUpContractAllTeachersInTx } from "../payroll/payroll.rates.js";
+import { computeContractTerms } from "./enrollment.pricing.js";
 import * as repo from "./enrollment.repository.js";
 
 export function searchParentsByPhone(phone: string) {
@@ -130,8 +131,12 @@ function contractNotFound(): never {
 // ФШ-16, 17: гэрээ үүсгэх үед тухайн үеийн үнийг хуулж, тоолуурыг
 // settings-ээс тооцно (75 цаг / 3 цаг = 25 ирэлт, 3 чөлөө) (ADR-009, 013).
 // D-82: журамтай танилцсан огноо, цагийг сервер хүсэлт хүлээн авсан үеийн цагаар бүртгэнэ.
-export function createContract(studentId: string, programId: string) {
-  return prisma.$transaction((tx) => createContractInTx(tx, studentId, programId, new Date()));
+// D-96: packageHours заасан бол (дундаас нь бүртгэх, тодорхой цагаар суралцах) тоолуур тэр цагаар,
+// үнэ нь хөтөлбөрийн үнэ / 75 * цаг болно.
+export function createContract(studentId: string, programId: string, packageHours?: number) {
+  return prisma.$transaction((tx) =>
+    createContractInTx(tx, studentId, programId, new Date(), packageHours),
+  );
 }
 
 async function createContractInTx(
@@ -139,6 +144,7 @@ async function createContractInTx(
   studentId: string,
   programId: string,
   rulesAckAt: Date,
+  packageHours?: number,
 ) {
   const student = await repo.findStudentById(tx, studentId);
   if (!student) studentNotFound();
@@ -146,13 +152,14 @@ async function createContractInTx(
   const program = await getProgramById(tx, programId);
   // D-70: багц академик цагаар (75). Ирэлт бүр бодит орсон цагаараа хасагдана.
   const { totalAcademicHours, defaultLeaves } = await getContractDefaults(tx);
+  const terms = computeContractTerms(program.currentPrice, totalAcademicHours, packageHours);
 
   return repo.createContract(tx, {
     studentId,
     programId,
-    price: program.currentPrice.toString(),
-    totalHours: totalAcademicHours,
-    remainingHours: totalAcademicHours,
+    price: terms.price.toFixed(2),
+    totalHours: terms.totalHours,
+    remainingHours: terms.totalHours,
     leavesLeft: defaultLeaves,
     rulesAckAt,
   });
@@ -171,6 +178,7 @@ export interface EnrollStudentResult extends RegisterStudentResult {
   contractId: string;
   remainingHours: number;
   leavesLeft: number;
+  price: string;
 }
 
 // Шинэ шаардлага 1.4, ФШ-12...17, 20, 22, ФБШ-23: сурагч, эцэг эх (шинэ бол), гэрээ,
@@ -229,6 +237,7 @@ export async function enrollNewStudent(
       registered.studentId,
       input.programId,
       acknowledgedAt,
+      input.packageHours,
     );
 
     const fromDate = new Date(input.fromDate);
@@ -240,7 +249,13 @@ export async function enrollNewStudent(
       entity: "contract",
       entityId: contract.id,
       action: "ENROLL",
-      after: { studentId: registered.studentId, programId: input.programId, classIds },
+      after: {
+        studentId: registered.studentId,
+        programId: input.programId,
+        classIds,
+        totalHours: contract.totalHours.toFixed(2),
+        price: contract.price.toFixed(2),
+      },
       actorId: user.id,
     });
 
@@ -249,6 +264,7 @@ export async function enrollNewStudent(
       contractId: contract.id,
       remainingHours: contract.remainingHours.toNumber(),
       leavesLeft: contract.leavesLeft,
+      price: contract.price.toFixed(2),
     };
   });
 }
