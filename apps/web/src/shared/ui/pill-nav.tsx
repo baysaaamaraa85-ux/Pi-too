@@ -86,7 +86,18 @@ export function PillNav({ items, activeKey, ariaLabel }: { items: PillItem[]; ac
 }
 
 // Утасны доод шилэн шахмал цэс: дүрс, aria-label-ээр нэрлэгдэнэ. 48px өндөртэй (ФБШ-10).
-export function PillBottomNav({ items, activeKey, ariaLabel }: { items: PillItem[]; activeKey: string | null; ariaLabel: string }) {
+// extra: жагсаалтын төгсгөлд нэмэх товч (жишээ нь "Цэс" drawer нээх).
+export function PillBottomNav({
+  items,
+  activeKey,
+  ariaLabel,
+  extra,
+}: {
+  items: PillItem[];
+  activeKey: string | null;
+  ariaLabel: string;
+  extra?: React.ReactNode;
+}) {
   return (
     <nav aria-label={ariaLabel} className="pt-glass fixed inset-x-3 bottom-3 z-40 flex justify-between rounded-full p-1.5 lg:hidden">
       {items.map((item) => {
@@ -107,6 +118,7 @@ export function PillBottomNav({ items, activeKey, ariaLabel }: { items: PillItem
           </Link>
         );
       })}
+      {extra}
     </nav>
   );
 }

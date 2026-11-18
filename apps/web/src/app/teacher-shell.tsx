@@ -1,4 +1,5 @@
-import { CalendarDays, KeyRound, LayoutGrid, LogOut, School, Search, UserRound, Users, Wallet } from "lucide-react";
+import * as Dialog from "@radix-ui/react-dialog";
+import { CalendarDays, KeyRound, LayoutGrid, LogOut, Menu, School, Search, UserRound, Users, Wallet, X } from "lucide-react";
 import * as React from "react";
 import { Link, Outlet, useLocation } from "react-router";
 import { useAuth } from "@/features/auth/auth-context";
@@ -10,6 +11,7 @@ import { OfflineBanner } from "@/shared/offline/sync";
 import "@/shared/pt/pt.css";
 import { Avatar } from "@/shared/ui/avatar";
 import { PillBottomNav, PillNav, type PillItem } from "@/shared/ui/pill-nav";
+import { cn } from "@/shared/ui/utils";
 import { ReminderBell, type BellItem } from "./app-topbar";
 import { CommandPalette, type PaletteItem } from "./command-palette";
 
@@ -43,6 +45,7 @@ export function TeacherShell() {
   const dash = useTeacherDashboard().data;
   const profile = useOwnTeacherProfile(user?.id);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
+  const [drawer, setDrawer] = React.useState(false);
 
   // Ctrl K (Mac дээр ⌘K): хайлтын цонх нээх, хаах
   React.useEffect(() => {
@@ -123,10 +126,11 @@ export function TeacherShell() {
               <kbd className="hidden h-6 items-center rounded-md bg-paper-2 px-1.5 text-[10.5px] font-semibold text-ink-500 sm:inline-flex">Ctrl K</kbd>
             </button>
             <ReminderBell items={bell} glass />
-            <Link to="/change-password" aria-label="Нууц үг" className={iconButton}>
+            {/* Утсанд (lg-ээс доош) нууц үг, гарах нь "Цэс" drawer-ын доод хэсэгт байна */}
+            <Link to="/change-password" aria-label="Нууц үг" className={cn(iconButton, "max-lg:hidden")}>
               <KeyRound className="size-[17px]" aria-hidden="true" />
             </Link>
-            <button type="button" onClick={() => void logout()} aria-label="Гарах" className={iconButton}>
+            <button type="button" onClick={() => void logout()} aria-label="Гарах" className={cn(iconButton, "max-lg:hidden")}>
               <LogOut className="size-[17px]" aria-hidden="true" />
             </button>
             <Link
@@ -147,7 +151,78 @@ export function TeacherShell() {
         </div>
       </header>
 
-      <PillBottomNav items={items} activeKey={active} ariaLabel="Үндсэн цэс" />
+      <PillBottomNav
+        items={items}
+        activeKey={active}
+        ariaLabel="Үндсэн цэс"
+        extra={
+          <button
+            type="button"
+            onClick={() => setDrawer(true)}
+            aria-label="Бүх цэс"
+            className="grid h-12 flex-1 place-items-center rounded-full text-ink-500"
+          >
+            <Menu className="size-5" aria-hidden="true" />
+          </button>
+        }
+      />
+
+      {/* Утас: "Бүх цэс" drawer. Хуудсууд, профайл, хамгийн доор нууц үг солих ба гарах */}
+      <Dialog.Root open={drawer} onOpenChange={setDrawer}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="pt-ui fixed inset-0 z-50 bg-ink-900/30 backdrop-blur-sm" />
+          <Dialog.Content className="pt-ui fixed bottom-3 right-3 top-3 z-50 flex w-[280px] max-w-[85vw] flex-col rounded-[28px] bg-paper p-3 shadow-2xl">
+            <Dialog.Title className="sr-only">Багшийн цэс</Dialog.Title>
+            <Dialog.Description className="sr-only">Хэсгүүд рүү шилжих, нууц үг солих, гарах</Dialog.Description>
+            <div className="flex items-center justify-between px-2 pb-4 pt-1.5">
+              <span className="flex items-center gap-3">
+                <span className="grid size-10 place-items-center rounded-[13px] bg-brand-700 text-lg font-semibold text-white">π</span>
+                <span className="pt-tight text-[17px] font-semibold">Пи тоо</span>
+              </span>
+              <Dialog.Close aria-label="Цэс хаах" className="grid size-11 place-items-center rounded-full bg-white">
+                <X className="size-4" aria-hidden="true" />
+              </Dialog.Close>
+            </div>
+            <nav aria-label="Багшийн бүх цэс" className="flex flex-1 flex-col gap-0.5 overflow-y-auto">
+              {[...PAGES, { key: "profile", to: "/teacher/profile", label: "Миний профайл", icon: UserRound }].map((p) => (
+                <Link
+                  key={p.key}
+                  to={p.to}
+                  onClick={() => setDrawer(false)}
+                  aria-current={(p.key === "profile" ? pathname.startsWith("/teacher/profile") : active === p.key) ? "page" : undefined}
+                  className={cn(
+                    "flex h-11 shrink-0 items-center gap-3 rounded-[14px] px-3 text-[14px] font-medium transition-colors motion-reduce:transition-none",
+                    (p.key === "profile" ? pathname.startsWith("/teacher/profile") : active === p.key)
+                      ? "bg-brand-700 text-white shadow-[0_10px_22px_-10px_rgba(139,26,26,0.7)]"
+                      : "text-ink-600 hover:bg-white/80 hover:text-ink-900",
+                  )}
+                >
+                  <p.icon className="size-[18px] shrink-0" aria-hidden="true" />
+                  {p.label}
+                </Link>
+              ))}
+              <div className="mt-auto flex flex-col gap-0.5 border-t border-paper-3 pt-2">
+                <Link
+                  to="/change-password"
+                  onClick={() => setDrawer(false)}
+                  className="flex h-11 shrink-0 items-center gap-3 rounded-[14px] px-3 text-[14px] font-medium text-ink-600 transition-colors hover:bg-white/80 hover:text-ink-900 motion-reduce:transition-none"
+                >
+                  <KeyRound className="size-[18px] shrink-0" aria-hidden="true" />
+                  Нууц үг солих
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => void logout()}
+                  className="flex h-11 shrink-0 items-center gap-3 rounded-[14px] px-3 text-left text-[14px] font-medium text-brand-700 transition-colors hover:bg-white/80 motion-reduce:transition-none"
+                >
+                  <LogOut className="size-[18px] shrink-0" aria-hidden="true" />
+                  Гарах
+                </button>
+              </div>
+            </nav>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} items={palette} studentsPath="/teacher/students" />
 
       <div className="pt-24 [&>div]:top-24">
