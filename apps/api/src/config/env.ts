@@ -15,7 +15,7 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32, "JWT_REFRESH_SECRET 32 тэмдэгтээс багагүй байх ёстой"),
   APP_ORIGIN: z.url(),
   // API-ийн өмнө хэдэн proxy байгааг заана (req.ip, rate-limit зөв IP-ээр ажиллах). Railway дээр
-  // хөтөч, Railway edge, Caddy, API гэсэн дараалалтай тул 2. Proxy-гүй (хөгжүүлэлт) үед 0.
+  // бодитоор хэмжсэн: 3 (DEPLOY.md, D-93). Proxy-гүй (хөгжүүлэлт) үед 0.
   TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
   // М9 Мэдэгдэл (ФШ-05, 62): суваг тохируулаагүй бол тухайн суваг FAILED болно.
   VAPID_PUBLIC_KEY: z.string().min(1).optional(),

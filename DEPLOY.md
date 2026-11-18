@@ -18,7 +18,7 @@ Design 7-р бүлгийн таван контейнер хэвээр, VPS-ий�
 
 Яагаад `web` нь `/api`-г дамжуулдаг вэ: вэб `/api/v1/...` гэж харьцангуй замаар дууддаг, мөн refresh cookie `SameSite=Strict` тул хуудас ба API ижил домэйнээс ирэх ёстой.
 
-**Яагаад `railway.json` байхгүй вэ.** Railway "Config as Code" (`railway.json`, `railway.toml`)-ийг deprecated болгосон: 2026-12-01-ээс файлууд уншигдахаа болино, шинэ service-д ашиглах боломжгүй. Шинэ "Infrastructure as Code" (`.railway/railway.ts`)-ийн баримтад Dockerfile-ийн замыг зааж өгөх тухай тодорхой заалт олдсонгүй. Тиймээс тохиргоог (1) Dockerfile дотор, (2) `RAILWAY_DOCKERFILE_PATH` хувьсагчаар, (3) доорх service тохиргоогоор хийнэ.
+**Яагаад `railway.json` байхгүй вэ.** Railway "Config as Code" (`railway.json`, `railway.toml`)-ийг deprecated болгосон: 2026-12-01-ээс файлууд уншигдахаа болино, шинэ service-д ашиглах боломжгүй. Шинэ "Infrastructure as Code" (`.railway/railway.ts`)-ийн баримтад Dockerfile-ийн замыг зааж өгөх тухай тодорхой заалт олдсонгүй. Тиймээс тохиргоог (1) Dockerfile дотор, (2) service-ийн Dockerfile Path тохиргоогоор (`deploy/docker/<нэр>.Dockerfile`; `RAILWAY_DOCKERFILE_PATH` хувьсагч ч адил), (3) доорх service тохиргоогоор хийнэ.
 
 ## 2. Урьдчилсан нөхцөл
 
@@ -38,13 +38,15 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ### 3.1 Төсөл ба өгөгдлийн сан
 
 1. Railway дээр шинэ төсөл үүсгээд **Postgres** template нэм (service нэр: `Postgres`).
-2. **Postgres хувилбарыг шалга.** Design нь PostgreSQL 16 гэсэн. Template-ийн хувилбарыг Railway-ийн баримт тодорхой хэлээгүй тул `Postgres` service-ийн Data/Query хэсэгт `SELECT version();` ажиллуулж үз. 16-аас шинэ бол ажиллах магадлалтай (migration нь энгийн SQL, `btree_gist` ашиглана), гэхдээ тест 16 дээр хийгдсэн. Хувилбарыг `docs/decisions-log.md`-д тэмдэглэ.
+2. **Postgres хувилбарыг шалга.** Design нь PostgreSQL 16 гэсэн. Template-ийн хувилбарыг Railway-ийн баримт тодорхой хэлээгүй тул `Postgres` service-ийн Data/Query хэсэгт `SELECT version();` ажиллуулж үз. Анхны deploy дээр template нь **PostgreSQL 18.6** (`postgres-ssl:18`) байсан. Бүх migration PG 18 дээр локалаар болон Railway дээр амжилттай орж, `pitoo_app`-ийн эрх (ФБШ-24) зөв байгааг шалгасан, тиймээс 16 руу буулгах шаардлагагүй. Backup service-ийн `PG_MAJOR`-ыг 18 болго.
 3. Public Access (TCP Proxy)-ийг асаахгүй. api, worker, backup нь дотоод сүлжээгээр холбогдоно (ФБШ-21).
 
 ### 3.2 api
 
+> Service бүрийн **Start Command**-ыг тодорхой тавь (api, worker: `api-start`). Railway GitHub-ээс автоматаар үүсгэсэн service-д `npm run dev`, `worker` гэх мэт хуучин утга үлддэг бөгөөд Dockerfile-ийн `CMD`-ийг дарж бичдэг. Settings > Build > Dockerfile Path-ыг `deploy/docker/api.Dockerfile` болго, Custom Build Command-ыг хоосон үлдээ.
+
 1. **New Service > GitHub Repo**: энэ репо, салбар `deploy/railway` (main руу merge хийсний дараа `main` болгож солино). Нэр: `api`.
-2. **Variables**: `deploy/railway.env.example`-ийн `api` хэсгийг Raw Editor-оор оруулна. `RAILWAY_DOCKERFILE_PATH`, `RAILWAY_RUN_UID=0`, `PORT=3000`, `TRUST_PROXY=2`-ийг орхиж болохгүй.
+2. **Variables**: `deploy/railway.env.example`-ийн `api` хэсгийг Raw Editor-оор оруулна. `RAILWAY_RUN_UID=0`, `PORT=3000`, `TRUST_PROXY=3`-ыг орхиж болохгүй.
 3. **Settings > Volumes**: volume нэмж, mount path `/data/uploads` (ФШ-78: багш, салбарын зураг). `RAILWAY_RUN_UID=0` нь volume root-ийн эзэмшилтэй тул шаардлагатай (Railway-ийн баримт).
 4. **Settings > Deploy**:
    - **Pre-deploy Command**: `npm run db:deploy`
@@ -54,7 +56,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 ### 3.3 web
 
-1. Ижил репо, салбар. Нэр: `web`. Variables: `web` хэсэг (`RAILWAY_DOCKERFILE_PATH`, `PORT=8080`, `API_UPSTREAM`).
+1. Ижил репо, салбар. Нэр: `web`. Variables: `web` хэсэг (`PORT=8080`, `API_UPSTREAM`). **Start Command**: `caddy run --config /etc/caddy/Caddyfile --adapter caddyfile` (доорх "Deploy хийхэд олдсон"-ыг үз).
 2. **Settings > Deploy > Healthcheck Path**: `/healthz` (Caddy өөрөө хариулна, api унасан ч web амьд).
 3. **Networking > Generate Domain**. Гарсан домэйнийг `api`-ийн `APP_ORIGIN`-д (`https://${{web.RAILWAY_PUBLIC_DOMAIN}}`) аль хэдийн иш татсан. Хувьсагч өөрчлөгдсөний дараа `api`-г дахин deploy хий.
 4. Хувийн домэйн (жишээ нь `app.pitoo.mn`) холбовол Railway өгсөн DNS бичлэгийг домэйн бүртгэгч дээр нэмнэ.
@@ -98,7 +100,7 @@ docker exec restore-test pg_restore --no-owner -U postgres -d postgres /tmp/b.du
 | Админаар нэвтрэх, нууц үг солих | Амжилттай |
 | Багш бүртгэж, зураг оруулах, дараа нь `api`-г redeploy хийх | Зураг алга болохгүй (volume ажиллаж байна) |
 | `worker` лог | `Worker процесс асав` |
-| `api` лог, нийтийн хуудсаар 5-аас олон хүсэлт (`/api/v1/public/placement-requests`) өөр өөр утаснаас | Зөвхөн нэг IP хязгаарлагдана. Бүх хэрэглэгч нэг дор 429 авбал `TRUST_PROXY` буруу (Railway edge-ийн толгойг би локал дээр л дуурайж шалгасан) |
+| `api` лог, нийтийн хуудсаар 5-аас олон хүсэлт (`/api/v1/public/placement-requests`) өөр өөр утаснаас | 5-аас хойш 429, хуурамч `X-Forwarded-For` толгой нөлөөлөхгүй. Шалгасан: `TRUST_PROXY=3` үед зөв, 2 үед `req.ip` нь Railway edge-ийн хаяг болж rate limit алдаатай |
 | Дараа өдөр `backup` лог | `Илгээлээ: s3://...` |
 | Chrome DevTools > Application > Manifest, Service Workers | Manifest алдаагүй, `sw.js` бүртгэгдсэн |
 
@@ -129,13 +131,24 @@ UPDATE _prisma_migrations SET checksum = '<migration.sql-ийн sha256>'
 WHERE migration_name = '20261021135641_constraints';
 ```
 
-## 8. Мэдэгдэж буй хязгаарлалт
+## 8. Анхны deploy хийхэд олдсон зүйлс (2026.11.18)
 
-Дараах зүйлсийг би deploy хийж **шалгаагүй** (Railway-д юу ч суулгаагүй). Эхний deploy дээр анхаар:
+Эдгээр нь баримтад байхгүй, бодит deploy дээр илэрсэн. Дараагийн удаа үүнийг дагана.
 
-- Railway-ийн Postgres template-ийн хувилбар, `btree_gist` өргөтгөл нээлттэй эсэх (migration `CREATE EXTENSION btree_gist` ажиллуулна). Pre-deploy дээр алдаа гарвал лог дотор харагдана.
-- `RAILWAY_RUN_UID=0` нь Railway-ийн баримтад заасан арга. Волюмд бичих эрхийн алдаа гарвал `api`-ийн лог дотор `EACCES` харагдана.
-- Railway edge `X-Forwarded-For` толгойг хэрхэн бичдэг. Дээрх rate limit шалгалтаар батал.
+- **Railway-ийн автомат service**: GitHub репо холбоход Railway workspace бүрээр service үүсгэж, `npm run dev --workspace=...`, `worker` зэрэг Start Command, Custom Build Command өгдөг. Эдгээрийг Settings-ээс цэвэрлэж, дээрх тодорхой утгаар солих хэрэгтэй. CLI/API-аар `null` өгөхөд цэвэрлэгддэггүй, тодорхой утга (`api-start`) эсвэл хоосон мөр өгнө.
+- **`railway service redeploy`** нь хуучин deploy-ийн тохиргоог (хуучин start command, pre-deploy) дахин ашигладаг. Шинэ тохиргоог хэрэгжүүлэхийн тулд шинэ deploy эхлүүл (GitHub push, эсвэл variable өөрчлөлт).
+- **Pre-deploy** нь shell биш: `&&` бүхий команд хэрэгтэй бол `sh -c '...'`-ээр бүрх. Нэг `npm run db:deploy` бол хэвээр.
+- **TRUST_PROXY=3**: API-д ирэх `X-Forwarded-For` нь `клиент, Railway edge, Railway дотоод` гэсэн 3 хаягтай. Railway edge клиентийн илгээсэн хуурамч толгойг хаядаг. 2 гэж тавибал `req.ip` нь хүн бүрт өөр Railway edge-ийн хаяг болж, rate limit учир дутуу ажилладаг байсан.
+- **Windows (Git Bash)**: `railway volume update --mount-path /data/uploads` дээр Git Bash `/data/uploads`-ыг Windows зам болгодог, `MSYS_NO_PATHCONV=1`-ээр ажиллуул.
+- **Pre-deploy-оор нэг удаагийн ажил** (seed, эрх шалгах) хийхдээ ажлыг дуусмагц pre-deploy-г `npm run db:deploy` болгож буцаа.
+
+## 9. Мэдэгдэж буй хязгаарлалт
+
+Шалгасан ба шалгаагүй зүйлс (2026.11.18-ны анхны deploy):
+
+- **Шалгасан**: Postgres 18.6 дээр `btree_gist` бүхий бүх migration орсон, `pitoo_app` нь `audit_log`, `ledger_entries`-д UPDATE/DELETE хийж чадахгүй (42501), нийтийн хаягаар нэвтрэлт, PWA-ийн толгой, `/health`, worker-ийн асалт, rate limit-ийн жинхэнэ IP.
+
+- **Шалгаагүй**: volume-д зураг бичих (`RAILWAY_RUN_UID=0`). Анхны багш, салбарын зураг оруулахдаа `EACCES` алдаа гарвал `api`-ийн логийг харна, мөн redeploy хийсний дараа зураг үлдсэн эсэхийг шалга.
 - Backup-ийн S3 хэсгийг жинхэнэ bucket-тэй туршаагүй. Хуурамч `aws`-ээр илгээх, 30 хоногийн устгалын логикийг л шалгасан.
 - Image том (api ~1.3 GB): `prisma` болон `tsx` нь devDependency тул бүх хамаарлыг суулгасан. Хурд, хэмжээ асуудал болвол `@pitoo/contracts`-ийг build хийж, зөвхөн production хамаарлыг үлдээх боломжтой.
 - Content-Security-Policy толгой нэмээгүй (Google Fonts, inline style-д нөлөөлж болзошгүй). Хожим нэмэх нь аюулгүй байдлын сайжруулалт.
