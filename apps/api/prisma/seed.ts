@@ -6,27 +6,17 @@ import { Role } from "../src/generated/prisma/client.js";
 const ADMIN_PHONE = process.env.ADMIN_PHONE;
 const ADMIN_TEMP_PASSWORD = process.env.ADMIN_TEMP_PASSWORD;
 
+// Үйлдвэрийн (production) сан дээр demo өгөгдөл ОРОХГҮЙ: зөвхөн админ ба журмын тохиргоо.
+// Demo салбар, хөтөлбөр, жишээ багш (нийтэд мэдэгдэх нууц үгтэй), хуурамч дансны мэдээлэл
+// зөвхөн хөгжүүлэлт, тестийн орчинд үүснэ (D-92).
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
 if (!ADMIN_PHONE || !ADMIN_TEMP_PASSWORD) {
   console.error("ADMIN_PHONE, ADMIN_TEMP_PASSWORD .env-д тохируулагдсан байх ёстой.");
   process.exit(1);
 }
 
-async function main() {
-  // ФБШ-18: bcrypt, cost >= 10.
-  const adminPasswordHash = await bcrypt.hash(ADMIN_TEMP_PASSWORD!, 10);
-
-  const admin = await prisma.user.upsert({
-    where: { phone: ADMIN_PHONE },
-    update: {},
-    create: {
-      role: Role.ADMIN,
-      phone: ADMIN_PHONE,
-      passwordHash: adminPasswordHash,
-      mustChangePassword: true,
-    },
-  });
-  console.log(`Админ: ${admin.phone} (түр нууц үг: .env-ийн ADMIN_TEMP_PASSWORD)`);
-
+async function seedDemoData() {
   // ФШ-07: 2 салбар.
   const branch1 = await prisma.branch.upsert({
     where: { name: "Төв салбар" },
@@ -77,16 +67,51 @@ async function main() {
     return teacher;
   }
 
-  // Аюулгүй байдал: жишээ багш нар репод бичигдсэн нийтэд мэдэгдэх нууц үгтэй (Teacher123!).
-  // Үйлдвэрийн (production) сан дээр хэзээ ч үүсгэхгүй, жинхэнэ багшийг админ UI-аар бүртгэнэ.
-  if (process.env.NODE_ENV === "production") {
-    console.log("NODE_ENV=production: жишээ багш үүсгээгүй.");
+  await ensureTeacher("99112233", "Б.Солонго");
+  await ensureTeacher("99223344", "Д.Эрдэнэ");
+
+  // Хуурамч дансны мэдээлэл: жинхэнэ данс биш. Үйлдвэрт админ жинхэнэ дансыг тохиргооноос оруулна.
+  await prisma.settings.upsert({
+    where: { key: "payment_account" },
+    update: {},
+    create: {
+      key: "payment_account",
+      value: {
+        bankName: "Хаан банк",
+        accountHolder: "Пи тоо ХХК",
+        accountNumber: "5000123456",
+      },
+    },
+  });
+
+  console.log(`Салбар: ${branch1.name}, ${branch2.name}`);
+  console.log(`Хөтөлбөр: ${program1.name}, ${program2.name}`);
+}
+
+async function main() {
+  // ФБШ-18: bcrypt, cost >= 10.
+  const adminPasswordHash = await bcrypt.hash(ADMIN_TEMP_PASSWORD!, 10);
+
+  const admin = await prisma.user.upsert({
+    where: { phone: ADMIN_PHONE },
+    update: {},
+    create: {
+      role: Role.ADMIN,
+      phone: ADMIN_PHONE,
+      passwordHash: adminPasswordHash,
+      mustChangePassword: true,
+    },
+  });
+  console.log(`Админ: ${admin.phone} (түр нууц үг: .env-ийн ADMIN_TEMP_PASSWORD)`);
+
+  if (IS_PRODUCTION) {
+    console.log("NODE_ENV=production: demo салбар, хөтөлбөр, багш, дансны мэдээлэл үүсгээгүй.");
   } else {
-    await ensureTeacher("99112233", "Б.Солонго");
-    await ensureTeacher("99223344", "Д.Эрдэнэ");
+    await seedDemoData();
   }
 
-  // ФШ-09, ФБШ-29: журмын утгууд. Код дотор биш, эндээс уншина.
+  // ФШ-09, ФБШ-29: журмын утгууд. Код дотор биш, эндээс уншина. Эдгээр нь demo биш, системийн
+  // ажиллахад шаардлагатай журмын анхны утга (өөрчлөхдөө админ тохиргооноос засна).
   await prisma.settings.upsert({
     where: { key: "contract_defaults" },
     update: {},
@@ -131,21 +156,7 @@ async function main() {
     update: {},
     create: { key: "weekly_lessons", value: { min: 2, max: 4 } },
   });
-  await prisma.settings.upsert({
-    where: { key: "payment_account" },
-    update: {},
-    create: {
-      key: "payment_account",
-      value: {
-        bankName: "Хаан банк",
-        accountHolder: "Пи тоо ХХК",
-        accountNumber: "5000123456",
-      },
-    },
-  });
 
-  console.log(`Салбар: ${branch1.name}, ${branch2.name}`);
-  console.log(`Хөтөлбөр: ${program1.name}, ${program2.name}`);
   console.log("Seed амжилттай дууслаа.");
 }
 
