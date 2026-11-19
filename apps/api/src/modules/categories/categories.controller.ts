@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
-import { setStudentCategorySchema, teacherCategoryNameSchema } from "@pitoo/contracts";
+import { setStudentCategoriesSchema, teacherCategoryNameSchema } from "@pitoo/contracts";
 import * as service from "./categories.service.js";
 
 const idParamSchema = z.object({ id: z.uuid() });
@@ -26,8 +26,8 @@ export async function deleteCategory(req: Request, res: Response) {
   res.status(204).end();
 }
 
-export async function setStudentCategory(req: Request, res: Response) {
+export async function setStudentCategories(req: Request, res: Response) {
   const { id } = idParamSchema.parse(req.params);
-  const { categoryId } = setStudentCategorySchema.parse(req.body);
-  res.status(200).json(await service.setStudentCategory(req.user!.id, id, categoryId));
+  const { categoryIds } = setStudentCategoriesSchema.parse(req.body);
+  res.status(200).json(await service.setStudentCategories(req.user!.id, id, categoryIds));
 }

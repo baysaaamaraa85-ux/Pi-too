@@ -43,16 +43,16 @@ const call = (method: "get" | "post" | "patch" | "put" | "delete", token: string
   request(app)[method](`/api/v1${path}`).set("Authorization", `Bearer ${token}`).send(body);
 
 describe("D-69 Багшийн өөрийн категори", () => {
-  it("багш категори үүсгэж, нэрийг нь өөрчилж, сурагчаа нэг категорид нэмнэ; нэг сурагч нэг категорид л байна", async () => {
+  it("D-98: багш категори үүсгэж, нэрийг нь өөрчилж, сурагчаа категорид нэмнэ; категорийн жагсаалтыг бүхлээр нь солино", async () => {
     const t = await loginUser(Role.TEACHER);
     const s = await makeStudent(t.userId, "Анхаа");
     const as = await call("post", t.token, "/teacher/categories", { name: "AS" });
     const ib = await call("post", t.token, "/teacher/categories", { name: "IB" });
     expect(as.status).toBe(201);
 
-    expect((await call("put", t.token, `/teacher/students/${s.id}/category`, { categoryId: as.body.id })).status).toBe(200);
-    // Өөр категорид нэмэхэд шилжинэ (давхар ангилахгүй).
-    expect((await call("put", t.token, `/teacher/students/${s.id}/category`, { categoryId: ib.body.id })).status).toBe(200);
+    expect((await call("put", t.token, `/teacher/students/${s.id}/categories`, { categoryIds: [as.body.id] })).status).toBe(200);
+    // Жагсаалтыг бүхлээр нь солино: AS-ийг орхиж IB болгоно.
+    expect((await call("put", t.token, `/teacher/students/${s.id}/categories`, { categoryIds: [ib.body.id] })).status).toBe(200);
     const list = await call("get", t.token, "/teacher/categories");
     expect(list.body.assignments).toEqual([{ studentId: s.id, categoryId: ib.body.id }]);
     const counts = new Map((list.body.categories as { name: string; students: number }[]).map((c) => [c.name, c.students]));
@@ -62,6 +62,32 @@ describe("D-69 Багшийн өөрийн категори", () => {
     const renamed = await call("patch", t.token, `/teacher/categories/${ib.body.id}`, { name: "IB DP" });
     expect(renamed.status).toBe(200);
     expect(renamed.body.name).toBe("IB DP");
+  });
+
+  it("D-98: нэг сурагч 2 категорид байж болно, 3 дахь нь 422, давхардсан категори 422, хоосон жагсаалт ангилаагүй болгоно", async () => {
+    const t = await loginUser(Role.TEACHER);
+    const s = await makeStudent(t.userId, "Хоёр");
+    const [a, b, c] = await Promise.all(
+      ["AS", "IGCSE", "SAT"].map(async (name) => (await call("post", t.token, "/teacher/categories", { name })).body),
+    );
+    const put = (categoryIds: string[]) => call("put", t.token, `/teacher/students/${s.id}/categories`, { categoryIds });
+
+    // Хил утга: 2 категори зөвшөөрөгдөнө.
+    expect((await put([a.id, b.id])).status).toBe(200);
+    const list = await call("get", t.token, "/teacher/categories");
+    expect((list.body.assignments as { categoryId: string }[]).map((x) => x.categoryId).sort()).toEqual([a.id, b.id].sort());
+    const counts = new Map((list.body.categories as { name: string; students: number }[]).map((x) => [x.name, x.students]));
+    expect(counts.get("AS")).toBe(1);
+    expect(counts.get("IGCSE")).toBe(1);
+
+    // Хил утга: 3 категори татгалзагдаж, өмнөх 2 хэвээр үлдэнэ.
+    expect((await put([a.id, b.id, c.id])).status).toBe(422);
+    expect((await put([a.id, a.id])).status).toBe(422);
+    const after = await call("get", t.token, "/teacher/categories");
+    expect(after.body.assignments).toHaveLength(2);
+
+    expect((await put([])).status).toBe(200);
+    expect((await call("get", t.token, "/teacher/categories")).body.assignments).toEqual([]);
   });
 
   it("нэр давхардвал 409, хоосон нэр 422; ижил нэрийг өөр багш ашиглаж болно", async () => {
@@ -79,7 +105,7 @@ describe("D-69 Багшийн өөрийн категори", () => {
     const t = await loginUser(Role.TEACHER);
     const s = await makeStudent(t.userId, "Бат");
     const cat = await call("post", t.token, "/teacher/categories", { name: "SAT" });
-    await call("put", t.token, `/teacher/students/${s.id}/category`, { categoryId: cat.body.id });
+    await call("put", t.token, `/teacher/students/${s.id}/categories`, { categoryIds: [cat.body.id] });
     expect((await call("delete", t.token, `/teacher/categories/${cat.body.id}`)).status).toBe(204);
     const list = await call("get", t.token, "/teacher/categories");
     expect(list.body.categories).toEqual([]);
@@ -97,8 +123,8 @@ describe("D-69 Багшийн өөрийн категори", () => {
 
     expect((await call("patch", mine.token, `/teacher/categories/${theirCat.body.id}`, { name: "Хакер" })).status).toBe(403);
     expect((await call("delete", mine.token, `/teacher/categories/${theirCat.body.id}`)).status).toBe(403);
-    expect((await call("put", mine.token, `/teacher/students/${mineStudent.id}/category`, { categoryId: theirCat.body.id })).status).toBe(403);
-    expect((await call("put", mine.token, `/teacher/students/${theirs.id}/category`, { categoryId: myCat.body.id })).status).toBe(403);
+    expect((await call("put", mine.token, `/teacher/students/${mineStudent.id}/categories`, { categoryIds: [theirCat.body.id] })).status).toBe(403);
+    expect((await call("put", mine.token, `/teacher/students/${theirs.id}/categories`, { categoryIds: [myCat.body.id] })).status).toBe(403);
     // Өөр багшийн жагсаалт харагдахгүй.
     const list = await call("get", mine.token, "/teacher/categories");
     expect((list.body.categories as { name: string }[]).map((c) => c.name)).toEqual(["Миний"]);
@@ -118,8 +144,8 @@ describe("D-69 Багшийн өөрийн категори", () => {
     const b = await makeStudent(t.userId, "Бат");
     await makeStudent(t.userId, "Цэцэг");
     const cat = await call("post", t.token, "/teacher/categories", { name: "IGCSE" });
-    await call("put", t.token, `/teacher/students/${a.id}/category`, { categoryId: cat.body.id });
-    await call("put", t.token, `/teacher/students/${b.id}/category`, { categoryId: cat.body.id });
+    await call("put", t.token, `/teacher/students/${a.id}/categories`, { categoryIds: [cat.body.id] });
+    await call("put", t.token, `/teacher/students/${b.id}/categories`, { categoryIds: [cat.body.id] });
 
     const dash = await call("get", t.token, "/dashboard");
     expect(dash.status).toBe(200);
@@ -127,5 +153,23 @@ describe("D-69 Багшийн өөрийн категори", () => {
       { categoryId: cat.body.id, name: "IGCSE", students: 2 },
       { categoryId: null, name: "Ангилаагүй", students: 1 },
     ]);
+  });
+
+  it("D-98: самбарт 2 категорийн сурагч категори бүрт тоологдоно, ангилаагүй гэж тоологдохгүй", async () => {
+    const t = await loginUser(Role.TEACHER);
+    const a = await makeStudent(t.userId, "Анхаа");
+    await makeStudent(t.userId, "Цэцэг");
+    const as = await call("post", t.token, "/teacher/categories", { name: "AS" });
+    const sat = await call("post", t.token, "/teacher/categories", { name: "SAT" });
+    await call("put", t.token, `/teacher/students/${a.id}/categories`, { categoryIds: [as.body.id, sat.body.id] });
+
+    const dash = await call("get", t.token, "/dashboard");
+    expect(dash.body.categories).toEqual([
+      { categoryId: as.body.id, name: "AS", students: 1 },
+      { categoryId: sat.body.id, name: "SAT", students: 1 },
+      { categoryId: null, name: "Ангилаагүй", students: 1 },
+    ]);
+    // Өвөрмөц сурагчийн тоо (төвд харагдах нийт) 2, категорийн нийлбэр биш.
+    expect(dash.body.stats.students).toBe(2);
   });
 });

@@ -12,4 +12,4 @@ categoriesRouter.get("/teacher/categories", authorize("TEACHER"), controller.lis
 categoriesRouter.post("/teacher/categories", authorize("TEACHER"), controller.createCategory);
 categoriesRouter.patch("/teacher/categories/:id", authorize("TEACHER"), controller.renameCategory);
 categoriesRouter.delete("/teacher/categories/:id", authorize("TEACHER"), controller.deleteCategory);
-categoriesRouter.put("/teacher/students/:id/category", authorize("TEACHER"), controller.setStudentCategory);
+categoriesRouter.put("/teacher/students/:id/categories", authorize("TEACHER"), controller.setStudentCategories);

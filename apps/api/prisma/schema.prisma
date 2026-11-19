@@ -156,7 +156,8 @@ model TeacherCategory {
   @@map("teacher_categories")
 }
 
-// Сурагч багшийн нэг категорид л байна: UNIQUE(teacher_id, student_id).
+// D-98: сурагч нэг багшийн дээд тал нь 2 категорид байна (хязгаарыг categories.service шалгана).
+// Нэг категорид нэг л удаа орно: UNIQUE(category_id, student_id).
 model TeacherCategoryStudent {
   id         String   @id @default(uuid()) @db.Uuid
   teacherId  String   @map("teacher_id") @db.Uuid
@@ -168,7 +169,8 @@ model TeacherCategoryStudent {
   category TeacherCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   student  Student         @relation(fields: [studentId], references: [id], onDelete: Restrict)
 
-  @@unique([teacherId, studentId])
+  @@unique([categoryId, studentId])
+  @@index([teacherId, studentId])
   @@index([categoryId])
   @@map("teacher_category_students")
 }

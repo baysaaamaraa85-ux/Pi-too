@@ -1,4 +1,4 @@
-import type { TeacherCategoriesDto } from "@pitoo/contracts";
+import { MAX_STUDENT_CATEGORIES, type TeacherCategoriesDto } from "@pitoo/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Pencil, Trash2, X } from "lucide-react";
 import * as React from "react";
@@ -6,8 +6,9 @@ import { errorMessage } from "@/features/admin/list-kit";
 import { api } from "@/shared/api-client/client";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
-import { FormError, Select } from "@/shared/ui/field";
+import { FormError } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
+import { cn } from "@/shared/ui/utils";
 
 // D-69: багш зөвхөн өөртөө зориулж сурагчдаа өөрийн нэрлэсэн категориор ангилна (самбарыг цэгцтэй харуулах).
 
@@ -113,6 +114,7 @@ export function CategoryManager() {
       <p className="text-sm font-bold text-foreground-strong">Миний категори</p>
       <p className="mt-0.5 text-xs text-muted">
         Зөвхөн танд харагдана, самбараа цэгцтэй харахад зориулсан. Жишээ нь AS, IGCSE, IB, SAT, ЭЕШ, Хоцрогдол арилгах.
+        Нэг сурагчийг 2 хүртэл категорид нэмж болно.
       </p>
       <form
         className="mt-3 flex flex-wrap items-start gap-2"
@@ -145,36 +147,48 @@ export function CategoryManager() {
   );
 }
 
-// Сурагч бүр дээр: аль нэг категорид нэмнэ (эсвэл ангилаагүй болгоно).
+// D-98: сурагч бүр дээр дээд тал нь 2 категори сонгоно (дахин дарвал хасна). Хоёр сонгосон бол бусад нь түр хаагдана.
 export function StudentCategorySelect({ studentId, studentName }: { studentId: string; studentName: string }) {
   const categories = useTeacherCategories();
   const refresh = useRefreshCategories();
   const set = useMutation({
-    mutationFn: (categoryId: string | null) => api.put(`/teacher/students/${studentId}/category`, { categoryId }),
+    mutationFn: (categoryIds: string[]) => api.put(`/teacher/students/${studentId}/categories`, { categoryIds }),
     onSuccess: refresh,
   });
-  const current = categories.data?.assignments.find((a) => a.studentId === studentId)?.categoryId ?? "";
   if (!categories.data || categories.data.categories.length === 0) return null;
+  const current = categories.data.assignments.filter((a) => a.studentId === studentId).map((a) => a.categoryId);
+  const full = current.length >= MAX_STUDENT_CATEGORIES;
+  const toggle = (id: string) =>
+    set.mutate(current.includes(id) ? current.filter((c) => c !== id) : [...current, id]);
   return (
-    <div className="mt-2.5 flex flex-wrap items-center gap-2">
-      <label htmlFor={`cat-${studentId}`} className="text-[0.8125rem] font-semibold text-muted">
-        Категори
-      </label>
-      <Select
-        id={`cat-${studentId}`}
-        aria-label={`${studentName}: категори`}
-        value={current}
-        disabled={set.isPending}
-        onChange={(e) => set.mutate(e.target.value === "" ? null : e.target.value)}
-        className="h-9 w-44 rounded-lg"
-      >
-        <option value="">Ангилаагүй</option>
-        {categories.data.categories.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name}
-          </option>
-        ))}
-      </Select>
+    <div className="mt-2.5" data-testid="student-categories">
+      <p className="text-[0.8125rem] font-semibold text-muted" id={`cat-${studentId}`}>
+        Категори <span className="font-normal">(дээд тал нь {MAX_STUDENT_CATEGORIES})</span>
+      </p>
+      <div role="group" aria-labelledby={`cat-${studentId}`} className="mt-1.5 flex flex-wrap gap-2">
+        {categories.data.categories.map((c) => {
+          const on = current.includes(c.id);
+          return (
+            <button
+              key={c.id}
+              type="button"
+              aria-pressed={on}
+              aria-label={`${studentName}: ${c.name}`}
+              disabled={set.isPending || (full && !on)}
+              onClick={() => toggle(c.id)}
+              data-testid="student-category-option"
+              className={cn(
+                "inline-flex min-h-9 items-center rounded-full border px-3.5 text-[0.8125rem] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45",
+                on
+                  ? "border-primary bg-primary text-white"
+                  : "border-border-warm bg-background-soft text-foreground-strong hover:border-primary/40",
+              )}
+            >
+              {c.name}
+            </button>
+          );
+        })}
+      </div>
       <FormError message={errorMessage(set.error)} />
     </div>
   );

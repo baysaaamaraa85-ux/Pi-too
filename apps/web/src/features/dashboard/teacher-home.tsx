@@ -223,8 +223,9 @@ function TodayLessons({ lessons, unfilled, now }: { lessons: DashboardLessonDto[
 // ---- Категори: багш сурагчдаа өөрийн нэрлэсэн категориор хуваасан байдал (дугуй цагираг ба шошго).
 const CAT_COLORS = ["#B54848", "#F2AE3A", "#F3F1EE", "#4CC27E", "#CE9F9F"];
 
-function Categories({ categories }: { categories: TeacherCategoryDto[] }) {
-  const total = categories.reduce((s, c) => s + c.students, 0);
+// D-98: сурагч 2 категорид орж болох тул нийт тоо категорийн нийлбэр биш, өвөрмөц сурагчийн тоо (uniqueStudents).
+function Categories({ categories, uniqueStudents }: { categories: TeacherCategoryDto[]; uniqueStudents: number }) {
+  const total = uniqueStudents;
   // Сонгосон категориос бусдыг цагирагт бүдэгрүүлнэ (зөвхөн харагдац, шүүлт биш).
   const [picked, setPicked] = React.useState<string | null>(null);
   const keyOf = (c: TeacherCategoryDto) => c.categoryId ?? "none";
@@ -447,7 +448,7 @@ export function TeacherHome() {
           <SectionHead eyebrow="Ахиц ба ангилал" title="Сурагчид хэр ахиж байна?" />
           <div className="mt-7 grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
             <DarkTrend points={d?.progress ?? []} className="lg:col-span-8" />
-            <Categories categories={d?.categories ?? []} />
+            <Categories categories={d?.categories ?? []} uniqueStudents={d?.stats.students ?? 0} />
           </div>
         </section>
 

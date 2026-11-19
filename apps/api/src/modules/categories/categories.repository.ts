@@ -38,16 +38,18 @@ export function listAssignments(tx: Tx, teacherId: string) {
   });
 }
 
-export function upsertAssignment(tx: Tx, p: { teacherId: string; studentId: string; categoryId: string }) {
-  return tx.teacherCategoryStudent.upsert({
-    where: { teacherId_studentId: { teacherId: p.teacherId, studentId: p.studentId } },
-    update: { categoryId: p.categoryId },
-    create: p,
-  });
+// D-98: сурагчийн категориудыг бүхлээр нь солихын тулд эхлээд тухайн багшийн холбоосыг устгана.
+export function deleteStudentAssignments(tx: Tx, teacherId: string, studentId: string) {
+  return tx.teacherCategoryStudent.deleteMany({ where: { teacherId, studentId } });
 }
 
-export function deleteAssignment(tx: Tx, teacherId: string, studentId: string) {
-  return tx.teacherCategoryStudent.deleteMany({ where: { teacherId, studentId } });
+export function createStudentAssignments(
+  tx: Tx,
+  p: { teacherId: string; studentId: string; categoryIds: string[] },
+) {
+  return tx.teacherCategoryStudent.createMany({
+    data: p.categoryIds.map((categoryId) => ({ teacherId: p.teacherId, studentId: p.studentId, categoryId })),
+  });
 }
 
 // Багшийн одоогийн идэвхтэй сурагчид (идэвхтэй гэрээ, идэвхтэй бүртгэл).

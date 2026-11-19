@@ -1,4 +1,4 @@
-import type { TeacherCategoriesDto, TeacherCategoryDto } from "@pitoo/contracts";
+import { MAX_STUDENT_CATEGORIES, type TeacherCategoriesDto, type TeacherCategoryDto } from "@pitoo/contracts";
 import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../../shared/db/prisma.js";
 import { DomainError } from "../../shared/errors/domain-error.js";
@@ -68,17 +68,28 @@ export async function deleteCategory(teacherId: string, categoryId: string) {
   });
 }
 
-export async function setStudentCategory(teacherId: string, studentId: string, categoryId: string | null) {
+// D-98: сурагчийн категориудыг бүхлээр нь солино, дээд тал нь 2 (хоосон жагсаалт = ангилаагүй).
+// Zod мөн шалгадаг ч эцсийн хамгаалалт энд (сервис API-аас бусдаар дуудагдаж болно).
+export async function setStudentCategories(teacherId: string, studentId: string, categoryIds: string[]) {
+  const unique = [...new Set(categoryIds)];
+  if (unique.length > MAX_STUDENT_CATEGORIES) {
+    reject(
+      409,
+      "too-many-student-categories",
+      "Категорийн тоо хэтэрсэн",
+      `Нэг сурагч дээд тал нь ${MAX_STUDENT_CATEGORIES} категорид байна.`,
+    );
+  }
   if (!(await repo.teacherHasStudent(prisma, teacherId, studentId))) {
     reject(403, "forbidden-student-category", "Эрх хүрэхгүй байна", "Та зөвхөн өөрийн сурагчийг ангилна.");
   }
-  if (categoryId === null) {
-    await repo.deleteAssignment(prisma, teacherId, studentId);
-    return { studentId, categoryId: null };
-  }
-  await ownCategory(teacherId, categoryId);
-  await repo.upsertAssignment(prisma, { teacherId, studentId, categoryId });
-  return { studentId, categoryId };
+  for (const categoryId of unique) await ownCategory(teacherId, categoryId);
+
+  await prisma.$transaction(async (tx) => {
+    await repo.deleteStudentAssignments(tx, teacherId, studentId);
+    if (unique.length > 0) await repo.createStudentAssignments(tx, { teacherId, studentId, categoryIds: unique });
+  });
+  return { studentId, categoryIds: unique };
 }
 
 // Багшийн самбар: категори бүрийн идэвхтэй сурагчийн тоо, ангилаагүй сурагчид "Ангилаагүй" гэж.

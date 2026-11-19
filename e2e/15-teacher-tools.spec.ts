@@ -33,12 +33,25 @@ test("D-69: багш өөрийн категори үүсгэж сурагчаа
   await page.getByRole("button", { name: "Категори нэмэх" }).click();
   await expect(page.getByRole("alert").first()).toContainText("аль хэдийн");
 
-  await page.getByLabel(`${name}: категори`).selectOption({ label: "IGCSE" });
-  await expect(page.getByLabel(`${name}: категори`)).toHaveValue(/.+/);
+  // D-98: нэг сурагч 2 хүртэл категорид орно. Хоёр дахь, гурав дахь категорийг нэмнэ.
+  for (const extra of ["IB", "SAT"]) {
+    await page.getByLabel("Шинэ категорийн нэр").fill(extra);
+    await page.getByRole("button", { name: "Категори нэмэх" }).click();
+    await expect(page.getByTestId("category-chip").filter({ hasText: extra })).toBeVisible();
+  }
+  const option = (label: string) => page.getByRole("button", { name: `${name}: ${label}`, exact: true });
+  await option("IGCSE").click();
+  await expect(option("IGCSE")).toHaveAttribute("aria-pressed", "true");
+  await option("IB").click();
+  await expect(option("IB")).toHaveAttribute("aria-pressed", "true");
+  // 2 категори сонгосон тул гурав дахь нь хаагдана.
+  await expect(option("SAT")).toBeDisabled();
 
   await page.goto("/teacher");
-  await expect(page.getByTestId("category-row")).toHaveCount(1);
-  await expect(page.getByTestId("category-row")).toContainText("IGCSE");
+  await expect(page.getByTestId("category-row")).toHaveCount(2);
+  await expect(page.getByTestId("category-row").filter({ hasText: "IGCSE" })).toBeVisible();
+  await expect(page.getByTestId("category-row").filter({ hasText: "IB" })).toBeVisible();
+  // Сурагч 2 категорид орсон ч нийт тоо давхардахгүй (нэг сурагч).
   await expect(page.getByTestId("category-total")).toHaveText("1");
 });
 
