@@ -95,6 +95,25 @@ export function renderNotification(
         body: `${str(payload.studentName)}: ${str(payload.reason)}`,
         url: `${appOrigin}/portal/payment`,
       };
+    // D-102: мэдэгдэлд хүүхэд, эцэг эхийн мэдээлэл оруулахгүй, хүсэлтийг системээс нээж харна.
+    case "placement_request_new":
+      return {
+        title: "Шинэ түвшин тогтоох хүсэлт",
+        body: `${str(payload.branchName, "Таны салбар")} салбарт түвшин тогтоох цаг захиалсан шинэ хүсэлт ирлээ. Эцэг эхтэй холбогдоно уу.`,
+        url: `${appOrigin}/teacher/placement-requests`,
+      };
+    case "placement_request_forwarded":
+      return {
+        title: "Танд хүсэлт шилжүүлсэн",
+        body: `${str(payload.branchName, "Салбар")}: салбарын ахлагч түвшин тогтоох хүсэлтийг танд шилжүүлсэн. Эцэг эхтэй холбогдоно уу.`,
+        url: `${appOrigin}/teacher/placement-requests`,
+      };
+    case "branch_lead_assigned":
+      return {
+        title: "Салбарын ахлагчаар томилогдлоо",
+        body: `Та "${str(payload.branchName)}" салбарын ахлагч боллоо. Түвшин тогтоох хүсэлтүүд танд очно.`,
+        url: `${appOrigin}/teacher/placement-requests`,
+      };
     case "password_reset":
       return {
         title: "Нууц үг сэргээх",

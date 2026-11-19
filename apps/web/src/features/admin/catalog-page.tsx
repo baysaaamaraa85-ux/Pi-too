@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createBranchSchema, createProgramSchema } from "@pitoo/contracts";
+import { createBranchSchema, createProgramSchema, type Paginated } from "@pitoo/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import { useForm } from "react-hook-form";
@@ -11,13 +11,64 @@ import { formatMoney } from "@/shared/format/money";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
-import { Field, FormError } from "@/shared/ui/field";
+import { Field, FormError, Select } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { PhotoUpload } from "@/shared/ui/photo-upload";
 import { DeleteRecordButton } from "./list-kit";
 
 function errorText(error: unknown) {
   return error instanceof ApiError ? error.problem.detail : error ? "Алдаа гарлаа." : null;
+}
+
+// D-102: салбарын ахлагч. Түвшин тогтоох хүсэлт энэ багшид очно. Зөвхөн тухайн салбарт идэвхтэй анги заадаг багшийг томилно.
+function BranchLeadSelect({ branch, onChanged }: { branch: BranchDto; onChanged: () => Promise<void> }) {
+  const queryClient = useQueryClient();
+  const teachers = useQuery({
+    queryKey: ["teachers", "branch-lead", branch.id],
+    queryFn: () =>
+      api.get<Paginated<{ id: string; fullName: string }>>(
+        `/teachers?page=1&limit=100&branchId=${branch.id}&status=active`,
+      ),
+  });
+  const set = useMutation({
+    mutationFn: (teacherId: string | null) => api.put(`/branches/${branch.id}/lead`, { teacherId }),
+    onSuccess: async () => {
+      await onChanged();
+      await queryClient.invalidateQueries({ queryKey: ["placement-requests"] });
+    },
+  });
+  const options = teachers.data?.items ?? [];
+  const lead = branch.leadTeacher;
+  // Одоогийн ахлагч жагсаалтад байхгүй (жишээ нь ангиа хаасан) бол сонголтоос алга болохгүйн тулд нэмж харуулна.
+  const withCurrent = lead && !options.some((t) => t.id === lead.id) ? [lead, ...options] : options;
+  return (
+    <div className="mt-2 max-w-sm" data-testid="branch-lead">
+      <Field
+        label="Салбарын ахлагч"
+        htmlFor={`b-lead-${branch.id}`}
+        hint={
+          options.length === 0 && teachers.data
+            ? "Энэ салбарт идэвхтэй анги заадаг багш алга"
+            : "Түвшин тогтоох хүсэлт энэ багшид очно"
+        }
+      >
+        <Select
+          id={`b-lead-${branch.id}`}
+          value={lead?.id ?? ""}
+          disabled={set.isPending}
+          onChange={(e) => set.mutate(e.target.value === "" ? null : e.target.value)}
+        >
+          <option value="">Томилоогүй</option>
+          {withCurrent.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.fullName}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <FormError message={errorText(set.error)} />
+    </div>
+  );
 }
 
 // ФШ-78: салбарын нийтийн сайтад харагдах дэлгэрэнгүй (тайлбар, утас, зураг).
@@ -67,6 +118,7 @@ function BranchRow({ branch }: { branch: BranchDto }) {
             {branch.isActive ? null : <span className="ml-2 text-xs font-normal text-muted">Идэвхгүй</span>}
           </p>
           <p className="text-xs text-muted">{branch.address}</p>
+          <BranchLeadSelect branch={branch} onChanged={refresh} />
         </div>
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="secondary" aria-expanded={open} onClick={() => setOpen((v) => !v)}>

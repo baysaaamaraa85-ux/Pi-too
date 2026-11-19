@@ -25,8 +25,14 @@ export function upsertSetting(
 export function listBranches(tx: Tx, includeInactive = false) {
   return tx.branch.findMany({
     where: includeInactive ? {} : { isActive: true },
+    include: { leadTeacher: { select: { userId: true, fullName: true } } },
     orderBy: { name: "asc" },
   });
+}
+
+// D-102: салбарын ахлагчийг бичнэ (null = ахлагчгүй).
+export function setBranchLead(tx: Tx, id: string, leadTeacherId: string | null) {
+  return tx.branch.update({ where: { id }, data: { leadTeacherId } });
 }
 
 export function setBranchActive(tx: Tx, id: string, isActive: boolean) {

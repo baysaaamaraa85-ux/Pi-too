@@ -1,11 +1,12 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { CalendarDays, KeyRound, LayoutGrid, LogOut, Menu, School, Search, UserRound, Users, Wallet, X } from "lucide-react";
+import { CalendarDays, ClipboardList, KeyRound, LayoutGrid, LogOut, Menu, School, Search, UserRound, Users, Wallet, X } from "lucide-react";
 import * as React from "react";
 import { Link, Outlet, useLocation } from "react-router";
 import { useAuth } from "@/features/auth/auth-context";
 import { useTeacherDashboard } from "@/features/dashboard/dashboard-api";
 import { TEACHER_ACTIONS } from "@/features/dashboard/teacher-actions";
 import { useOwnTeacherProfile } from "@/features/public/public-api";
+import { useMyPlacementRequests } from "@/features/teacher/placement-api";
 import { formatDate, formatTime } from "@/shared/format/date";
 import { OfflineBanner } from "@/shared/offline/sync";
 import "@/shared/pt/pt.css";
@@ -44,6 +45,10 @@ export function TeacherShell() {
   const { pathname } = useLocation();
   const dash = useTeacherDashboard().data;
   const profile = useOwnTeacherProfile(user?.id);
+  // D-102: салбарын ахлагч (эсвэл хүсэлт шилжүүлж авсан) багшид "Түвшин тогтоох хүсэлт" холбоос харагдана.
+  const placement = useMyPlacementRequests().data;
+  const hasPlacement = !!placement && (placement.isLead || placement.requests.length > 0);
+  const newPlacement = placement?.requests.filter((r) => r.status === "NEW").length ?? 0;
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [drawer, setDrawer] = React.useState(false);
 
@@ -70,11 +75,22 @@ export function TeacherShell() {
   const palette: PaletteItem[] = [
     ...PAGES.map((p) => ({ group: "Хуудас", label: p.label, icon: p.icon, to: p.to })),
     { group: "Хуудас", label: "Миний профайл", icon: UserRound, to: "/teacher/profile" },
+    ...(hasPlacement ? [{ group: "Хуудас", label: "Түвшин тогтоох хүсэлт", icon: ClipboardList, to: "/teacher/placement-requests" }] : []),
     ...TEACHER_ACTIONS.map((a) => ({ group: "Үйлдэл", label: a.title, icon: a.icon, to: a.to })),
   ];
 
   // Сануулгын хонх: ирц бөглөөгүй хичээл, цагийн үнэлгээгүй сурагч (D-67), уулзалт, багцын шалгалт.
   const bell: BellItem[] = [
+    ...(newPlacement > 0
+      ? [
+          {
+            key: "placement",
+            to: "/teacher/placement-requests",
+            title: `Шинэ түвшин тогтоох хүсэлт: ${newPlacement}`,
+            detail: "Эцэг эхтэй холбогдоно уу",
+          },
+        ]
+      : []),
     ...(dash?.unfilledLessons ?? []).map((l) => ({
       key: `lesson-${l.id}`,
       to: `/teacher/attendance/${l.id}`,
@@ -97,6 +113,12 @@ export function TeacherShell() {
 
   if (!user) return null;
   const active = activeKey(pathname);
+  const isDrawerActive = (key: string) =>
+    key === "profile"
+      ? pathname.startsWith("/teacher/profile")
+      : key === "placement"
+        ? pathname.startsWith("/teacher/placement-requests")
+        : active === key;
   const name = user.displayName ?? "";
 
   return (
@@ -184,15 +206,19 @@ export function TeacherShell() {
               </Dialog.Close>
             </div>
             <nav aria-label="Багшийн бүх цэс" className="flex flex-1 flex-col gap-0.5 overflow-y-auto">
-              {[...PAGES, { key: "profile", to: "/teacher/profile", label: "Миний профайл", icon: UserRound }].map((p) => (
+              {[
+                ...PAGES,
+                ...(hasPlacement ? [{ key: "placement", to: "/teacher/placement-requests", label: "Түвшин тогтоох хүсэлт", icon: ClipboardList }] : []),
+                { key: "profile", to: "/teacher/profile", label: "Миний профайл", icon: UserRound },
+              ].map((p) => (
                 <Link
                   key={p.key}
                   to={p.to}
                   onClick={() => setDrawer(false)}
-                  aria-current={(p.key === "profile" ? pathname.startsWith("/teacher/profile") : active === p.key) ? "page" : undefined}
+                  aria-current={isDrawerActive(p.key) ? "page" : undefined}
                   className={cn(
                     "flex h-11 shrink-0 items-center gap-3 rounded-[14px] px-3 text-[14px] font-medium transition-colors motion-reduce:transition-none",
-                    (p.key === "profile" ? pathname.startsWith("/teacher/profile") : active === p.key)
+                    isDrawerActive(p.key)
                       ? "bg-brand-700 text-white shadow-[0_10px_22px_-10px_rgba(139,26,26,0.7)]"
                       : "text-ink-600 hover:bg-white/80 hover:text-ink-900",
                   )}

@@ -278,6 +278,9 @@ export async function deleteUserWithSatellites(tx: Tx, userId: string) {
 }
 
 export async function deleteTeacherRecords(tx: Tx, userId: string) {
+  // D-102: салбарын ахлагч, хүсэлтийн хариуцагчийн холбоосыг салгана (хүсэлт ба салбар өөрөө үлдэнэ).
+  await tx.branch.updateMany({ where: { leadTeacherId: userId }, data: { leadTeacherId: null } });
+  await tx.placementRequest.updateMany({ where: { assignedTeacherId: userId }, data: { assignedTeacherId: null } });
   await tx.teacherCategoryStudent.deleteMany({ where: { teacherId: userId } });
   await tx.teacherCategory.deleteMany({ where: { teacherId: userId } });
   await tx.teacherRate.deleteMany({ where: { teacherId: userId } });

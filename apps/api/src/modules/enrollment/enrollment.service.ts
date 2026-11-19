@@ -4,7 +4,6 @@ import {
   ContractStatus,
   Prisma,
   Role,
-  type PlacementRequestStatus,
 } from "../../generated/prisma/client.js";
 import { DomainError } from "../../shared/errors/domain-error.js";
 import { notifyUser } from "../../shared/outbox/notify-user.js";
@@ -12,7 +11,6 @@ import { balancesFor, teacherFlag } from "../../shared/payments/payment-status.j
 import { writeAudit } from "../../shared/audit/write-audit.js";
 import { createUserInTx } from "../auth/auth.service.js";
 import {
-  getActiveBranchById,
   getContractDefaults,
   getProgramById,
   getWeeklyLessons,
@@ -513,29 +511,7 @@ export async function resumeContract(
   });
 }
 
-// Нийтийн сайтаас ирсэн түвшин тогтоох цагийн хүсэлт (нэвтрэлтгүй).
-export async function createPlacementRequest(input: {
-  studentName: string;
-  school?: string;
-  grade?: string;
-  phone: string;
-  programInterest?: string;
-  branchId?: string;
-}) {
-  return prisma.$transaction(async (tx) => {
-    if (input.branchId) await getActiveBranchById(tx, input.branchId);
-    const created = await repo.createPlacementRequest(tx, input);
-    return { id: created.id };
-  });
-}
-
-export function listPlacementRequests(status?: PlacementRequestStatus) {
-  return repo.listPlacementRequests(prisma, status);
-}
-
-export function updatePlacementRequest(id: string, status: PlacementRequestStatus, note?: string) {
-  return repo.updatePlacementRequest(prisma, id, { status, note });
-}
+// Түвшин тогтоох хүсэлт placement.service.ts-д (D-102).
 
 // ---------------------------------------------------------------------------
 // Порталын харагдац (эцэг эх, сурагч). Зөвхөн уншдаг, бизнесийн дүрэм агуулахгүй.

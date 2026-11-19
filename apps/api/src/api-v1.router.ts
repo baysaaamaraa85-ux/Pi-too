@@ -6,6 +6,7 @@ import { catalogPublicRouter } from "./modules/catalog/catalog.public.routes.js"
 import { directoryPublicRouter } from "./modules/directory/directory.public.routes.js";
 import { schedulingRouter } from "./modules/scheduling/scheduling.routes.js";
 import { enrollmentRouter } from "./modules/enrollment/enrollment.routes.js";
+import { placementRouter } from "./modules/enrollment/placement.routes.js";
 import { attendanceRouter } from "./modules/attendance/attendance.routes.js";
 import { directoryRouter } from "./modules/directory/directory.routes.js";
 import { payrollRouter } from "./modules/payroll/payroll.routes.js";
@@ -41,4 +42,6 @@ apiV1Router.use(reportsRouter);
 apiV1Router.use(transferRouter);
 // D-69: багшийн өөрийн категори (зөвхөн TEACHER).
 apiV1Router.use(categoriesRouter);
+// D-102: түвшин тогтоох хүсэлт, салбарын ахлагч (enrollmentRouter-ийн ADMIN/TEACHER хаалтаас өмнө, route бүр үүргээ заана).
+apiV1Router.use(placementRouter);
 apiV1Router.use(enrollmentRouter);

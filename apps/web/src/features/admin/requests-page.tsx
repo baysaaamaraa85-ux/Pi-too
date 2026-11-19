@@ -12,7 +12,7 @@ import { Input } from "@/shared/ui/input";
 import { StatusChip, type ChipTone } from "@/shared/ui/status-chip";
 import { cn } from "@/shared/ui/utils";
 
-const STATUSES = Object.keys(PLACEMENT_REQUEST_STATUS_LABELS) as PlacementRequestStatus[];
+export const STATUSES = Object.keys(PLACEMENT_REQUEST_STATUS_LABELS) as PlacementRequestStatus[];
 const TONE: Record<PlacementRequestStatus, ChipTone> = {
   NEW: "warning",
   CONTACTED: "info",
@@ -21,7 +21,9 @@ const TONE: Record<PlacementRequestStatus, ChipTone> = {
   CANCELLED: "neutral",
 };
 
-function RequestCard({ request }: { request: PlacementRequestDto }) {
+// D-102: админ ба багшийн (салбарын ахлагч, хүсэлт шилжүүлж авсан багш) хуудас хоёуланд ижил карт. extra нь картын доод
+// хэсэгт нэмэлт үйлдэл (жишээ нь шилжүүлэх) тавихад.
+export function RequestCard({ request, extra }: { request: PlacementRequestDto; extra?: React.ReactNode }) {
   const queryClient = useQueryClient();
   const [status, setStatus] = React.useState<PlacementRequestStatus>(request.status);
   const [note, setNote] = React.useState(request.note ?? "");
@@ -33,7 +35,7 @@ function RequestCard({ request }: { request: PlacementRequestDto }) {
   const dirty = status !== request.status || note !== (request.note ?? "");
 
   return (
-    <Card className="p-5">
+    <Card className="p-5" data-testid="placement-request">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-display text-lg font-bold text-foreground-strong">
@@ -55,6 +57,9 @@ function RequestCard({ request }: { request: PlacementRequestDto }) {
         {request.branch?.name ?? "Салбар сонгоогүй"}
         {request.programInterest ? ` · ${request.programInterest}` : ""} ·{" "}
         {formatDateTime(request.createdAt)}
+      </p>
+      <p className="mt-1 text-[0.82rem] text-muted" data-testid="placement-assignee">
+        {request.assignedTeacher ? `Хариуцсан багш: ${request.assignedTeacher.fullName}` : "Хариуцсан багш томилогдоогүй"}
       </p>
       <div className="mt-4 grid gap-2.5 sm:grid-cols-[180px_1fr_auto]">
         <Select
@@ -83,11 +88,39 @@ function RequestCard({ request }: { request: PlacementRequestDto }) {
           {save.error instanceof ApiError ? save.error.problem.detail : "Хадгалахад алдаа гарлаа."}
         </p>
       ) : null}
+      {extra}
     </Card>
   );
 }
 
-// Нийтийн сайтаас ирсэн хүсэлтүүд: салбар холбогдож цаг товлоно.
+// Төлвөөр шүүх товчнууд (админ ба багшийн хуудас хоёуланд).
+export function RequestStatusFilter({
+  value,
+  onChange,
+}: {
+  value: PlacementRequestStatus | "ALL";
+  onChange: (next: PlacementRequestStatus | "ALL") => void;
+}) {
+  return (
+    <div className="mb-5 flex flex-wrap gap-2">
+      {(["ALL", ...STATUSES] as const).map((s) => (
+        <button
+          key={s}
+          type="button"
+          onClick={() => onChange(s)}
+          className={cn(
+            "rounded-full border-[1.5px] border-border bg-surface px-4 py-1.5 text-xs font-semibold text-muted transition hover:border-primary hover:text-primary",
+            value === s && "border-primary bg-primary text-primary-foreground hover:text-primary-foreground",
+          )}
+        >
+          {s === "ALL" ? "Бүгд" : PLACEMENT_REQUEST_STATUS_LABELS[s]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Нийтийн сайтаас ирсэн хүсэлтүүд: салбарын ахлагч холбогдож цаг товлоно, админ бүгдийг харна.
 export function AdminRequestsPage() {
   const [filter, setFilter] = React.useState<PlacementRequestStatus | "ALL">("NEW");
   const requests = useQuery({
@@ -99,21 +132,7 @@ export function AdminRequestsPage() {
   return (
     <>
       <PageHeader title="Хүсэлтүүд" subtitle="Түвшин тогтоох цаг захиалсан эцэг эхүүд" />
-      <div className="mb-5 flex flex-wrap gap-2">
-        {(["ALL", ...STATUSES] as const).map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => setFilter(s)}
-            className={cn(
-              "rounded-full border-[1.5px] border-border bg-surface px-4 py-1.5 text-xs font-semibold text-muted transition hover:border-primary hover:text-primary",
-              filter === s && "border-primary bg-primary text-primary-foreground hover:text-primary-foreground",
-            )}
-          >
-            {s === "ALL" ? "Бүгд" : PLACEMENT_REQUEST_STATUS_LABELS[s]}
-          </button>
-        ))}
-      </div>
+      <RequestStatusFilter value={filter} onChange={setFilter} />
       {requests.isLoading ? <p className="text-sm text-muted">Ачаалж байна...</p> : null}
       <div className="grid gap-4">
         {shown.map((r) => (

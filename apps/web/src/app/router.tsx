@@ -43,6 +43,7 @@ const TeacherSchedulePage = lazy(() => import("@/features/schedule/schedule-page
 const TeacherClassesPage = lazy(() => import("@/features/teacher/classes-page").then((m) => ({ default: m.TeacherClassesPage })));
 const TeacherStudentDetailPage = lazy(() => import("@/features/teacher/student-detail-page").then((m) => ({ default: m.TeacherStudentDetailPage })));
 const TeacherStudentsPage = lazy(() => import("@/features/teacher/students-page").then((m) => ({ default: m.TeacherStudentsPage })));
+const TeacherPlacementRequestsPage = lazy(() => import("@/features/teacher/placement-requests-page").then((m) => ({ default: m.TeacherPlacementRequestsPage })));
 const TeacherProfilePage = lazy(() => import("@/features/teacher/profile-page").then((m) => ({ default: m.TeacherProfilePage })));
 const AboutPage = lazy(() => import("@/features/public/about-page").then((m) => ({ default: m.AboutPage })));
 const BranchesPage = lazy(() => import("@/features/public/branches-page").then((m) => ({ default: m.BranchesPage })));
@@ -95,6 +96,7 @@ const router = createBrowserRouter([
           { path: "/teacher/attendance/:lessonId", element: <AttendancePage /> },
           { path: "/teacher/salary", element: <TeacherSalaryPage /> },
           { path: "/teacher/profile", element: <TeacherProfilePage /> },
+          { path: "/teacher/placement-requests", element: <TeacherPlacementRequestsPage /> },
           { path: "/teacher/enroll", element: <EnrollWizardPage mode="teacher" /> },
         ],
       },

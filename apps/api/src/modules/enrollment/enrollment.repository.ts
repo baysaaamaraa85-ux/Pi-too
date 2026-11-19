@@ -3,7 +3,6 @@ import type {
   Prisma,
   AssessmentType,
   ContractStatus,
-  PlacementRequestStatus,
 } from "../../generated/prisma/client.js";
 
 export function searchParentsByPhone(tx: Tx, phone: string) {
@@ -107,36 +106,6 @@ export function closePause(tx: Tx, id: string, endedOn: Date, resumedBy: string)
   return tx.contractPause.update({ where: { id }, data: { endedOn, resumedBy } });
 }
 
-export function createPlacementRequest(
-  tx: Tx,
-  data: {
-    studentName: string;
-    school?: string;
-    grade?: string;
-    phone: string;
-    programInterest?: string;
-    branchId?: string;
-  },
-) {
-  return tx.placementRequest.create({ data });
-}
-
-export function listPlacementRequests(tx: Tx, status?: PlacementRequestStatus) {
-  return tx.placementRequest.findMany({
-    where: status ? { status } : undefined,
-    include: { branch: { select: { id: true, name: true } } },
-    orderBy: { createdAt: "desc" },
-    take: 200,
-  });
-}
-
-export function updatePlacementRequest(
-  tx: Tx,
-  id: string,
-  data: { status: PlacementRequestStatus; note?: string },
-) {
-  return tx.placementRequest.update({ where: { id }, data });
-}
 
 // Порталын харагдац: хэрэглэгчтэй холбоотой сурагчид, тэдний гэрээ, одоогийн анги.
 // PARENT бол parent_students-ээр, STUDENT бол students.user_id-аар холбогдоно.

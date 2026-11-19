@@ -28,6 +28,9 @@ const TEMPLATE_LABELS: Record<string, string> = {
   payment_claim_created: "Шилжүүлгийн мэдэгдэл",
   payment_claim_rejected: "Шилжүүлэг олдсонгүй",
   password_reset: "Нууц үг сэргээх",
+  placement_request_new: "Шинэ түвшин тогтоох хүсэлт",
+  placement_request_forwarded: "Хүсэлт шилжүүлсэн",
+  branch_lead_assigned: "Салбарын ахлагч томилсон",
 };
 
 // ФШ-63: мэдэгдэл бүрийн хүргэлтийн төлөв. Хүргэгдээгүй (алдаатай) мэдэгдлээс админ

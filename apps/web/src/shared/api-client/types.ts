@@ -19,6 +19,8 @@ export interface BranchDto {
   phones: string[];
   photoUrl: string | null;
   isActive: boolean;
+  // D-102: салбарын ахлагч багш (түвшин тогтоох хүсэлт түүнд очно), томилоогүй бол null.
+  leadTeacher: { id: string; fullName: string } | null;
 }
 
 export interface ProgramDto {
@@ -49,18 +51,8 @@ export interface SettingDto {
   value: Record<string, unknown>;
 }
 
-export interface PlacementRequestDto {
-  id: string;
-  studentName: string;
-  school: string | null;
-  grade: string | null;
-  phone: string;
-  programInterest: string | null;
-  status: "NEW" | "CONTACTED" | "SCHEDULED" | "DONE" | "CANCELLED";
-  note: string | null;
-  createdAt: string;
-  branch: { id: string; name: string } | null;
-}
+// D-102: хүсэлтийн хэлбэр contracts-д (админ ба багшийн хуудас хоёулаа ижил), хариуцагч багш (assignedTeacher) орсон.
+export type { PlacementRequestDto } from "@pitoo/contracts";
 
 export interface ParentDto {
   userId: string;

@@ -139,8 +139,18 @@ async function withUniqueNameHandling<T>(name: string, fn: () => Promise<T>): Pr
 }
 
 // ФШ-07
-export function listBranches(includeInactive = false) {
-  return repo.listBranches(prisma, includeInactive);
+// D-102: админд салбарын ахлагч (leadTeacher) хамт харагдана.
+export async function listBranches(includeInactive = false) {
+  const branches = await repo.listBranches(prisma, includeInactive);
+  return branches.map(({ leadTeacher, ...branch }) => ({
+    ...branch,
+    leadTeacher: leadTeacher ? { id: leadTeacher.userId, fullName: leadTeacher.fullName } : null,
+  }));
+}
+
+// D-102: enrollment модуль (placement) салбарын ахлагчийг томилохдоо өөрийн транзакц дотроос дуудна.
+export function setBranchLeadInTx(tx: Tx, id: string, leadTeacherId: string | null) {
+  return repo.setBranchLead(tx, id, leadTeacherId);
 }
 
 export function createBranch(data: repo.BranchData & { name: string; address: string }) {

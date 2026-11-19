@@ -92,6 +92,9 @@ model Teacher {
   user          User            @relation(fields: [userId], references: [id], onDelete: Restrict)
   rates         TeacherRate[]
   contractRates ContractRate[]
+  // D-102: энэ багш салбарын ахлагч эсэх, түүнд хуваарилагдсан түвшин тогтоох хүсэлтүүд.
+  ledBranches               Branch[]           @relation("BranchLead")
+  assignedPlacementRequests PlacementRequest[] @relation("PlacementAssignee")
   categories    TeacherCategory[]
   categoryLinks TeacherCategoryStudent[]
   classes       Class[]
@@ -200,12 +203,16 @@ model Branch {
   photoUrl    String?  @map("photo_url")
   // Идэвхгүй салбар жагсаалт, нийтийн сайт, шинэ анги, хүсэлтэд харагдахгүй (түүх хадгалагдана).
   isActive  Boolean  @default(true) @map("is_active")
+  // D-102: салбарын ахлагч багш (салбар бүрт нэг, админ томилно). Түвшин тогтоох хүсэлт түүнд очно.
+  leadTeacherId String? @map("lead_teacher_id") @db.Uuid
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  leadTeacher       Teacher?           @relation("BranchLead", fields: [leadTeacherId], references: [userId], onDelete: Restrict)
   classes           Class[]
   placementRequests PlacementRequest[]
 
+  @@index([leadTeacherId])
   @@map("branches")
 }
 
@@ -230,12 +237,16 @@ model PlacementRequest {
   branchId        String?                @map("branch_id") @db.Uuid
   status          PlacementRequestStatus @default(NEW)
   note            String?
+  // D-102: хүсэлтийг одоо хариуцаж буй багш. Салбарын ахлагчид анх очиж, ахлагч салбарын өөр багшид шилжүүлж болно.
+  assignedTeacherId String?              @map("assigned_teacher_id") @db.Uuid
   createdAt       DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  branch Branch? @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  branch          Branch?  @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  assignedTeacher Teacher? @relation("PlacementAssignee", fields: [assignedTeacherId], references: [userId], onDelete: Restrict)
 
   @@index([status, createdAt])
+  @@index([assignedTeacherId, status])
   @@map("placement_requests")
 }
 
