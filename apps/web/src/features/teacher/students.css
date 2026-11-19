@@ -1,0 +1,209 @@
+/*
+ * Багшийн "Миний сурагчид" хуудас (D-103): хэрэглэгчийн teacher_students_v2.html загвар.
+ * Өнгө, радиус, сүүдэр загвараас яг авсан. `ts-` угтвартай, `.pt-ui` (багшийн бүрхүүл) дотор л хэрэглэгдэнэ.
+ * Хүрэх талбар 44 px-ээс багагүй (ФБШ-10), хөдөлгөөн prefers-reduced-motion үед унтарна.
+ */
+
+.ts-card {
+  background: #fff;
+  border: 1px solid #e8e1d8;
+  border-radius: 28px;
+  box-shadow:
+    0 1px 2px rgba(23, 23, 23, 0.04),
+    0 8px 24px -14px rgba(23, 23, 23, 0.12);
+}
+
+/* Хуудас ороход мөр бүр бүдэг байснаа тодорно (pt-word-in keyframes pt.css-д) */
+.ts-in {
+  opacity: 0;
+  filter: blur(8px);
+  transform: translateY(14px);
+  animation: pt-word-in 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+/* Шүүлтүүрийн шахмал (chip) */
+.ts-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 9999px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #4f4a45;
+  background: #fff;
+  border: 1px solid #e8e1d8;
+  white-space: nowrap;
+  transition:
+    background 0.2s,
+    color 0.2s,
+    border-color 0.2s;
+}
+.ts-chip:hover {
+  border-color: #ce9f9f;
+  color: #171717;
+}
+.ts-chip[aria-pressed="true"] {
+  background: #171717;
+  color: #fff;
+  border-color: #171717;
+}
+.ts-chip .ts-n {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  background: #f3eee7;
+  color: #6b655f;
+}
+.ts-chip[aria-pressed="true"] .ts-n {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+.ts-chip-dashed {
+  border-style: dashed;
+  color: #8b1a1a;
+}
+.ts-chip-dashed:hover {
+  background: #fbf0f0;
+  border-color: #ce9f9f;
+  color: #8b1a1a;
+}
+
+/* Дэлгэрэнгүй доторх үйлдлийн товч */
+.ts-act {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 14px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #34302c;
+  background: #f9f6f2;
+  transition:
+    background 0.2s,
+    color 0.2s;
+}
+.ts-act:hover {
+  background: #fbf0f0;
+  color: #8b1a1a;
+}
+.ts-act-primary {
+  background: #8b1a1a;
+  color: #fff;
+}
+.ts-act-primary:hover {
+  background: #6b1010;
+  color: #fff;
+}
+
+/* Хуваарийн цагийн шахмал (дарахад шилжүүлэх цонх нээгдэнэ) */
+.ts-slot {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 12px 0 6px;
+  border-radius: 14px;
+  background: #f9f6f2;
+  border: 1px solid transparent;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
+}
+button.ts-slot:hover {
+  background: #fbf0f0;
+  border-color: #e7bdbd;
+}
+button.ts-slot:hover .ts-slot-icon {
+  color: #8b1a1a;
+}
+
+/* Дэлгэрэнгүй: сумаар доош татагдана. Хураасан үед дотор нь фокус авахгүй (visibility), хөдөлгөөн дууссаны дараа нуугдана. */
+.ts-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows 0.4s cubic-bezier(0.2, 0.8, 0.2, 1),
+    visibility 0s 0.4s;
+}
+.ts-body > div {
+  overflow: hidden;
+}
+.ts-stu[data-open="true"] .ts-body {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition:
+    grid-template-rows 0.4s cubic-bezier(0.2, 0.8, 0.2, 1),
+    visibility 0s;
+}
+.ts-stu[data-open="true"] {
+  border-color: #e7bdbd;
+  box-shadow:
+    0 1px 2px rgba(23, 23, 23, 0.04),
+    0 22px 44px -22px rgba(139, 26, 26, 0.35);
+}
+.ts-chev {
+  transition:
+    transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1),
+    background 0.2s,
+    color 0.2s,
+    border-color 0.2s;
+}
+.ts-stu[data-open="true"] .ts-chev {
+  transform: rotate(180deg);
+  background: #8b1a1a;
+  color: #fff;
+  border-color: #8b1a1a;
+}
+
+/* Гурван үндсэн үзүүлэлт: өргөн дэлгэц дээр нэг эгнээнд (багц 2 хувь, чөлөө, төлбөр тус бүр 1 хувь).
+   Tailwind-ийн responsive ангиас үл хамааран тогтвортой байлгахын тулд энд бичив. */
+.ts-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.ts-stats > :first-child {
+  grid-column: span 2;
+}
+@media (min-width: 560px) {
+  .ts-stats {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .ts-stats > :first-child {
+    grid-column: auto;
+  }
+}
+
+/* Төлбөр, төлөвийн шошго (загварын sage, amber) */
+.ts-badge-ok {
+  background: #eaf7ef;
+  color: #126b3a;
+}
+.ts-dot-ok {
+  background: #22a05a;
+}
+.ts-badge-due {
+  background: #fffbeb;
+  color: #c26a05;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ts-in {
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+    animation: none !important;
+  }
+  .ts-body,
+  .ts-chev {
+    transition: none !important;
+  }
+}

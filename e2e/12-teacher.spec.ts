@@ -77,22 +77,24 @@ test("ФШ-18: багш сурагчийн хувийн төлөвлөгөөг �
   await loginTeacher(page, teacher);
   await nav(page).getByRole("link", { name: "Сурагчид" }).click();
   const card = page.getByTestId("student-card").filter({ hasText: name });
-  await card.getByRole("button", { name: "Төлөвлөгөө" }).click();
+  await card.getByRole("button", { name: "Төлөвлөгөө", exact: true }).click();
   await page.getByLabel("Сэдэв 1").fill("Бутархай");
   await page.getByRole("button", { name: "Сэдэв нэмэх" }).click();
   await page.getByLabel("Сэдэв 2").fill("Тэгшитгэл");
   await page.getByRole("dialog").getByRole("button", { name: "Хадгалах" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
-  await card.getByRole("button", { name: "Төлөвлөгөө" }).click();
+  await card.getByRole("button", { name: "Төлөвлөгөө", exact: true }).click();
   await expect(page.getByLabel("Сэдэв 1")).toHaveValue("Бутархай");
   await expect(page.getByLabel("Сэдэв 2")).toHaveValue("Тэгшитгэл");
 });
 
-test("ФШ-03: багш толгойн 'Нууц үг' холбоосоор нууц үгээ сайн дураараа солино", async ({ page, request }) => {
+test("ФШ-03: багш утасны цэсний 'Нууц үг солих' холбоосоор нууц үгээ сайн дураараа солино", async ({ page, request }) => {
   const teacher = await createTeacherWithClasses(request, weekdaysExceptToday(2));
   await loginTeacher(page, teacher);
-  await page.getByRole("link", { name: "Нууц үг" }).click();
+  // Утсан дээр нууц үг, гарах нь "Бүх цэс"-ийн доод хэсэгт (толгойн холбоос зөвхөн өргөн дэлгэцэд).
+  await page.getByRole("button", { name: "Бүх цэс" }).click();
+  await page.getByRole("link", { name: "Нууц үг солих" }).click();
   await expect(page).toHaveURL(/\/change-password$/);
 });
 

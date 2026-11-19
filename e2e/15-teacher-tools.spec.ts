@@ -24,6 +24,8 @@ test("D-69: багш өөрийн категори үүсгэж сурагчаа
   await expect(page.getByTestId("category-row")).toContainText("Ангилаагүй");
 
   await nav(page).getByRole("link", { name: "Сурагчид" }).click();
+  // D-103: категори удирдах хэсэг "Категори" товчоор нээгдэх цонхонд байна.
+  await page.getByTestId("categories-open").click();
   await page.getByLabel("Шинэ категорийн нэр").fill("IGCSE");
   await page.getByRole("button", { name: "Категори нэмэх" }).click();
   await expect(page.getByTestId("category-chip")).toContainText("IGCSE");
@@ -39,13 +41,25 @@ test("D-69: багш өөрийн категори үүсгэж сурагчаа
     await page.getByRole("button", { name: "Категори нэмэх" }).click();
     await expect(page.getByTestId("category-chip").filter({ hasText: extra })).toBeVisible();
   }
-  const option = (label: string) => page.getByRole("button", { name: `${name}: ${label}`, exact: true });
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("category-manager")).toHaveCount(0);
+
+  // Сурагчийн мөрийн ⋮ цэснээс 2 хүртэл категори сонгоно.
+  const card = page.getByTestId("student-card").filter({ hasText: name });
+  await card.getByRole("button", { name: `${name}: категори сонгох` }).click();
+  const option = (label: string) => page.getByRole("menuitemcheckbox", { name: label, exact: true });
   await option("IGCSE").click();
-  await expect(option("IGCSE")).toHaveAttribute("aria-pressed", "true");
+  await expect(option("IGCSE")).toHaveAttribute("aria-checked", "true");
   await option("IB").click();
-  await expect(option("IB")).toHaveAttribute("aria-pressed", "true");
+  await expect(option("IB")).toHaveAttribute("aria-checked", "true");
   // 2 категори сонгосон тул гурав дахь нь хаагдана.
   await expect(option("SAT")).toBeDisabled();
+  // Esc цэсийг хаана.
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("category-menu")).toHaveCount(0);
+  // Мөр дээр сонгосон категориуд гарна.
+  await expect(card).toContainText("IGCSE");
+  await expect(card).toContainText("IB");
 
   await page.goto("/teacher");
   await expect(page.getByTestId("category-row")).toHaveCount(2);

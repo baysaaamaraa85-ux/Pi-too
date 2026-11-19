@@ -373,6 +373,8 @@ export function getPublicOverview() {
       classCapacity: klass.maxCapacity,
       packageHours: contract.totalAcademicHours,
       leaves: contract.defaultLeaves,
+      // ФШ-36: багц дуусахаас 3 ирэлт үлдэх үед (D-103: багшийн сурагчдын жагсаалтад анхааруулга). attendance.record-той ижил босго.
+      packageEndingHours: 3 * contract.academicHoursPerVisit,
       reviewThresholdPercent: assessment.freeReviewThresholdPercent,
     };
   });

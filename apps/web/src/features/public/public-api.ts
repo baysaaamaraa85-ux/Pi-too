@@ -30,6 +30,8 @@ export interface PublicOverview {
   classCapacity: number;
   packageHours: number;
   leaves: number;
+  // ФШ-36: үлдэгдэл энэ цагаас бага болоход "багц дуусах гэж байна" гэж анхааруулна.
+  packageEndingHours: number;
   reviewThresholdPercent: number;
 }
 
