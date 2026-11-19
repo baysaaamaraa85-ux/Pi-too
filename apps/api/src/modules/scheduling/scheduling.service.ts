@@ -1,6 +1,7 @@
 import { prisma, type Tx } from "../../shared/db/prisma.js";
 import { Prisma, Role } from "../../generated/prisma/client.js";
 import { writeAudit } from "../../shared/audit/write-audit.js";
+import type { LessonNotifyAudience } from "@pitoo/contracts";
 import { DomainError } from "../../shared/errors/domain-error.js";
 import { notifyUser } from "../../shared/outbox/notify-user.js";
 import { balancesFor, teacherFlag } from "../../shared/payments/payment-status.js";
@@ -362,8 +363,30 @@ function assertLessonOwnership(lesson: { teacherId: string }, user: { id: string
   }
 }
 
+// ФШ-60 (D-97): хэнд мэдэгдэхийг сонгоно.
+// STUDENTS_AND_PARENTS: өөрийн данстай сурагч бүр, эцэг эх бүр.
+// STUDENTS_ONLY: өөрийн данстай сурагч. Данстай биш сурагчид мэдэгдэл хүрэх
+// боломжгүй тул түүний эцэг эхэд заавал явуулна (мэдэгдэл хэнд ч очихгүй байх
+// тохиолдлоос сэргийлнэ).
+export function pickLessonRecipients(
+  targets: repo.NotificationTarget[],
+  audience: LessonNotifyAudience,
+): string[] {
+  const recipientIds = new Set<string>();
+  for (const target of targets) {
+    if (target.studentUserId) recipientIds.add(target.studentUserId);
+    const parentsNeeded = audience === "STUDENTS_AND_PARENTS" || !target.studentUserId;
+    if (parentsNeeded) for (const parentId of target.parentIds) recipientIds.add(parentId);
+  }
+  return [...recipientIds];
+}
+
 // ФШ-24, 60: хичээл цуцлагдахад мэдэгдэл outbox-д бичигдэнэ (ADR-006).
-export async function cancelLesson(lessonId: string, user: { id: string; role: Role }) {
+export async function cancelLesson(
+  lessonId: string,
+  user: { id: string; role: Role },
+  audience: LessonNotifyAudience = "STUDENTS_AND_PARENTS",
+) {
   return prisma.$transaction(async (tx) => {
     const lesson = await repo.findLessonById(tx, lessonId);
     if (!lesson) lessonNotFound();
@@ -380,8 +403,8 @@ export async function cancelLesson(lessonId: string, user: { id: string; role: R
 
     const updated = await repo.updateLessonStatus(tx, lessonId, { status: "CANCELLED" });
 
-    const recipients = await repo.findNotificationRecipientsForClass(tx, lesson.classId);
-    for (const recipientId of recipients) {
+    const targets = await repo.findNotificationTargetsForClass(tx, lesson.classId);
+    for (const recipientId of pickLessonRecipients(targets, audience)) {
       await notifyUser(tx, recipientId, "lesson_cancelled", {
         lessonId,
         startsAt: lesson.startsAt.toISOString(),
@@ -393,7 +416,7 @@ export async function cancelLesson(lessonId: string, user: { id: string; role: R
       entityId: lessonId,
       action: "CANCEL",
       before: { status: lesson.status },
-      after: { status: "CANCELLED" },
+      after: { status: "CANCELLED", notifyAudience: audience },
       actorId: user.id,
     });
 
@@ -407,6 +430,7 @@ export async function rescheduleLesson(
   user: { id: string; role: Role },
   newStartsAt: Date,
   newEndsAt: Date,
+  audience: LessonNotifyAudience = "STUDENTS_AND_PARENTS",
 ) {
   return prisma.$transaction(async (tx) => {
     const lesson = await repo.findLessonById(tx, lessonId);
@@ -444,8 +468,8 @@ export async function rescheduleLesson(
       throw error;
     }
 
-    const recipients = await repo.findNotificationRecipientsForClass(tx, lesson.classId);
-    for (const recipientId of recipients) {
+    const targets = await repo.findNotificationTargetsForClass(tx, lesson.classId);
+    for (const recipientId of pickLessonRecipients(targets, audience)) {
       await notifyUser(tx, recipientId, "lesson_rescheduled", {
         lessonId,
         startsAt: newStartsAt.toISOString(),
@@ -457,7 +481,7 @@ export async function rescheduleLesson(
       entityId: lessonId,
       action: "RESCHEDULE",
       before: { startsAt: lesson.startsAt.toISOString() },
-      after: { startsAt: newStartsAt.toISOString() },
+      after: { startsAt: newStartsAt.toISOString(), notifyAudience: audience },
       actorId: user.id,
     });
 
@@ -530,6 +554,8 @@ export async function listClassRoster(user: { id: string; role: Role }, classId:
       studentId: e.contract.studentId,
       studentName: e.contract.student.fullName,
       programName: e.contract.program.name,
+      // D-97: багшид сурагчийн сургуулийг харуулна.
+      school: e.contract.student.school,
       paymentFlag: teacherFlag(balances.get(e.contractId)!),
       // Сурагчийн одоо бүртгэлтэй бүх анги: зөөхдөө аль хэдийн бүртгэлтэй ангийг санал болгохгүй.
       classIds: e.contract.enrollments.map((x) => x.classId),

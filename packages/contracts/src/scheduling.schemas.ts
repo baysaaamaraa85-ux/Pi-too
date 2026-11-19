@@ -18,10 +18,22 @@ export const enrollInClassSchema = z.object({
 });
 export type EnrollInClassInput = z.infer<typeof enrollInClassSchema>;
 
-// ФШ-24, 25
+// ФШ-60 (D-97): хичээл цуцлах, шилжүүлэхэд хэнд мэдэгдэх. Анхны утга нь хоёуланд.
+// STUDENTS_ONLY үед өөрийн данстай сурагчид очно, данстай биш сурагчийн эцэг эхэд заавал очно.
+export const lessonNotifyAudienceSchema = z.enum(["STUDENTS_AND_PARENTS", "STUDENTS_ONLY"]);
+export type LessonNotifyAudience = z.infer<typeof lessonNotifyAudienceSchema>;
+
+// ФШ-24, 60
+export const cancelLessonSchema = z.object({
+  audience: lessonNotifyAudienceSchema.default("STUDENTS_AND_PARENTS"),
+});
+export type CancelLessonInput = z.infer<typeof cancelLessonSchema>;
+
+// ФШ-24, 25, 60
 export const rescheduleLessonSchema = z.object({
   startsAt: z.iso.datetime(),
   endsAt: z.iso.datetime(),
+  audience: lessonNotifyAudienceSchema.default("STUDENTS_AND_PARENTS"),
 });
 export type RescheduleLessonInput = z.infer<typeof rescheduleLessonSchema>;
 
@@ -58,6 +70,8 @@ export interface ClassRosterStudentDto {
   studentId: string;
   studentName: string;
   programName: string;
+  // D-97: сурагчийн сургууль (бүртгэлд заагаагүй бол null).
+  school: string | null;
   paymentFlag: "FULL" | "DEBT";
   // Сурагчийн одоо бүртгэлтэй бүх ангийн id (нэг сурагч 2-4 ангид байдаг).
   classIds: string[];

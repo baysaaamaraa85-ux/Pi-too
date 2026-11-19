@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import * as React from "react";
 import { api } from "@/shared/api-client/client";
 import { WEEKDAY_NAMES } from "@/shared/format/date";
+import { weekdayAccent, weekdayCardStyle } from "@/shared/format/weekday-color";
 import { Modal } from "@/shared/ui/modal";
 import { StatusChip } from "@/shared/ui/status-chip";
 import { cn } from "@/shared/ui/utils";
@@ -32,6 +33,10 @@ function RosterModal({ cls, onClose }: { cls: ClassWeekDto; onClose: () => void 
             <span className="min-w-0">
               <span className="block truncate font-semibold text-foreground-strong">{s.studentName}</span>
               <span className="block text-xs text-muted">{s.programName}</span>
+              {/* D-97: сурагчийн сургууль */}
+              <span className="block truncate text-xs text-muted" data-testid="roster-school">
+                {s.school ?? "Сургууль бүртгээгүй"}
+              </span>
             </span>
             <StatusChip tone={s.paymentFlag === "DEBT" ? "warning" : "success"}>
               {s.paymentFlag === "DEBT" ? "Төлөгдөөгүй" : "Төлөгдсөн"}
@@ -50,6 +55,7 @@ export function WeekSchedule() {
   const [open, setOpen] = React.useState<ClassWeekDto | null>(null);
   const byDay = WEEKDAY_NAMES.map((name, i) => ({
     name,
+    weekday: i + 1,
     list: (classes.data ?? []).filter((c) => c.weekday === i + 1),
   }));
 
@@ -67,7 +73,11 @@ export function WeekSchedule() {
         {byDay.map((day) => (
           <section key={day.name} aria-label={day.name} className="min-w-0 rounded-2xl border border-border-warm bg-surface p-3 shadow-soft" data-testid="week-day">
             <h2 className="mb-2 flex items-center justify-between font-display text-base font-bold text-foreground-strong">
-              {day.name}
+              <span className="inline-flex items-center gap-2">
+                {/* D-100: гараг бүр өөр өнгөтэй, ангийн карт ижил өнгөөр тодорно */}
+                <span className="size-3 rounded-full" style={{ backgroundColor: weekdayAccent(day.weekday) }} aria-hidden="true" />
+                {day.name}
+              </span>
               <span className="text-xs font-semibold text-muted">{day.list.length}</span>
             </h2>
             {day.list.length === 0 ? <p className="rounded-xl bg-background-soft px-3 py-4 text-center text-xs text-muted">Анги алга</p> : null}
@@ -80,7 +90,8 @@ export function WeekSchedule() {
                       type="button"
                       onClick={() => setOpen(c)}
                       data-testid="week-class"
-                      className="grid min-h-11 w-full gap-1 rounded-xl border border-primary/15 bg-primary/[0.04] px-3 py-2 text-left transition-colors hover:border-primary/40 hover:bg-primary/8"
+                      style={weekdayCardStyle(c.weekday)}
+                      className="grid min-h-11 w-full gap-1 rounded-xl border px-3 py-2 text-left transition hover:shadow-soft hover:brightness-[0.97]"
                     >
                       <span className="font-bold tabular-nums text-foreground-strong">
                         {c.startTime} - {c.endTime}
@@ -89,8 +100,11 @@ export function WeekSchedule() {
                       <span className="flex items-center gap-2">
                         <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-primary/12" aria-hidden="true">
                           <span
-                            className={cn("block h-full rounded-full", full ? "bg-warning" : "bg-primary")}
-                            style={{ width: `${Math.min(100, (c.enrolled / Math.max(1, c.capacity)) * 100)}%` }}
+                            className={cn("block h-full rounded-full", full && "bg-warning")}
+                            style={{
+                              width: `${Math.min(100, (c.enrolled / Math.max(1, c.capacity)) * 100)}%`,
+                              ...(full ? {} : { backgroundColor: weekdayAccent(c.weekday) }),
+                            }}
                           />
                         </span>
                         <span className="text-xs font-bold tabular-nums text-foreground-strong" data-testid="week-fill">

@@ -118,12 +118,22 @@ export function updateLessonStatus(
   return tx.lesson.update({ where: { id }, data });
 }
 
-// Хичээл цуцлагдах/шилжихэд мэдэгдэх хүлээн авагчдыг олно (сурагч + эцэг эх).
+// Хичээл цуцлагдах/шилжихэд мэдэгдэх боломжит хүмүүсийг сурагч тус бүрээр нь
+// олно: сурагчийн өөрийн данс (байвал) ба эцэг эхүүд. Хэнд явуулахыг service
+// шийднэ (D-97), repository зөвхөн уншина.
 // Зөвхөн уншиж буй, бизнесийн дүрэм давтагдахгүй query тул enrollment
 // модулийн хүснэгтүүдийг энд шууд уншихад хориогүй (CLAUDE.md 6.2-ийн
 // "repository шууд дуудахгүй" дүрэм нь бусад МОДУЛИЙН service/repository
 // файлыг импортлохыг хориглоно, Prisma хүснэгт уншихыг биш).
-export async function findNotificationRecipientsForClass(tx: Tx, classId: string) {
+export interface NotificationTarget {
+  studentUserId: string | null;
+  parentIds: string[];
+}
+
+export async function findNotificationTargetsForClass(
+  tx: Tx,
+  classId: string,
+): Promise<NotificationTarget[]> {
   const enrollments = await tx.enrollment.findMany({
     where: { classId, toDate: null },
     select: { contractId: true },
@@ -135,21 +145,21 @@ export async function findNotificationRecipientsForClass(tx: Tx, classId: string
     where: { id: { in: contractIds } },
     select: { studentId: true },
   });
-  const studentIds = contracts.map((c) => c.studentId);
+  const studentIds = [...new Set(contracts.map((c) => c.studentId))];
   if (studentIds.length === 0) return [];
 
   const [students, parentLinks] = await Promise.all([
-    tx.student.findMany({ where: { id: { in: studentIds } }, select: { userId: true } }),
+    tx.student.findMany({ where: { id: { in: studentIds } }, select: { id: true, userId: true } }),
     tx.parentStudent.findMany({
       where: { studentId: { in: studentIds } },
-      select: { parentId: true },
+      select: { studentId: true, parentId: true },
     }),
   ]);
 
-  const recipientIds = new Set<string>();
-  for (const s of students) if (s.userId) recipientIds.add(s.userId);
-  for (const p of parentLinks) recipientIds.add(p.parentId);
-  return [...recipientIds];
+  return students.map((s) => ({
+    studentUserId: s.userId,
+    parentIds: parentLinks.filter((p) => p.studentId === s.id).map((p) => p.parentId),
+  }));
 }
 
 // GET /lessons-ийн эцэг эх/сурагч шүүлтэд (эрхийн матриц, 6.1): уншилтын

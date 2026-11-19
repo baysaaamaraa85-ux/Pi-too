@@ -8,6 +8,7 @@ import { PageHeader } from "@/app/app-shell";
 import { useAuth } from "@/features/auth/auth-context";
 import { ApiError, api } from "@/shared/api-client/client";
 import { weekdayName, WEEKDAY_NAMES } from "@/shared/format/date";
+import { weekdayAccent, weekdayCardStyle } from "@/shared/format/weekday-color";
 import type { ClassDto } from "@/shared/api-client/types";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -137,8 +138,10 @@ export function TeacherClassesPage() {
           <p className="text-sm text-muted">Анги бүртгэгдээгүй байна.</p>
         ) : null}
         {classes.data?.map((cls) => (
-          <Card key={cls.id} className="p-5">
-            <p className="text-lg font-bold text-foreground-strong">
+          <Card key={cls.id} className="p-5" style={weekdayCardStyle(cls.weekday)} data-testid="class-card">
+            <p className="flex items-center gap-2 text-lg font-bold text-foreground-strong">
+              {/* D-100: гараг бүр өөр өнгөтэй */}
+              <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: weekdayAccent(cls.weekday) }} aria-hidden="true" />
               {weekdayName(cls.weekday)} · {cls.startTime}
             </p>
             <p className="mt-1 text-sm text-muted">

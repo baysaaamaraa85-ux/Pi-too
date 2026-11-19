@@ -17,6 +17,35 @@ function ubLocalToIso(value: string) {
   return new Date(`${value}:00+08:00`).toISOString();
 }
 
+// D-97: хэнд мэдэгдэхийг сонгох. Анхнаасаа эцэг эхэд бас явна (ФШ-60-ийн анхны үйлдэл).
+function NotifyParentsOption({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <div className="mt-3 rounded-xl border border-border-warm bg-background-soft px-3.5 py-3">
+      <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-semibold text-foreground-strong">
+        <input
+          type="checkbox"
+          className="h-5 w-5 accent-primary"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          data-testid="notify-parents"
+        />
+        Эцэг эхэд мөн мэдэгдэл явуулах
+      </label>
+      <p className="mt-1 text-xs leading-relaxed text-muted">
+        {checked
+          ? "Сурагч болон эцэг эх хоёуланд мэдэгдэл очно."
+          : "Зөвхөн сурагчид мэдэгдэл очно. Өөрийн дансгүй сурагчийн эцэг эхэд заавал очно."}
+      </p>
+    </div>
+  );
+}
+
 // ФШ-24, 60: хичээл цуцлах, шилжүүлэх (мөнгө, мэдэгдэлд нөлөөлөх тул баталгаажуулалттай, ФБШ-12).
 export function LessonActions({ lesson }: { lesson: LessonDto }) {
   const queryClient = useQueryClient();
@@ -24,11 +53,13 @@ export function LessonActions({ lesson }: { lesson: LessonDto }) {
   const [rescheduleOpen, setRescheduleOpen] = React.useState(false);
   const [startsAt, setStartsAt] = React.useState("");
   const [endsAt, setEndsAt] = React.useState("");
+  const [notifyParents, setNotifyParents] = React.useState(true);
+  const audience = notifyParents ? "STUDENTS_AND_PARENTS" : "STUDENTS_ONLY";
 
   const onDone = () => void queryClient.invalidateQueries({ queryKey: ["lessons"] });
 
   const cancel = useMutation({
-    mutationFn: () => api.post(`/lessons/${lesson.id}/cancel`),
+    mutationFn: () => api.post(`/lessons/${lesson.id}/cancel`, { audience }),
     onSuccess: () => {
       setConfirmCancel(false);
       onDone();
@@ -40,6 +71,7 @@ export function LessonActions({ lesson }: { lesson: LessonDto }) {
       api.post(`/lessons/${lesson.id}/reschedule`, {
         startsAt: ubLocalToIso(startsAt),
         endsAt: ubLocalToIso(endsAt),
+        audience,
       }),
     onSuccess: () => {
       setRescheduleOpen(false);
@@ -56,6 +88,7 @@ export function LessonActions({ lesson }: { lesson: LessonDto }) {
         size="sm"
         onClick={() => {
           reschedule.reset();
+          setNotifyParents(true);
           setRescheduleOpen(true);
         }}
       >
@@ -66,6 +99,7 @@ export function LessonActions({ lesson }: { lesson: LessonDto }) {
         size="sm"
         onClick={() => {
           cancel.reset();
+          setNotifyParents(true);
           setConfirmCancel(true);
         }}
       >
@@ -77,12 +111,14 @@ export function LessonActions({ lesson }: { lesson: LessonDto }) {
         title="Хичээл цуцлах уу?"
         description={`${
           cancel.error ? errorText(cancel.error) + " " : ""
-        }Хичээлд хамрагдах сурагч, эцэг эхэд мэдэгдэл очно.`}
+        }Хичээлд хамрагдах сурагчдад мэдэгдэл очно.`}
         confirmLabel="Цуцлах"
         busy={cancel.isPending}
         onConfirm={() => cancel.mutate()}
         onClose={() => setConfirmCancel(false)}
-      />
+      >
+        <NotifyParentsOption checked={notifyParents} onChange={setNotifyParents} />
+      </ConfirmDialog>
 
       <Dialog.Root open={rescheduleOpen} onOpenChange={setRescheduleOpen}>
         <Dialog.Portal>
@@ -111,6 +147,7 @@ export function LessonActions({ lesson }: { lesson: LessonDto }) {
                   onChange={(e) => setEndsAt(e.target.value)}
                 />
               </Field>
+              <NotifyParentsOption checked={notifyParents} onChange={setNotifyParents} />
               <FormError message={reschedule.error ? errorText(reschedule.error) : null} />
             </div>
             <div className="mt-6 flex justify-end gap-2">

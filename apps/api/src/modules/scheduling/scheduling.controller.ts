@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import {
   availableClassesQuerySchema,
+  cancelLessonSchema,
   createClassSchema,
   enrollInClassSchema,
   listLessonsQuerySchema,
@@ -63,15 +64,19 @@ export async function listLessons(req: Request, res: Response) {
 
 export async function cancelLesson(req: Request, res: Response) {
   const { id } = idParamSchema.parse(req.params);
-  res.status(200).json(await service.cancelLesson(id, req.user!));
+  // Body байхгүй хүсэлт (хуучин клиент) анхны утгаар (хоёуланд) ажиллана.
+  const { audience } = cancelLessonSchema.parse(req.body ?? {});
+  res.status(200).json(await service.cancelLesson(id, req.user!, audience));
 }
 
 export async function rescheduleLesson(req: Request, res: Response) {
   const { id } = idParamSchema.parse(req.params);
-  const { startsAt, endsAt } = rescheduleLessonSchema.parse(req.body);
+  const { startsAt, endsAt, audience } = rescheduleLessonSchema.parse(req.body);
   res
     .status(200)
-    .json(await service.rescheduleLesson(id, req.user!, new Date(startsAt), new Date(endsAt)));
+    .json(
+      await service.rescheduleLesson(id, req.user!, new Date(startsAt), new Date(endsAt), audience),
+    );
 }
 
 // D-69

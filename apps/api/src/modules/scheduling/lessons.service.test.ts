@@ -244,6 +244,138 @@ describe("М4 Хуваарь: хичээл үүсгэх, цуцлах, шилж�
     expect(outboxRows.length).toBeGreaterThan(0);
   });
 
+  // D-97: сурагч (өөрийн данстай эсэх), нэг эцэг эхтэй, ангид бүртгэлтэй нөхцөл бэлдэнэ.
+  async function enrolledStudentWithParent(
+    classId: string,
+    withOwnAccount: boolean,
+    school?: string,
+  ) {
+    const program = await prisma.program.create({
+      data: { name: `П ${randomUUID().slice(0, 8)}`, currentPrice: "500000.00" },
+    });
+    const phone = () => `n${randomUUID().replace(/-/g, "").slice(0, 10)}`;
+    const parentUser = await prisma.user.create({
+      data: { role: Role.PARENT, phone: phone(), passwordHash: "x" },
+    });
+    await prisma.parent.create({
+      data: { userId: parentUser.id, fullName: "Эцэг эх", phone: parentUser.phone! },
+    });
+    const studentUser = withOwnAccount
+      ? await prisma.user.create({ data: { role: Role.STUDENT, phone: phone(), passwordHash: "x" } })
+      : null;
+    const student = await prisma.student.create({
+      data: { fullName: "Сурагч", userId: studentUser?.id, school },
+    });
+    await prisma.parentStudent.create({ data: { parentId: parentUser.id, studentId: student.id } });
+    const contract = await prisma.contract.create({
+      data: {
+        studentId: student.id,
+        programId: program.id,
+        price: "500000.00",
+        totalHours: 75,
+        remainingHours: 75,
+        leavesLeft: 3,
+        rulesAckAt: new Date(),
+      },
+    });
+    await prisma.enrollment.create({
+      data: { contractId: contract.id, classId, fromDate: new Date("2026-11-01") },
+    });
+    return { parentId: parentUser.id, studentUserId: studentUser?.id ?? null };
+  }
+
+  const outboxCount = (recipientId: string, template: string) =>
+    prisma.notificationOutbox.count({ where: { recipientId, template } });
+
+  it("ФШ-60: audience өгөөгүй (хуучин клиент) бол сурагч ба эцэг эх хоёуланд явна", async () => {
+    const { token } = await loginAsTeacher();
+    const classId = await createClassAs(token, 2, "11:00");
+    const { parentId, studentUserId } = await enrolledStudentWithParent(classId, true);
+    const lesson = await prisma.lesson.findFirstOrThrow({ where: { classId } });
+
+    const res = await request(app)
+      .post(`/api/v1/lessons/${lesson.id}/cancel`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(await outboxCount(studentUserId!, "lesson_cancelled")).toBe(1);
+    expect(await outboxCount(parentId, "lesson_cancelled")).toBe(1);
+  });
+
+  it("ФШ-60: STUDENTS_ONLY үед өөрийн данстай сурагчид явж, эцэг эхэд явахгүй", async () => {
+    const { token } = await loginAsTeacher();
+    const classId = await createClassAs(token, 2, "12:00");
+    const { parentId, studentUserId } = await enrolledStudentWithParent(classId, true);
+    const lesson = await prisma.lesson.findFirstOrThrow({ where: { classId } });
+
+    const res = await request(app)
+      .post(`/api/v1/lessons/${lesson.id}/cancel`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ audience: "STUDENTS_ONLY" });
+    expect(res.status).toBe(200);
+    expect(await outboxCount(studentUserId!, "lesson_cancelled")).toBe(1);
+    expect(await outboxCount(parentId, "lesson_cancelled")).toBe(0);
+
+    const audit = await prisma.auditLog.findFirst({ where: { entity: "lesson", entityId: lesson.id } });
+    expect(audit?.after).toMatchObject({ notifyAudience: "STUDENTS_ONLY" });
+  });
+
+  it("ФШ-60: STUDENTS_ONLY үед өөрийн дансгүй сурагчийн эцэг эхэд заавал явна", async () => {
+    const { token } = await loginAsTeacher();
+    const classId = await createClassAs(token, 2, "13:00");
+    const { parentId } = await enrolledStudentWithParent(classId, false);
+    const lesson = await prisma.lesson.findFirstOrThrow({ where: { classId } });
+
+    const res = await request(app)
+      .post(`/api/v1/lessons/${lesson.id}/cancel`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ audience: "STUDENTS_ONLY" });
+    expect(res.status).toBe(200);
+    expect(await outboxCount(parentId, "lesson_cancelled")).toBe(1);
+  });
+
+  it("ФШ-60: цаг шилжүүлэхэд STUDENTS_ONLY сонголт цуцлахтай ижил ажиллана", async () => {
+    const { token } = await loginAsTeacher();
+    const classId = await createClassAs(token, 2, "14:00");
+    const { parentId, studentUserId } = await enrolledStudentWithParent(classId, true);
+    const lesson = await prisma.lesson.findFirstOrThrow({ where: { classId } });
+
+    const res = await request(app)
+      .post(`/api/v1/lessons/${lesson.id}/reschedule`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        startsAt: "2027-03-02T02:00:00.000Z",
+        endsAt: "2027-03-02T04:00:00.000Z",
+        audience: "STUDENTS_ONLY",
+      });
+    expect(res.status).toBe(200);
+    expect(await outboxCount(studentUserId!, "lesson_rescheduled")).toBe(1);
+    expect(await outboxCount(parentId, "lesson_rescheduled")).toBe(0);
+  });
+
+  it("ФШ-60: audience буруу утгатай бол 422", async () => {
+    const { token } = await loginAsTeacher();
+    const classId = await createClassAs(token, 2, "15:00");
+    const lesson = await prisma.lesson.findFirstOrThrow({ where: { classId } });
+
+    const res = await request(app)
+      .post(`/api/v1/lessons/${lesson.id}/cancel`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ audience: "NOBODY" });
+    expect(res.status).toBe(422);
+  });
+
+  it("D-97: ангийн сурагчдын жагсаалтад сургууль харагдана", async () => {
+    const { token } = await loginAsTeacher();
+    const classId = await createClassAs(token, 2, "16:00");
+    await enrolledStudentWithParent(classId, false, "Тест сургууль");
+
+    const res = await request(app)
+      .get(`/api/v1/classes/${classId}/students`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.students[0].school).toBe("Тест сургууль");
+  });
+
   it("ФШ-25: шилжүүлэхэд багшийн өөр хичээлтэй давхцвал 409", async () => {
     const { token, teacherId } = await loginAsTeacher();
     const classAId = await createClassAs(token, 3, "14:00");

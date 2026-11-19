@@ -102,7 +102,6 @@ export function CommandPalette({
               }
             }}
           />
-          <kbd className="inline-flex h-6 items-center rounded-md bg-paper-2 px-2 text-[10.5px] font-semibold text-ink-500">Esc</kbd>
         </div>
         <ul id="teacher-palette-list" role="listbox" aria-label="Үр дүн" className="max-h-[360px] overflow-y-auto p-2">
           {view.length === 0 ? <li className="py-10 text-center text-[13px] text-ink-500">Илэрц олдсонгүй</li> : null}

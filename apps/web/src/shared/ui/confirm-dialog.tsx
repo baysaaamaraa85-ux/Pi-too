@@ -1,4 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
+import type * as React from "react";
 import { Button } from "./button";
 
 // ФБШ-12: мөнгө, ирц, хуваарьт нөлөөлөх үйлдэл баталгаажуулах цонхтой.
@@ -8,6 +9,7 @@ export function ConfirmDialog({
   description,
   confirmLabel = "Тийм",
   busy,
+  children,
   onConfirm,
   onClose,
 }: {
@@ -16,6 +18,8 @@ export function ConfirmDialog({
   description: string;
   confirmLabel?: string;
   busy?: boolean;
+  // Нэмэлт сонголт (жишээ нь мэдэгдлийн хүлээн авагч) тайлбарын доор гарна.
+  children?: React.ReactNode;
   onConfirm: () => void;
   onClose: () => void;
 }) {
@@ -30,6 +34,7 @@ export function ConfirmDialog({
           <Dialog.Description className="mt-2 text-sm leading-relaxed text-muted">
             {description}
           </Dialog.Description>
+          {children}
           <div className="mt-6 flex justify-end gap-2">
             <Button variant="secondary" size="sm" onClick={onClose} disabled={busy}>
               Болих
