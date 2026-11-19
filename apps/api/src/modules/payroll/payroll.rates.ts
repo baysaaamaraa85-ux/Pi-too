@@ -3,6 +3,8 @@ import type {
   RateProtocolDto,
   RateProtocolRowDto,
   SetContractRateInput,
+  SetContractRatesInput,
+  SetContractRatesResultDto,
   TeacherContractRateDto,
 } from "@pitoo/contracts";
 import { Prisma, Role } from "../../generated/prisma/client.js";
@@ -78,39 +80,69 @@ export async function trueUpContractAllTeachersInTx(tx: Tx, contractId: string, 
   }
 }
 
+// Нэг хүүхдийн цагийн цалинг бичиж, өмнөх бүх хичээлийн цалинг шинэ цалингаар тулгана. Транзакцыг дуудагч нээнэ
+// (нэг хүүхэд, эсвэл D-99 бөөнөөр оруулахад олон хүүхэд нэг транзакцад).
+async function applyContractRateInTx(tx: Tx, actor: Actor, contractId: string, hourlyRate: string) {
+  if (!(await repo.teacherHasContract(tx, actor.id, contractId))) notOwner();
+
+  const before = await repo.findEffectiveContractRate(tx, contractId, actor.id, new Date());
+  const saved = await repo.upsertContractRate(tx, {
+    contractId,
+    teacherId: actor.id,
+    hourlyRate,
+    effectiveFrom: RATE_EPOCH,
+    createdBy: actor.id,
+  });
+  await repo.deleteContractRatesExcept(tx, { contractId, teacherId: actor.id, keepFrom: RATE_EPOCH });
+  await writeAudit(tx, {
+    entity: "contract_rate",
+    entityId: saved.id,
+    action: before ? "UPDATE" : "CREATE",
+    before: before ? { hourlyRate: before.hourlyRate.toFixed(2) } : null,
+    after: { contractId, hourlyRate },
+    actorId: actor.id,
+  });
+
+  return trueUpContractEarningsInTx(tx, {
+    contractId,
+    teacherId: actor.id,
+    createdBy: actor.id,
+    note: "Цагийн цалин өөрчлөгдсөн тул нөхөн бодолт",
+  });
+}
+
 // Багш хүүхэд бүр дээрээ цагийн цалингаа гараар оруулна, хэзээ ч засна. Засвар тухайн хүүхдийн бүх хичээлийн
 // (өмнөх ба дараах) цалинд үйлчилнэ: авах цалин = цалингийн цаг x цагийн цалин.
 export async function setContractRate(actor: Actor, contractId: string, input: SetContractRateInput) {
   if (actor.role !== Role.TEACHER) notOwner();
 
   return prisma.$transaction(async (tx) => {
-    if (!(await repo.teacherHasContract(tx, actor.id, contractId))) notOwner();
-
-    const before = await repo.findEffectiveContractRate(tx, contractId, actor.id, new Date());
-    const saved = await repo.upsertContractRate(tx, {
-      contractId,
-      teacherId: actor.id,
-      hourlyRate: input.hourlyRate,
-      effectiveFrom: RATE_EPOCH,
-      createdBy: actor.id,
-    });
-    await repo.deleteContractRatesExcept(tx, { contractId, teacherId: actor.id, keepFrom: RATE_EPOCH });
-    await writeAudit(tx, {
-      entity: "contract_rate",
-      entityId: saved.id,
-      action: before ? "UPDATE" : "CREATE",
-      before: before ? { hourlyRate: before.hourlyRate.toFixed(2) } : null,
-      after: { contractId, hourlyRate: input.hourlyRate },
-      actorId: actor.id,
-    });
-
-    const adjusted = await trueUpContractEarningsInTx(tx, {
-      contractId,
-      teacherId: actor.id,
-      createdBy: actor.id,
-      note: "Цагийн цалин өөрчлөгдсөн тул нөхөн бодолт",
-    });
+    const adjusted = await applyContractRateInTx(tx, actor, contractId, input.hourlyRate);
     return { contractId, hourlyRate: input.hourlyRate, adjusted };
+  });
+}
+
+// D-99: багш бүх идэвхтэй хүүхдийнхээ цагийн цалинг нэг дор хадгална. НЭГ транзакц: аль нэг хүүхэд өөрийнх биш бол
+// (403) эсвэл алдаа гарвал юу ч хадгалагдахгүй. Өмнөхөөсөө ялгаагүй утгыг дахин бичихгүй (аудит, нөхөн бодолт шаардлагагүй).
+// Хүүхэд бүрийн цалин өөрийнх нь цагийн цалингаар бодогдоно (applyContractRateInTx дотор).
+export async function setContractRates(
+  actor: Actor,
+  input: SetContractRatesInput,
+): Promise<SetContractRatesResultDto> {
+  if (actor.role !== Role.TEACHER) notOwner();
+
+  return prisma.$transaction(async (tx) => {
+    let updated = 0;
+    let adjusted = 0;
+    for (const row of input.rates) {
+      // Эзэмшлийг эхлээд шалгана: ялгаагүй утгатай мөр ч бусдын гэрээ байж болохгүй (BOLA).
+      if (!(await repo.teacherHasContract(tx, actor.id, row.contractId))) notOwner();
+      const current = await repo.findEffectiveContractRate(tx, row.contractId, actor.id, new Date());
+      if (current && current.hourlyRate.equals(new Prisma.Decimal(row.hourlyRate))) continue;
+      adjusted += await applyContractRateInTx(tx, actor, row.contractId, row.hourlyRate);
+      updated += 1;
+    }
+    return { updated, adjusted };
   });
 }
 

@@ -153,6 +153,31 @@ test("ФШ-58, D-68: багш цалингаа сурагч бүрээр хар�
   await logout(page);
 });
 
+test("D-99: багш бүх хүүхдийн цагийн цалинг нэг цонхонд оруулж хадгалахад хүүхэд бүрийн цалин өөрийнх нь цалингаар бодогдоно", async ({ page, request }) => {
+  const { teacher, lessonId, enrolled } = await setup(request, 2);
+  await saveViaApi(request, teacher.token, lessonId, enrolled.map((e) => ({ contractId: e.contractId, present: true })));
+
+  await login(page, teacher.phone, teacher.password);
+  await expect(page).toHaveURL(/\/teacher$/);
+  await page.getByRole("navigation", { name: "Багшийн цэс" }).getByRole("link", { name: "Цалин" }).click();
+
+  await page.getByTestId("bulk-rate-open").click();
+  await expect(page.getByTestId("bulk-rate-row")).toHaveCount(2);
+  // Өөрчлөлтгүй үед хадгалах боломжгүй.
+  await expect(page.getByTestId("bulk-rate-save")).toBeDisabled();
+  await page.getByLabel(`${enrolled[0]!.name}: цагийн цалин`).fill("7500");
+  await page.getByLabel(`${enrolled[1]!.name}: цагийн цалин`).fill("6000");
+  await expect(page.getByTestId("bulk-rate-count")).toContainText("2 хүүхдийн");
+  await page.getByTestId("bulk-rate-save").click();
+
+  await expect(page.getByTestId("bulk-rate-saved")).toContainText("2 хүүхдийн цагийн цалин хадгалагдлаа");
+  // 2 цагийн хичээл: 7 500 x 2 = 15 000, 6 000 x 2 = 12 000.
+  const earned = (n: string) => page.getByTestId("salary-student").filter({ hasText: n }).getByTestId("salary-earned");
+  await expect(earned(enrolled[0]!.name)).toContainText("15 000 ₮");
+  await expect(earned(enrolled[1]!.name)).toContainText("12 000 ₮");
+  await logout(page);
+});
+
 test("D-68: багш төлөгдөөгүй хүүхдийн эцэг эхэд мэдэгдэл илгээнэ, өдөрт нэг удаа", async ({ page, request }) => {
   const { teacher, enrolled } = await setup(request, 1);
   await login(page, teacher.phone, teacher.password);

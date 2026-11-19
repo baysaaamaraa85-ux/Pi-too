@@ -1,4 +1,9 @@
-import { ATTENDANCE_STATUS_LABELS, type AttendanceStatus, type StudentPayrollRowDto } from "@pitoo/contracts";
+import {
+  ATTENDANCE_STATUS_LABELS,
+  type AttendanceStatus,
+  type SetContractRatesResultDto,
+  type StudentPayrollRowDto,
+} from "@pitoo/contracts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import { Link } from "react-router";
@@ -14,6 +19,7 @@ import { Input } from "@/shared/ui/input";
 import { Modal } from "@/shared/ui/modal";
 import { AttendanceStatusChip, StatusChip } from "@/shared/ui/status-chip";
 import { cn } from "@/shared/ui/utils";
+import { BulkRatesModal } from "./bulk-rates-modal";
 import { BalanceCards } from "./payroll-parts";
 import { useLedger, useMyStudentsPayroll, useStudentEntries, type LedgerFilters, type PayrollPeriod } from "./payroll-api";
 
@@ -199,6 +205,8 @@ export function TeacherSalaryPage() {
   const ledger = useLedger({ page: 1, from: filters.from, to: filters.to });
   const students = useMyStudentsPayroll(period);
   const [open, setOpen] = React.useState<StudentPayrollRowDto | null>(null);
+  const [bulkOpen, setBulkOpen] = React.useState(false);
+  const [bulkResult, setBulkResult] = React.useState<SetContractRatesResultDto | null>(null);
   const all = students.data?.rows ?? [];
   const rows = all.filter((r) => r.contractStatus !== "COMPLETED");
   const completedRows = all.filter((r) => r.contractStatus === "COMPLETED");
@@ -208,7 +216,8 @@ export function TeacherSalaryPage() {
       <PageHeader title="Миний цалин" subtitle="Олсон цалин, олгосон мөнгө, үлдэгдэл" />
       <BalanceCards summary={ledger.data?.summary} />
 
-      <div className="mb-4 grid max-w-md grid-cols-2 gap-3">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+      <div className="grid max-w-md flex-1 grid-cols-2 gap-3">
         <Field label="Эхлэх огноо" htmlFor="ts-from">
           <Input
             id="ts-from"
@@ -226,6 +235,20 @@ export function TeacherSalaryPage() {
           />
         </Field>
       </div>
+        {/* D-99: бүх идэвхтэй хүүхдийн цагийн цалинг нэг цонхонд оруулна. */}
+        <Button type="button" disabled={rows.length === 0} onClick={() => setBulkOpen(true)} data-testid="bulk-rate-open">
+          Бүх хүүхдийн цагийн цалин оруулах
+        </Button>
+      </div>
+      {bulkResult ? (
+        <p role="status" className="mb-4 text-sm font-semibold text-success" data-testid="bulk-rate-saved">
+          {bulkResult.updated > 0
+            ? `${bulkResult.updated} хүүхдийн цагийн цалин хадгалагдлаа.${
+                bulkResult.adjusted > 0 ? ` Өмнөх ${bulkResult.adjusted} хичээлийн цалин шинэ цалингаар дахин бодогдлоо.` : ""
+              }`
+            : "Өөрчлөлт байгаагүй тул юу ч өөрчлөгдсөнгүй."}
+        </p>
+      ) : null}
 
       {students.isLoading ? <p className="text-sm text-muted">Ачаалж байна...</p> : null}
       {students.data && rows.length === 0 ? (
@@ -256,6 +279,13 @@ export function TeacherSalaryPage() {
         </section>
       ) : null}
       {open ? <EntriesModal row={open} period={period} onClose={() => setOpen(null)} /> : null}
+      {bulkOpen ? (
+        <BulkRatesModal
+          rows={rows}
+          onClose={() => setBulkOpen(false)}
+          onSaved={(result) => setBulkResult(result)}
+        />
+      ) : null}
     </>
   );
 }

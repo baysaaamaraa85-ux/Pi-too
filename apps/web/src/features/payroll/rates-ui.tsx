@@ -16,12 +16,12 @@ import { Field, FormError, Select } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { StatusChip } from "@/shared/ui/status-chip";
 
-// "40000" -> "40000.00". API мөнгийг "40000.00" хэлбэрээр шаарддаг (ФБШ-02).
-function toMoney(input: string): string {
-  const v = input.replace(/[\s,]/g, "");
-  return v.includes(".") ? v : `${v}.00`;
+// "40000" -> "40000.00", "40000.5" -> "40000.50". API мөнгийг яг 2 орноор шаарддаг (ФБШ-02).
+export function toMoney(input: string): string {
+  const [whole = "", fraction = ""] = input.replace(/[\s,]/g, "").split(".");
+  return `${whole}.${fraction.padEnd(2, "0")}`;
 }
-const MONEY_INPUT = /^\d+(\.\d{1,2})?$/;
+export const MONEY_INPUT = /^\d+(\.\d{1,2})?$/;
 
 export function useMyRates(enabled = true) {
   return useQuery({

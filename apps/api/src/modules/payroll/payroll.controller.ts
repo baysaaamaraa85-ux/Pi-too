@@ -7,6 +7,7 @@ import {
   payrollSummaryQuerySchema,
   rateProtocolQuerySchema,
   setContractRateSchema,
+  setContractRatesSchema,
 } from "@pitoo/contracts";
 import { z } from "zod";
 import { DomainError } from "../../shared/errors/domain-error.js";
@@ -60,6 +61,12 @@ export async function setContractRate(req: Request, res: Response) {
   const { id } = z.object({ id: z.uuid() }).parse(req.params);
   const input = setContractRateSchema.parse(req.body);
   res.status(200).json(await rates.setContractRate(req.user!, id, input));
+}
+
+// D-99
+export async function setContractRates(req: Request, res: Response) {
+  const input = setContractRatesSchema.parse(req.body);
+  res.status(200).json(await rates.setContractRates(req.user!, input));
 }
 
 export async function getRateProtocol(req: Request, res: Response) {

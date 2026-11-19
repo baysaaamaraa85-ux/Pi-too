@@ -16,6 +16,8 @@ payrollRouter.get("/reports/payroll", authorize("ADMIN"), controller.exportRepor
 // D-67: багш хүүхэд тус бүр дээрээ цагийн үнэлгээгээ оруулна (өөрийн ангийн сурагч), захирал протоколоор тулгана.
 payrollRouter.get("/payroll/my-rates", authorize("TEACHER"), controller.listMyRates);
 payrollRouter.put("/contracts/:id/rate", authorize("TEACHER"), controller.setContractRate);
+// D-99: бүх хүүхдийн цагийн цалинг нэг дор (нэг транзакц).
+payrollRouter.put("/payroll/my-rates", authorize("TEACHER"), controller.setContractRates);
 payrollRouter.get("/payroll/rate-protocol", authorize("ADMIN"), controller.getRateProtocol);
 
 // D-68: багшийн цалин сурагч бүрээр ба "орсон цаг" дээр дарахад хичээл бүрийн дэлгэрэнгүй.

@@ -86,6 +86,24 @@ export const setContractRateSchema = z.object({
 });
 export type SetContractRateInput = z.infer<typeof setContractRateSchema>;
 
+// D-99: багш бүх идэвхтэй хүүхдийнхээ цагийн цалинг нэг дор оруулж хадгална (нэг транзакц: нэг нь алдвал бүгд буцна).
+// Давхардсан гэрээ орвуулж болохгүй (сүүлийнх нь нууцаар давамгайлахаас сэргийлнэ).
+export const MAX_BULK_RATES = 200;
+export const setContractRatesSchema = z.object({
+  rates: z
+    .array(z.object({ contractId: z.uuid(), hourlyRate: moneySchema }))
+    .min(1, "Хадгалах цагийн цалин алга")
+    .max(MAX_BULK_RATES)
+    .refine((rows) => new Set(rows.map((r) => r.contractId)).size === rows.length, "Нэг хүүхдийг давтан оруулах боломжгүй"),
+});
+export type SetContractRatesInput = z.infer<typeof setContractRatesSchema>;
+export interface SetContractRatesResultDto {
+  // Бодитоор өөрчлөгдсөн (өмнөхөөсөө өөр) хүүхдийн тоо.
+  updated: number;
+  // Нөхөн бодогдсон өмнөх хичээлийн (ирцийн) тоо.
+  adjusted: number;
+}
+
 // D-67: ах дүүгийн хөнгөлөлтийн хувь, "10.00" хэлбэр (0.00-100.00).
 export const discountPercentSchema = z
   .string()

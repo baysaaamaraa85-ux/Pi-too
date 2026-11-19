@@ -370,3 +370,96 @@ describe("D-67 Багшийн өөрийн үнэлгээний жагсаалт
     expect(adminDenied.status).toBe(403);
   });
 });
+
+const putRates = (token: string, rates: { contractId: string; hourlyRate: string }[]) =>
+  request(app).put("/api/v1/payroll/my-rates").set("Authorization", `Bearer ${token}`).send({ rates });
+
+describe("D-99 Бүх хүүхдийн цагийн цалинг нэг дор оруулах", () => {
+  it("хүүхэд бүрийн цалин өөрийнх нь цагийн цалингаар бодогдоно: 40 000 x 2 = 80 000, 60 000 x 2 = 120 000", async () => {
+    const s = await setup();
+    const program = await makeProgram();
+    const a = await enroll(s.cls.id, program.id, "Анхаа");
+    const b = await enroll(s.cls.id, program.id, "Бат");
+    // Үнэлгээгүй байхад ирц бүртгэнэ (0 ₮), дараа нь бөөнөөр оруулахад нөхөн бодогдоно.
+    expect((await markPresent(s.teacher.token, s.lesson.id, [a.contract.id, b.contract.id])).status).toBe(200);
+    expect(await earnedFor(s.lesson.id)).toBe(0);
+
+    const res = await putRates(s.teacher.token, [
+      { contractId: a.contract.id, hourlyRate: "40000.00" },
+      { contractId: b.contract.id, hourlyRate: "60000.00" },
+    ]);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ updated: 2, adjusted: 2 });
+
+    const rows = await prisma.ledgerEntry.findMany({ where: { lessonId: s.lesson.id }, include: { attendance: true } });
+    const byContract = new Map<string, number>();
+    for (const r of rows) {
+      const id = r.attendance!.contractId;
+      byContract.set(id, (byContract.get(id) ?? 0) + r.amount.toNumber());
+    }
+    expect(byContract.get(a.contract.id)).toBe(80000);
+    expect(byContract.get(b.contract.id)).toBe(120000);
+    expect(await prisma.contractRate.count({ where: { contractId: { in: [a.contract.id, b.contract.id] } } })).toBe(2);
+  });
+
+  it("өмнөхөөсөө ялгаагүй утгыг дахин бичихгүй: updated 0, аудит нэмэгдэхгүй", async () => {
+    const s = await setup();
+    const a = await enroll(s.cls.id, (await makeProgram()).id);
+    const b = await enroll(s.cls.id, (await makeProgram()).id);
+    await putRates(s.teacher.token, [
+      { contractId: a.contract.id, hourlyRate: "40000.00" },
+      { contractId: b.contract.id, hourlyRate: "50000.00" },
+    ]);
+    const auditBefore = await prisma.auditLog.count({ where: { entity: "contract_rate" } });
+
+    const same = await putRates(s.teacher.token, [
+      { contractId: a.contract.id, hourlyRate: "40000.00" },
+      { contractId: b.contract.id, hourlyRate: "50000.00" },
+    ]);
+    expect(same.body).toEqual({ updated: 0, adjusted: 0 });
+    expect(await prisma.auditLog.count({ where: { entity: "contract_rate" } })).toBe(auditBefore);
+
+    // Хил утга: зөвхөн нэг нь өөрчлөгдвөл updated 1.
+    const one = await putRates(s.teacher.token, [
+      { contractId: a.contract.id, hourlyRate: "40000.00" },
+      { contractId: b.contract.id, hourlyRate: "55000.00" },
+    ]);
+    expect(one.body.updated).toBe(1);
+  });
+
+  it("BOLA ба атомар: жагсаалтад өөр багшийн хүүхэд байвал 403 бөгөөд өөрийн хүүхдийнх ч хадгалагдахгүй", async () => {
+    const mine = await setup();
+    const other = await setup();
+    const mineContract = await enroll(mine.cls.id, (await makeProgram()).id);
+    const theirContract = await enroll(other.cls.id, (await makeProgram()).id);
+
+    const res = await putRates(mine.teacher.token, [
+      { contractId: mineContract.contract.id, hourlyRate: "40000.00" },
+      { contractId: theirContract.contract.id, hourlyRate: "40000.00" },
+    ]);
+    expect(res.status).toBe(403);
+    expect(await prisma.contractRate.count({ where: { contractId: mineContract.contract.id } })).toBe(0);
+    expect(await prisma.contractRate.count({ where: { contractId: theirContract.contract.id } })).toBe(0);
+  });
+
+  it("зөвхөн багш: админ 403, нэвтрээгүй 401; хоосон жагсаалт, давхардсан хүүхэд, буруу мөнгө 422", async () => {
+    const s = await setup();
+    const c = await enroll(s.cls.id, (await makeProgram()).id);
+    const admin = await loginUser(Role.ADMIN);
+    expect((await putRates(admin.token, [{ contractId: c.contract.id, hourlyRate: "40000.00" }])).status).toBe(403);
+    const anon = await request(app).put("/api/v1/payroll/my-rates").send({ rates: [] });
+    expect(anon.status).toBe(401);
+
+    expect((await putRates(s.teacher.token, [])).status).toBe(422);
+    expect(
+      (
+        await putRates(s.teacher.token, [
+          { contractId: c.contract.id, hourlyRate: "40000.00" },
+          { contractId: c.contract.id, hourlyRate: "50000.00" },
+        ])
+      ).status,
+    ).toBe(422);
+    expect((await putRates(s.teacher.token, [{ contractId: c.contract.id, hourlyRate: "40000" }])).status).toBe(422);
+    expect(await prisma.contractRate.count({ where: { contractId: c.contract.id } })).toBe(0);
+  });
+});
