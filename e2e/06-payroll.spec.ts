@@ -143,12 +143,11 @@ test("ФШ-58, D-68: багш цалингаа сурагч бүрээр хар�
   await expect(page.getByTestId("entry-amount")).toHaveText("10 000 ₮");
   await page.keyboard.press("Escape");
 
-  // Цагийн цалинг засахад (хүүхдийн хуудаснаас) авах цалин шинэчлэгдэнэ.
-  await first.getByRole("link", { name: "Цагийн цалинг засах" }).click();
-  await page.locator('input[id^="rate-"]').fill("7500");
-  await page.getByTestId("contract-rate").getByRole("button", { name: "Хадгалах" }).click();
-  await expect(page.getByTestId("contract-rate-saved")).toBeVisible();
-  await page.getByRole("navigation", { name: "Багшийн цэс" }).getByRole("link", { name: "Цалин" }).click();
+  // D-104: цагийн цалинг мөр дээрх харандаагаар цонхонд засахад авах цалин шинэчлэгдэнэ.
+  await first.getByRole("button", { name: "цагийн цалин засах" }).click();
+  await page.getByLabel("1 цагийн цалин (₮)").fill("7500");
+  await page.getByTestId("rate-save").click();
+  await expect(page.getByTestId("rate-saved")).toContainText("цагийн цалин хадгалагдлаа");
   await expect(page.getByTestId("salary-student").filter({ hasText: enrolled[0]!.name }).getByTestId("salary-earned")).toContainText("15 000 ₮");
   await logout(page);
 });
@@ -165,8 +164,8 @@ test("D-99: багш бүх хүүхдийн цагийн цалинг нэг ц
   await expect(page.getByTestId("bulk-rate-row")).toHaveCount(2);
   // Өөрчлөлтгүй үед хадгалах боломжгүй.
   await expect(page.getByTestId("bulk-rate-save")).toBeDisabled();
-  await page.getByLabel(`${enrolled[0]!.name}: цагийн цалин`).fill("7500");
-  await page.getByLabel(`${enrolled[1]!.name}: цагийн цалин`).fill("6000");
+  await page.getByLabel(`${enrolled[0]!.name}: цагийн цалин`, { exact: true }).fill("7500");
+  await page.getByLabel(`${enrolled[1]!.name}: цагийн цалин`, { exact: true }).fill("6000");
   await expect(page.getByTestId("bulk-rate-count")).toContainText("2 хүүхдийн");
   await page.getByTestId("bulk-rate-save").click();
 

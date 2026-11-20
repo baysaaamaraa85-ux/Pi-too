@@ -4,50 +4,25 @@ import {
   type SetContractRatesResultDto,
   type StudentPayrollRowDto,
 } from "@pitoo/contracts";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { ListPlus } from "lucide-react";
 import * as React from "react";
-import { Link } from "react-router";
-import { PageHeader } from "@/app/app-shell";
-import { errorMessage } from "@/features/admin/list-kit";
-import { api } from "@/shared/api-client/client";
-import { formatDate } from "@/shared/format/date";
+import { localDateKey } from "@/shared/format/date";
 import { formatMoney } from "@/shared/format/money";
-import { Button } from "@/shared/ui/button";
-import { Card } from "@/shared/ui/card";
-import { Field, FormError } from "@/shared/ui/field";
-import { Input } from "@/shared/ui/input";
 import { Modal } from "@/shared/ui/modal";
-import { AttendanceStatusChip, StatusChip } from "@/shared/ui/status-chip";
-import { cn } from "@/shared/ui/utils";
+import { AttendanceStatusChip } from "@/shared/ui/status-chip";
 import { BulkRatesModal } from "./bulk-rates-modal";
-import { BalanceCards } from "./payroll-parts";
-import { useLedger, useMyStudentsPayroll, useStudentEntries, type LedgerFilters, type PayrollPeriod } from "./payroll-api";
-
-// "3.00" -> "3", "2.50" -> "2.5".
-const num = (value: string) => String(Number(value));
-
-// Нэг мөрийн тоон үзүүлэлт: дээр нь жижиг нэр, доор нь том тоо. md-ээс дээш хоорондоо нарийн зураастай.
-function Stat({
-  label,
-  sub,
-  children,
-  testId,
-  emphasis = false,
-}: {
-  label: string;
-  sub?: string;
-  children: React.ReactNode;
-  testId?: string;
-  emphasis?: boolean;
-}) {
-  return (
-    <div className={cn("min-w-0 px-1 py-1 md:px-5 md:first:pl-0 md:last:pr-0", emphasis && "md:bg-transparent")} data-testid={testId}>
-      <p className="text-xs font-bold uppercase leading-tight tracking-wider text-muted">{label}</p>
-      {sub ? <p className="text-xs leading-tight text-muted">{sub}</p> : null}
-      <div className={cn("mt-1 text-xl font-bold tabular-nums text-foreground-strong", emphasis && "text-primary")}>{children}</div>
-    </div>
-  );
-}
+import { useLedger, useMyStudentsPayroll, useStudentEntries, type PayrollPeriod } from "./payroll-api";
+import {
+  monthRange,
+  num,
+  periodLabel,
+  PeriodBar,
+  RateModal,
+  SalaryHero,
+  SalaryRow,
+  type PeriodMode,
+} from "./salary-parts";
+import "./salary.css";
 
 // "Орсон цаг" дээр дарахад: тухайн хүүхдийн хичээл бүрийн огноо, цаг, цалин доошоо жагсана (шинэ нь эхэнд).
 // Хугацаа, академик цаг, томьёо зэрэг давхардсан мэдээлэл харуулахгүй, ирсэн биш төлвийг л тэмдэглэнэ.
@@ -88,160 +63,108 @@ function EntriesModal({
   );
 }
 
-// Төлөгдөөгүй хүүхдийн эцэг эхэд мэдэгдэл, нэхэмжлэл илгээнэ (өдөрт нэг удаа).
-function ReminderButton({ row }: { row: StudentPayrollRowDto }) {
-  const queryClient = useQueryClient();
-  const [sent, setSent] = React.useState<number | null>(null);
-  const send = useMutation({
-    mutationFn: () => api.post<{ notified: number }>(`/contracts/${row.contractId}/payment-reminder`),
-    onSuccess: async (data) => {
-      setSent(data.notified);
-      await queryClient.invalidateQueries({ queryKey: ["my-students-payroll"] });
-    },
-  });
-  return (
-    <div className="grid gap-1.5">
-      <Button type="button" variant="secondary" className="w-fit" disabled={send.isPending} onClick={() => send.mutate()}>
-        {send.isPending ? "Илгээж байна..." : "Эцэг эхэд мэдэгдэл илгээх"}
-      </Button>
-      {sent !== null ? (
-        <p className="text-sm font-semibold text-success" data-testid="reminder-sent">
-          Эцэг эхэд мэдэгдэл илгээгдлээ.
-        </p>
-      ) : null}
-      <FormError message={errorMessage(send.error)} />
-      {row.lastReminderAt ? (
-        <p className="text-xs text-muted">Сүүлд илгээсэн: {formatDate(row.lastReminderAt)}</p>
-      ) : null}
-    </div>
-  );
-}
+type Tab = "active" | "done";
 
-function StudentCard({ row, onOpen }: { row: StudentPayrollRowDto; onOpen: () => void }) {
-  const debt = row.paymentFlag === "DEBT";
-  const discount = Number(row.discountPercent);
-  return (
-    <Card className="p-5" data-testid="salary-student">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate font-display text-xl font-bold text-foreground-strong" data-testid="salary-student-name">
-            {row.studentName}
-          </p>
-          <p className="text-sm text-muted">{row.programName}</p>
-        </div>
-        <StatusChip tone={debt ? "warning" : "success"}>
-          <span data-testid="salary-payment">{debt ? "Төлөгдөөгүй" : "Төлөгдсөн"}</span>
-        </StatusChip>
-      </div>
-
-      {/* Бүх тоон үзүүлэлт нэг мөрөнд (утсанд 2 баганад). */}
-      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-4 rounded-2xl bg-background-soft/70 p-4 md:grid-cols-5 md:divide-x md:divide-border-warm md:gap-x-0 md:p-5">
-        <Stat label="Академик цаг" sub="орох ёстой" testId="salary-expected">
-          {num(row.academicHoursExpected)}
-        </Stat>
-        <Stat label="Академик цаг" sub="орсон" testId="salary-academic">
-          {num(row.academicHoursDone)}
-        </Stat>
-        <Stat label="Цалингийн цаг" sub="60 мин, орсон">
-          <button
-            type="button"
-            onClick={onOpen}
-            data-testid="salary-hours"
-            className="-ml-1 inline-flex min-h-11 items-center rounded-lg px-1 text-xl font-bold text-primary underline decoration-dotted underline-offset-4 hover:bg-primary/6"
-            aria-label={`${row.studentName}: орсон цаг ${num(row.payrollHours)}, дэлгэрэнгүй харах`}
-          >
-            {num(row.payrollHours)}
-          </button>
-        </Stat>
-        <Stat label="Цагийн цалин" sub={discount > 0 ? `хөнгөлөлт ${discount}%` : "1 цагийн"} testId="salary-rate">
-          {row.effectiveRate ? formatMoney(row.effectiveRate) : <span className="text-warning">Оруулаагүй</span>}
-        </Stat>
-        <Stat label="Авах цалин" sub="цаг x цагийн цалин" testId="salary-earned" emphasis>
-          {formatMoney(row.earned)}
-        </Stat>
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
-        <Link
-          to={`/teacher/students/${row.studentId}`}
-          className="inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
-        >
-          {row.hourlyRate ? "Цагийн цалинг засах" : "Цагийн цалин оруулах"}
-        </Link>
-        {debt ? <ReminderButton row={row} /> : null}
-      </div>
-    </Card>
-  );
-}
-
-// D-73: 75 цагийн багц дууссан сурагч "Амжилттай дууссан сурагчид" хэсэгт орно (цалингийн түүх хэвээр).
-function CompletedRow({ row, onOpen }: { row: StudentPayrollRowDto; onOpen: () => void }) {
-  return (
-    <li className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-3" data-testid="completed-student">
-      <div className="min-w-0">
-        <p className="truncate text-sm font-bold text-foreground-strong">{row.studentName}</p>
-        <p className="text-[0.8125rem] text-muted">{row.programName}</p>
-      </div>
-      <div className="flex items-center gap-5 text-sm">
-        <button
-          type="button"
-          onClick={onOpen}
-          data-testid="completed-hours"
-          className="inline-flex min-h-11 items-center rounded-lg px-1 font-semibold text-primary underline decoration-dotted underline-offset-4 hover:bg-primary/6"
-          aria-label={`${row.studentName}: орсон цаг ${num(row.payrollHours)}, дэлгэрэнгүй харах`}
-        >
-          {num(row.payrollHours)} цаг
-        </button>
-        <span className="w-28 text-right font-bold tabular-nums text-foreground-strong">{formatMoney(row.earned)}</span>
-      </div>
-    </li>
-  );
-}
-
-// D-68: багшийн цалин сурагч (хүүхэд) бүрээр. Авах цалин = цалингийн цаг (60 мин) x тухайн хүүхдийн цагийн цалин.
+// D-68, D-104: багшийн цалин сурагч (хүүхэд) бүрээр. Авах цалин = цалингийн цаг (60 мин) x тухайн хүүхдийн цагийн цалин.
 export function TeacherSalaryPage() {
-  const [filters, setFilters] = React.useState<LedgerFilters>({ page: 1 });
-  const period: PayrollPeriod = { from: filters.from, to: filters.to };
-  const ledger = useLedger({ page: 1, from: filters.from, to: filters.to });
-  const students = useMyStudentsPayroll(period);
-  const [open, setOpen] = React.useState<StudentPayrollRowDto | null>(null);
+  const [mode, setMode] = React.useState<PeriodMode>("all");
+  const [range, setRange] = React.useState<PayrollPeriod>({});
+  const [tab, setTab] = React.useState<Tab>("active");
+  const ledger = useLedger({ page: 1, from: range.from, to: range.to });
+  const students = useMyStudentsPayroll(range);
+  const [entriesRow, setEntriesRow] = React.useState<StudentPayrollRowDto | null>(null);
+  const [rateRow, setRateRow] = React.useState<StudentPayrollRowDto | null>(null);
   const [bulkOpen, setBulkOpen] = React.useState(false);
   const [bulkResult, setBulkResult] = React.useState<SetContractRatesResultDto | null>(null);
+  const [rateMessage, setRateMessage] = React.useState<string | null>(null);
+
   const all = students.data?.rows ?? [];
-  const rows = all.filter((r) => r.contractStatus !== "COMPLETED");
-  const completedRows = all.filter((r) => r.contractStatus === "COMPLETED");
+  const active = all.filter((r) => r.contractStatus !== "COMPLETED");
+  const completed = all.filter((r) => r.contractStatus === "COMPLETED");
+  const shown = tab === "done" ? completed : active;
+  // Цалингийн цагийн нийлбэр (харагдац), 2 орны нарийвчлалтайгаар.
+  const hoursTotal = String(Number(all.reduce((s, r) => s + Number(r.payrollHours), 0).toFixed(2)));
+  const shownHours = String(Number(shown.reduce((s, r) => s + Number(r.payrollHours), 0).toFixed(2)));
+
+  const choose = (next: PeriodMode) => {
+    setMode(next);
+    const today = localDateKey(new Date());
+    if (next === "all") setRange({});
+    else if (next === "this") setRange(monthRange(today, 0));
+    else if (next === "last") setRange(monthRange(today, -1));
+    else if (!range.from && !range.to) setRange(monthRange(today, 0));
+  };
 
   return (
     <>
-      <PageHeader title="Миний цалин" subtitle="Олсон цалин, олгосон мөнгө, үлдэгдэл" />
-      <BalanceCards summary={ledger.data?.summary} />
+      {/* Толгой, хугацаа */}
+      <section className="mt-4 flex flex-col justify-between gap-5 lg:mt-6 lg:flex-row lg:items-end">
+        <div>
+          <p className="pt-word block text-[12px] font-semibold tracking-[0.18em] text-brand-700" style={{ display: "block", animationDelay: "0.05s" }}>
+            ЦАЛИН
+          </p>
+          <h1
+            className="pt-word pt-tight mt-3 text-[40px] font-semibold leading-none sm:text-[54px]"
+            style={{ display: "block", animationDelay: "0.15s" }}
+          >
+            Миний цалин
+          </h1>
+          <p className="pt-word mt-3 text-[15.5px] text-ink-500" style={{ display: "block", animationDelay: "0.3s" }}>
+            Бодсон цалин, олгосон мөнгө, үлдэгдэл
+          </p>
+        </div>
+        <PeriodBar
+          mode={mode}
+          from={range.from}
+          to={range.to}
+          onMode={choose}
+          onFrom={(from) => {
+            setMode("custom");
+            setRange((r) => ({ ...r, from }));
+          }}
+          onTo={(to) => {
+            setMode("custom");
+            setRange((r) => ({ ...r, to }));
+          }}
+        />
+      </section>
 
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-      <div className="grid max-w-md flex-1 grid-cols-2 gap-3">
-        <Field label="Эхлэх огноо" htmlFor="ts-from">
-          <Input
-            id="ts-from"
-            type="date"
-            value={filters.from ?? ""}
-            onChange={(e) => setFilters({ ...filters, page: 1, from: e.target.value || undefined })}
-          />
-        </Field>
-        <Field label="Дуусах огноо" htmlFor="ts-to">
-          <Input
-            id="ts-to"
-            type="date"
-            value={filters.to ?? ""}
-            onChange={(e) => setFilters({ ...filters, page: 1, to: e.target.value || undefined })}
-          />
-        </Field>
-      </div>
+      {/* Хураангуй */}
+      <SalaryHero summary={ledger.data?.summary} hoursTotal={hoursTotal} label={periodLabel(range.from, range.to)} />
+
+      {/* Сурагч бүрээр */}
+      <section className="mt-10 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+        <div>
+          <h2 className="pt-tight text-[22px] font-semibold">Сурагч бүрээр</h2>
+          <p className="mt-0.5 text-[13.5px] text-ink-500" data-testid="salary-list-info">
+            {shown.length} сурагч · {shownHours} цалингийн цаг
+          </p>
+          <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-ink-500">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="sl-dot-ok size-2 rounded-full" />
+              Төлбөр төлөгдсөн
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-2 rounded-full bg-gold-400" />
+              Төлбөр төлөгдөөгүй
+            </span>
+          </p>
+        </div>
         {/* D-99: бүх идэвхтэй хүүхдийн цагийн цалинг нэг цонхонд оруулна. */}
-        <Button type="button" disabled={rows.length === 0} onClick={() => setBulkOpen(true)} data-testid="bulk-rate-open">
+        <button
+          type="button"
+          disabled={active.length === 0}
+          onClick={() => setBulkOpen(true)}
+          data-testid="bulk-rate-open"
+          className="inline-flex h-12 items-center gap-2 self-start rounded-full bg-brand-700 pl-4 pr-5 text-[14.5px] font-semibold text-white shadow-[0_14px_28px_-12px_rgba(139,26,26,0.8)] transition hover:bg-brand-800 disabled:opacity-50"
+        >
+          <ListPlus className="size-[18px]" aria-hidden="true" />
           Бүх хүүхдийн цагийн цалин оруулах
-        </Button>
-      </div>
+        </button>
+      </section>
+
       {bulkResult ? (
-        <p role="status" className="mb-4 text-sm font-semibold text-success" data-testid="bulk-rate-saved">
+        <p role="status" className="sl-ok-text mt-3 text-sm font-semibold" data-testid="bulk-rate-saved">
           {bulkResult.updated > 0
             ? `${bulkResult.updated} хүүхдийн цагийн цалин хадгалагдлаа.${
                 bulkResult.adjusted > 0 ? ` Өмнөх ${bulkResult.adjusted} хичээлийн цалин шинэ цалингаар дахин бодогдлоо.` : ""
@@ -249,39 +172,66 @@ export function TeacherSalaryPage() {
             : "Өөрчлөлт байгаагүй тул юу ч өөрчлөгдсөнгүй."}
         </p>
       ) : null}
-
-      {students.isLoading ? <p className="text-sm text-muted">Ачаалж байна...</p> : null}
-      {students.data && rows.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-border bg-surface px-5 py-10 text-center text-sm text-muted">
-          Идэвхтэй сурагч алга.
+      {rateMessage ? (
+        <p role="status" className="sl-ok-text mt-3 text-sm font-semibold" data-testid="rate-saved">
+          {rateMessage}
         </p>
       ) : null}
-      <ul className="grid gap-4" data-testid="salary-students">
-        {rows.map((r) => (
-          <li key={r.contractId}>
-            <StudentCard row={r} onOpen={() => setOpen(r)} />
-          </li>
-        ))}
-      </ul>
-      {completedRows.length > 0 ? (
-        <section className="mt-8" aria-labelledby="completed-title" data-testid="completed-students">
-          <h2 id="completed-title" className="font-display text-lg font-bold text-foreground-strong">
-            Амжилттай дууссан сурагчид
-          </h2>
-          <p className="mb-2 text-[0.8125rem] text-muted">75 цагийн багцаа дуусгасан сурагчид ({completedRows.length})</p>
-          <Card className="px-4 shadow-soft">
-            <ul className="divide-y divide-border-warm">
-              {completedRows.map((r) => (
-                <CompletedRow key={r.contractId} row={r} onOpen={() => setOpen(r)} />
-              ))}
-            </ul>
-          </Card>
-        </section>
+
+      <div className="sl-seg mt-5" role="tablist" aria-label="Сурагчийн төлөв">
+        <button type="button" role="tab" aria-selected={tab === "active"} aria-controls="salary-panel" onClick={() => setTab("active")}>
+          Суралцаж буй <span className="pt-num ml-1 opacity-60">{active.length}</span>
+        </button>
+        <button type="button" role="tab" aria-selected={tab === "done"} aria-controls="salary-panel" onClick={() => setTab("done")}>
+          Амжилттай дууссан <span className="pt-num ml-1 opacity-60">{completed.length}</span>
+        </button>
+      </div>
+
+      <section
+        id="salary-panel"
+        role="tabpanel"
+        className="sl-card mt-3 overflow-hidden !rounded-[24px]"
+        data-testid={tab === "done" ? "completed-students" : "salary-students"}
+      >
+        <div className="sl-cols hidden h-11 items-center border-b border-paper-3 bg-paper/60 px-5 text-[12px] font-medium text-ink-500 md:grid">
+          <span>Сурагч</span>
+          <span>Академик цаг</span>
+          <span className="text-right">Цалингийн цаг</span>
+          <span className="text-right">Цагийн цалин</span>
+          <span className="text-right">Авах цалин</span>
+          <span />
+        </div>
+        <ul className="divide-y divide-paper-3">
+          {shown.map((r, i) => (
+            <SalaryRow
+              key={r.contractId}
+              row={r}
+              done={tab === "done"}
+              index={i}
+              onOpenEntries={() => setEntriesRow(r)}
+              onEditRate={() => {
+                setRateMessage(null);
+                setRateRow(r);
+              }}
+            />
+          ))}
+        </ul>
+        {students.isLoading ? <p className="p-8 text-center text-[14px] text-ink-500">Ачаалж байна...</p> : null}
+        {students.data && shown.length === 0 ? (
+          <p className="p-8 text-center text-[14px] text-ink-500">
+            {tab === "done" ? "Багцаа дуусгасан сурагч алга байна." : "Идэвхтэй сурагч алга."}
+          </p>
+        ) : null}
+      </section>
+      {tab === "done" && completed.length > 0 ? (
+        <p className="mt-2 text-[13px] text-ink-500">Багцаа дуусгасан сурагчид ({completed.length}). Цалингийн түүх хэвээр хадгалагдана.</p>
       ) : null}
-      {open ? <EntriesModal row={open} period={period} onClose={() => setOpen(null)} /> : null}
+
+      {entriesRow ? <EntriesModal row={entriesRow} period={range} onClose={() => setEntriesRow(null)} /> : null}
+      {rateRow ? <RateModal row={rateRow} onClose={() => setRateRow(null)} onSaved={setRateMessage} /> : null}
       {bulkOpen ? (
         <BulkRatesModal
-          rows={rows}
+          rows={active}
           onClose={() => setBulkOpen(false)}
           onSaved={(result) => setBulkResult(result)}
         />
